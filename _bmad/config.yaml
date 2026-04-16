@@ -1,0 +1,13 @@
+document_output_language: English
+output_folder: '{project-root}/_bmad-output'
+zoo-core:
+  name: 'Zoo-Core: Zoodealio Ecosystem Intelligence Platform'
+  description: Drop-in ecosystem intelligence for AI-driven Zoodealio development
+    — pre-loaded knowledge of every Zoodealio service so AI agents can plan, spec,
+    and build platform-compatible features end-to-end.
+  version: 2.0.0
+  default_selected: false
+  workspace_path: C:\Users\Noah\Desktop\Zoo-Core
+  project_name: sell-house-for-free
+  enable_ado_mcp: 'True'
+  enable_figma_mcp: 'True'

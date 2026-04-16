@@ -1,0 +1,22 @@
+installation:
+  version: 6.3.0
+  installDate: 2026-04-16T20:17:41.460Z
+  lastUpdated: 2026-04-16T20:17:41.460Z
+modules:
+  - name: core
+    version: 6.3.0
+    installDate: 2026-04-16T20:17:41.146Z
+    lastUpdated: 2026-04-16T20:17:41.423Z
+    source: built-in
+    npmPackage: null
+    repoUrl: null
+  - name: zoo-core
+    version: 2.0.0
+    installDate: 2026-04-16T20:17:41.330Z
+    lastUpdated: 2026-04-16T20:17:41.460Z
+    source: custom
+    npmPackage: null
+    repoUrl: null
+    localPath: C:\Users\Noah\Desktop\Zoo-Core\src\modules\zoo-core
+ides:
+  - claude-code

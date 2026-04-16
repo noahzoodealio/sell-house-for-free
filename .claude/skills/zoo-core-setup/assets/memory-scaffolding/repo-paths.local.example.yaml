@@ -1,0 +1,22 @@
+# Zoo-Core: Developer-Specific Repo Paths
+#
+# Copy this file to repo-paths.local.yaml and fill in your paths.
+# repo-paths.local.yaml is gitignored — your paths stay local.
+#
+# See repo-paths.yaml for the shared schema (repo_directories, validation_markers).
+
+# Parent directory containing all repo clones (e.g., the Zoo-Core docs workspace).
+# If set, paths auto-resolve: {workspace_path}/{repo_directories[service]}/
+workspace_path: ""
+
+# Individual repo path overrides (take precedence over workspace_path).
+# Uncomment and set paths as needed:
+# repo_paths:
+#   offervana-saas: ~/dev/Offervana_SaaS
+#   zoodealio-trade-in-holdings: ~/dev/Zoodealio.TradeInHoldings
+#   investor-portal: ~/dev/investor-portal
+#   zoodealio-mls: ~/dev/Zoodealio.MLS
+#   zoodealio-chat: ~/dev/Zoodealio.Chat
+#   zoodealio-shared: ~/dev/Zoodealio.Shared
+#   zoodealio-strapi: ~/dev/Zoodealio.Strapi
+#   zoodealio-infrastructure: ~/dev/Zoodealio.Infrastructure

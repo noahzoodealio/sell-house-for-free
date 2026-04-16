@@ -1,0 +1,54 @@
+# Zoo-Core: Repo Path Registry (Shared Template)
+#
+# This file is the COMMITTED template — it defines the schema (directory names,
+# validation markers) that all developers share. It does NOT contain developer-
+# specific paths.
+#
+# Developer-specific paths live in repo-paths.local.yaml (gitignored).
+# Copy repo-paths.local.example.yaml to repo-paths.local.yaml and fill in your paths.
+#
+# RESOLUTION ORDER (used by all workflows):
+# 1. Read THIS file for repo_directories and validation_markers
+# 2. Read repo-paths.local.yaml for workspace_path and repo_paths
+# 3. If repo_paths[service] exists in local file → use it (explicit override)
+# 4. If workspace_path is set in local file → {workspace_path}/{repo_directories[service]}/
+# 5. If local file missing → prompt user, offer to create it
+# 6. VALIDATE: directory exists + marker file found
+#
+# VALIDATION:
+# - On workflow start, the AI checks that the target path exists
+# - Looks for expected markers (.sln, package.json, pyproject.toml, main.tf)
+# - If invalid, prompts the user to correct and re-save to repo-paths.local.yaml
+
+# Repo directory names (used for auto-resolve from workspace_path)
+repo_directories:
+  offervana-saas: Offervana_SaaS
+  zoodealio-trade-in-holdings: Zoodealio.TradeInHoldings
+  investor-portal: investor-portal
+  zoodealio-mls: Zoodealio.MLS
+  zoodealio-chat: Zoodealio.Chat
+  zoodealio-shared: Zoodealio.Shared
+  zoodealio-strapi: Zoodealio.Strapi
+  zoodealio-infrastructure: Zoodealio.Infrastructure
+
+# Individual repo paths — schema reference (actual values go in repo-paths.local.yaml):
+# repo_paths:
+#   offervana-saas: ~/dev/Offervana_SaaS
+#   zoodealio-trade-in-holdings: ~/dev/Zoodealio.TradeInHoldings
+#   investor-portal: ~/dev/investor-portal
+#   zoodealio-mls: ~/dev/Zoodealio.MLS
+#   zoodealio-chat: ~/dev/Zoodealio.Chat
+#   zoodealio-shared: ~/dev/Zoodealio.Shared
+#   zoodealio-strapi: ~/dev/Zoodealio.Strapi
+#   zoodealio-infrastructure: ~/dev/Zoodealio.Infrastructure
+
+# Path validation markers (what to look for to confirm a repo is correct)
+validation_markers:
+  offervana-saas: "aspnet-core/Offervana.Web.sln"
+  zoodealio-trade-in-holdings: "Zoodealio.TradeInHoldings.sln"
+  investor-portal: "Zoodealio.InvestorPortal.sln"
+  zoodealio-mls: "Zoodealio.MLS.sln"
+  zoodealio-chat: "pyproject.toml"
+  zoodealio-shared: "Zoodealio.Shared.sln"
+  zoodealio-strapi: "package.json"
+  zoodealio-infrastructure: "main.tf"

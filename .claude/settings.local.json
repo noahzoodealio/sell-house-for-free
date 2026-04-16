@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config *)",
+      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --turbopack --yes)",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(python scripts/merge-config.py --config-path \"C:/Users/Noah/sell-house-for-free/_bmad/config.yaml\" --user-config-path \"C:/Users/Noah/sell-house-for-free/_bmad/config.user.yaml\" --module-yaml ./assets/module.yaml --answers \"C:/Users/Noah/sell-house-for-free/_bmad/.setup-answers.json\" --legacy-dir \"C:/Users/Noah/sell-house-for-free/_bmad\")",
+      "Bash(python scripts/merge-help-csv.py --target \"C:/Users/Noah/sell-house-for-free/_bmad/module-help.csv\" --source ./assets/module-help.csv --legacy-dir \"C:/Users/Noah/sell-house-for-free/_bmad\" --module-code zoo-core)",
+      "Bash(cp C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/memory-scaffolding/index.md C:/Users/Noah/sell-house-for-free/_bmad/memory/zoo-core/index.md)",
+      "Bash(cp C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/memory-scaffolding/staleness.md C:/Users/Noah/sell-house-for-free/_bmad/memory/zoo-core/staleness.md)",
+      "Bash(cp C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/memory-scaffolding/repo-paths.yaml C:/Users/Noah/sell-house-for-free/_bmad/memory/zoo-core/repo-paths.yaml)",
+      "Bash(cp C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/memory-scaffolding/repo-paths.local.example.yaml C:/Users/Noah/sell-house-for-free/_bmad/memory/zoo-core/repo-paths.local.example.yaml)",
+      "Bash(cp C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/memory-scaffolding/curated/patterns.md C:/Users/Noah/sell-house-for-free/_bmad/memory/zoo-core/curated/patterns.md)",
+      "Bash(mkdir -p \"C:/Users/Noah/sell-house-for-free/.claude/commands\" \"C:/Users/Noah/sell-house-for-free/.cursor/commands\")",
+      "Bash(cp \"C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/commands/claude/\"*.md \"C:/Users/Noah/sell-house-for-free/.claude/commands/\")",
+      "Bash(cp \"C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/commands/cursor/\"*.md \"C:/Users/Noah/sell-house-for-free/.cursor/commands/\")",
+      "Bash(cp \"C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/commands/COMMANDS.md\" \"C:/Users/Noah/sell-house-for-free/_bmad/zoo-core-commands.md\")",
+      "Bash(python scripts/cleanup-legacy.py --bmad-dir \"C:/Users/Noah/sell-house-for-free/_bmad\" --module-code zoo-core --also-remove _config --skills-dir \"C:/Users/Noah/sell-house-for-free/.claude/skills\")",
+      "Bash(python C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/scripts/merge-config.py --help)",
+      "Bash(cp -rf \"C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/docs/.\" \"C:/Users/Noah/sell-house-for-free/_bmad/docs/zoo-core/\")",
+      "Bash(cp -f \"C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/CLAUDE.md\" \"C:/Users/Noah/sell-house-for-free/_bmad/zoo-core-CLAUDE.md\")",
+      "Bash(python scripts/cleanup-legacy.py --bmad-dir \"C:/Users/Noah/sell-house-for-free/_bmad\" --module-code zoo-core --skills-dir \"C:/Users/Noah/sell-house-for-free/.claude/skills\")",
+      "Bash(python scripts/merge-config.py --config-path \"C:/Users/Noah/sell-house-for-free/_bmad/config.yaml\" --user-config-path \"C:/Users/Noah/sell-house-for-free/_bmad/config.user.yaml\" --module-yaml ./assets/module.yaml --answers \"C:/Users/Noah/sell-house-for-free/_bmad/zoo-core-answers.json\" --legacy-dir \"C:/Users/Noah/sell-house-for-free/_bmad\")",
+      "Bash(mkdir -p C:/Users/Noah/sell-house-for-free/.claude/commands C:/Users/Noah/sell-house-for-free/.cursor/commands)",
+      "Bash(cp C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/commands/claude/*.md C:/Users/Noah/sell-house-for-free/.claude/commands/)",
+      "Bash(cp C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/commands/cursor/*.md C:/Users/Noah/sell-house-for-free/.cursor/commands/)",
+      "Bash(cp C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/commands/COMMANDS.md C:/Users/Noah/sell-house-for-free/_bmad/zoo-core-commands.md)",
+      "Bash(cp -r C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/docs/. C:/Users/Noah/sell-house-for-free/_bmad/docs/zoo-core/)",
+      "Bash(cp C:/Users/Noah/sell-house-for-free/.claude/skills/zoo-core-setup/assets/CLAUDE.md C:/Users/Noah/sell-house-for-free/_bmad/zoo-core-CLAUDE.md)",
+      "Bash(python scripts/merge-config.py --config-path \"C:/Users/Noah/sell-house-for-free/_bmad/config.yaml\" --user-config-path \"C:/Users/Noah/sell-house-for-free/_bmad/config.user.yaml\" --module-yaml ./assets/module.yaml --answers ./_answers.tmp.json --legacy-dir \"C:/Users/Noah/sell-house-for-free/_bmad\")",
+      "Bash(cp -r memory-scaffolding/* \"C:/Users/Noah/sell-house-for-free/_bmad/memory/zoo-core/\")",
+      "Bash(cp commands/claude/*.md \"C:/Users/Noah/sell-house-for-free/.claude/commands/\")",
+      "Bash(cp commands/cursor/*.md \"C:/Users/Noah/sell-house-for-free/.cursor/commands/\")",
+      "Bash(cp commands/COMMANDS.md \"C:/Users/Noah/sell-house-for-free/_bmad/zoo-core-commands.md\")",
+      "Bash(cp -r docs/* \"C:/Users/Noah/sell-house-for-free/_bmad/docs/zoo-core/\")",
+      "Bash(grep -i \"\\\\.sln$\\\\|\\\\.csproj$\\\\|package.json\")"
+    ]
+  }
+}

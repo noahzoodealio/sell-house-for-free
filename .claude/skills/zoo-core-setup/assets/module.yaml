@@ -1,0 +1,57 @@
+code: zoo-core
+name: "Zoo-Core: Zoodealio Ecosystem Intelligence Platform"
+description: "Drop-in ecosystem intelligence for AI-driven Zoodealio development — pre-loaded knowledge of every Zoodealio service so AI agents can plan, spec, and build platform-compatible features end-to-end."
+module_version: 2.0.0
+default_selected: false
+module_greeting: >
+  Zoo-Core installed. Run zoo-core-onboard to complete workspace bootstrap (auto-triggered on your first zoo-core activation).
+
+# ---- User prompts during install ----
+
+project_name:
+  prompt: "What Zoodealio service is this installed in?"
+  default: "{directory_name}"
+  result: "{value}"
+
+workspace_path:
+  prompt: "Parent directory containing all Zoodealio repo clones (optional — Enter to skip; individual paths can be set during onboard)"
+  default: ""
+  result: "{value}"
+  user_setting: true
+
+enable_ado_mcp:
+  prompt: "Enable Azure DevOps MCP integration? (requires ADO MCP server)"
+  type: confirm
+  default: true
+  result: "{value}"
+
+enable_figma_mcp:
+  prompt: "Enable Figma MCP integration? (requires Figma Desktop + Figma MCP)"
+  type: confirm
+  default: true
+  result: "{value}"
+
+# ---- Hardset constants ----
+
+ado_organization: tf-offervana
+ado_project: Offervana_SaaS
+planning_artifacts: "{output_folder}/planning-artifacts"
+implementation_artifacts: "{output_folder}/implementation-artifacts"
+repo_paths_file: "{project-root}/_bmad/memory/zoo-core/repo-paths.yaml"
+repo_paths_local_file: "{project-root}/_bmad/memory/zoo-core/repo-paths.local.yaml"
+
+# ---- Directories created during install ----
+
+directories:
+  - "{project-root}/_bmad/memory/zoo-core"
+  - "{project-root}/_bmad/memory/zoo-core/curated"
+  - "{project-root}/_bmad/memory/zoo-core/daily"
+  - "{project-root}/_bmad/memory/zoo-core/services"
+  - "{project-root}/_bmad/memory/zoo-core-agent-pm"
+  - "{project-root}/_bmad/memory/zoo-core-agent-dev"
+  - "{project-root}/_bmad/memory/zoo-core-agent-qa"
+  - "{project-root}/{output_folder}/planning-artifacts"
+  - "{project-root}/{output_folder}/implementation-artifacts"
+
+post-install-notes: >
+  Zoo-Core installed. Next: onboard will auto-trigger on your first interaction to resolve repo paths and finish workspace setup. To trigger manually, run /zoo-core-onboard.

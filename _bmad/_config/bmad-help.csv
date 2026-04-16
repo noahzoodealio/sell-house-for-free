@@ -1,0 +1,42 @@
+module,phase,name,code,sequence,workflow-file,command,required,agent-name,agent-command,agent-display-name,agent-title,options,description,output-location,outputs
+Core,_meta,,,,,,false,,,,,,,https://docs.bmad-method.org/llms.txt,
+Core,bmad-brainstorming,Brainstorming,BSP,Use early in ideation or when stuck generating ideas.,,anytime,false,,,,,false,{output_folder}/brainstorming,brainstorming session,
+Core,bmad-distillator,Distillator,DG,Use when you need token-efficient distillates that preserve all information for downstream LLM consumption.,[path],anytime,false,,,,,false,adjacent to source document or specified output_path,distillate markdown file(s),
+Core,bmad-editorial-review-prose,Editorial Review - Prose,EP,Use after drafting to polish written content.,[path],anytime,false,,,,,false,report located with target document,three-column markdown table with suggested fixes,
+Core,bmad-editorial-review-structure,Editorial Review - Structure,ES,Use when doc produced from multiple subprocesses or needs structural improvement.,[path],anytime,false,,,,,false,report located with target document,,
+Core,bmad-help,BMad Help,BH,,,anytime,false,,,,,false,,,
+Core,bmad-index-docs,Index Docs,ID,Use when LLM needs to understand available docs without loading everything.,,anytime,false,,,,,false,,,
+Core,bmad-party-mode,Party Mode,PM,Orchestrate multi-agent discussions when you need multiple perspectives or want agents to collaborate.,,anytime,false,,,,,false,,,
+Core,bmad-review-adversarial-general,Adversarial Review,AR,"Use for quality assurance or before finalizing deliverables. Code Review in other modules runs this automatically, but also useful for document reviews.",[path],anytime,false,,,,,false,,,
+Core,bmad-review-edge-case-hunter,Edge Case Hunter Review,ECH,Use alongside adversarial review for orthogonal coverage — method-driven not attitude-driven.,[path],anytime,false,,,,,false,,,
+Core,bmad-shard-doc,Shard Document,SD,Use when doc becomes too large (>500 lines) to manage effectively.,[path],anytime,false,,,,,false,,,
+zoo-core,zoo-core-agent-analyst,Analyst Agent,AN,Zoodealio-aware requirements analyst,activate,,anytime,zoo-core-onboard:onboard,,,,,false,,research artifacts
+zoo-core,zoo-core-agent-architect,Architect Agent,AR,Zoodealio-aware technical architect,activate,,anytime,zoo-core-onboard:onboard,,,,,false,,architecture documents
+zoo-core,zoo-core-agent-dev,Dev Agent,DV,Zoodealio-aware full-stack developer,activate,,anytime,zoo-core-onboard:onboard,,,,,false,,implementations
+zoo-core,zoo-core-agent-lead,Lead Agent,LE,Conversational hub — lightweight work inline plus delegation,activate,,anytime,zoo-core-onboard:onboard,,,,,false,,conversational output or delegated result
+zoo-core,zoo-core-agent-pm,PM Agent,PM,Zoodealio-aware product manager for ADO,activate,,anytime,zoo-core-onboard:onboard,,,,,false,,ADO work items
+zoo-core,zoo-core-agent-qa,QA Agent,QA,Zoodealio-aware QA engineer for ADO and automated tests,activate,,anytime,zoo-core-onboard:onboard,,,,,false,,test artifacts
+zoo-core,zoo-core-agent-ux,UX Agent,UD,Zoodealio-aware UX designer with Figma integration,activate,,anytime,zoo-core-onboard:onboard,,,,,false,,component specs
+zoo-core,zoo-core-attom-reference,ATTOM Reference (Internal Subprocess),AT,Inline ATTOM API context for parent workflows — not user-facing,attom-reference,,subprocess,,,,,,false,,inline ATTOM context returned to parent
+zoo-core,zoo-core-code-review,Code Review,CR,Pattern + integration compliance review,code-review,[diff-source],4-implementation,zoo-core-dev-story:dev-story,,,,,false,,structured review report
+zoo-core,zoo-core-context-search,Context Search,CS,Query the Zoo-Core knowledge base with citations,search,[query],anytime,zoo-core-onboard:onboard,,,,,false,,matched entries with source citations
+zoo-core,zoo-core-create-architecture,Create Architecture,CA,Ecosystem-aware technical solution design,design,[feature],3-planning,zoo-core-onboard:onboard,,,,,false,planning_artifacts,architecture-{feature}.md
+zoo-core,zoo-core-create-bug,Create Bug,CB,File an ADO Bug with targeted data-flow tracing,create-bug,[bug-report],3-planning,zoo-core-onboard:onboard,,,,,false,,ADO Bug work item
+zoo-core,zoo-core-create-epic,Create Epic,CE,File an ADO Epic with cross-service impact,create-epic,[scope],3-planning,zoo-core-onboard:onboard,,,,,false,,ADO Epic work item
+zoo-core,zoo-core-create-story,Create Story,ST,Decompose Epic into ADO User Stories,create-story,[epic-id-or-scope],3-planning,zoo-core-create-epic:create-epic,,,,,false,,ADO User Story work items
+zoo-core,zoo-core-create-tests,Create Tests,TC,ADO Test Cases for human QA,create-tests,[work-item-id],4-implementation,zoo-core-dev-story:dev-story,,,,,false,,ADO Test Case work items
+zoo-core,zoo-core-curate-memory,Curate Memory,CM,Shared memory hygiene — dual-mode maintainer/consumer,curate,[mode],1-maintain,zoo-core-onboard:onboard,,,,,false,_bmad/memory/zoo-core,patterns.md or user-preferences.md updates
+zoo-core,zoo-core-dev-basic,Dev Basic,DX,Lightweight dev flow without ADO ceremony,dev-basic,[task],4-implementation,zoo-core-onboard:onboard,,,,,false,,modified files + optional ADO update
+zoo-core,zoo-core-dev-bug,Dev Bug,DB,Fix an ADO Bug with root-cause tracing,dev-bug,[bug-id],4-implementation,zoo-core-create-bug:create-bug,,,,,false,,code on branch + ADO status updated
+zoo-core,zoo-core-dev-epic,Dev Epic,DE,Autopilot implementation of an entire ADO Epic,dev-epic,[epic-id],4-implementation,zoo-core-create-epic:create-epic,,,,,false,,code + tests + reviews across all child stories
+zoo-core,zoo-core-dev-story,Dev Story,DS,Implement an ADO Story end-to-end,dev-story,[story-id],4-implementation,zoo-core-create-story:create-story,,,,,false,,code on branch + ADO status updated
+zoo-core,zoo-core-diff-update,Diff Update,DU,Incremental knowledge-base update from git diffs — maintainer only,diff-update,[service-name],1-maintain,zoo-core-full-index:full-index,,,,,false,src/modules/zoo-core/zoo-core-setup/assets/memory-scaffolding/services,amended service files + recent-changes entry
+zoo-core,zoo-core-find-endpoint,Find Endpoint,FE,Search API endpoints across services,find,[search-term],anytime,zoo-core-onboard:onboard,,,,,false,,ranked endpoint matches
+zoo-core,zoo-core-full-index,Full Service Index,FI,First-time crawl of a reference repo — maintainer only,full-index,[service-name],1-maintain,zoo-core-onboard:onboard,,,,,false,src/modules/zoo-core/zoo-core-setup/assets/memory-scaffolding/services,5 service knowledge files + staleness.md update
+zoo-core,zoo-core-onboard,Onboard Workspace,OB,Bootstrap the workspace — resolve repo paths and scaffold local shared memory,onboard,,1-bootstrap,,,,,,true,_bmad/memory/zoo-core,repo-paths.local.yaml + .onboard-complete marker
+zoo-core,zoo-core-plan-project,Plan Project,PP,Scope a project into an epic map and ADO Feature,plan,[vision],3-planning,zoo-core-onboard:onboard,,,,,false,planning_artifacts,project-plan-{slug}.md + ADO Feature
+zoo-core,zoo-core-pr-triage,PR Triage,PT,Process PR review comments and apply approved changes,pr-triage,[pr-id],4-implementation,zoo-core-onboard:onboard,,,,,false,,modified files (uncommitted) + PR comment responses
+zoo-core,zoo-core-research-analysis,Research & Analysis,RA,Problem-space exploration with cross-service evidence,research,[topic],2-analysis,zoo-core-onboard:onboard,,,,,false,planning_artifacts,research-{topic}.md
+zoo-core,zoo-core-show-schema,Show Schema,SS,Look up an entity schema across services,show,[entity-name],anytime,zoo-core-onboard:onboard,,,,,false,,full column tables with cross-service diffs
+zoo-core,zoo-core-unit-testing,Unit Testing,UT,Automated unit tests with 3-iteration fix loop,unit-testing,[files-or-branch],4-implementation,zoo-core-dev-story:dev-story,,,,,false,,test code in repo + coverage summary
+zoo-core,zoo-core-ux-design,UX Design,UX,PrimeNG component spec with Figma integration,ux-design,[feature],3-planning,zoo-core-onboard:onboard,,,,,false,planning_artifacts,ux-spec-{feature}.md
