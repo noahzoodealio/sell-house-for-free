@@ -34,7 +34,20 @@
       "Bash(cp commands/cursor/*.md \"C:/Users/Noah/sell-house-for-free/.cursor/commands/\")",
       "Bash(cp commands/COMMANDS.md \"C:/Users/Noah/sell-house-for-free/_bmad/zoo-core-commands.md\")",
       "Bash(cp -r docs/* \"C:/Users/Noah/sell-house-for-free/_bmad/docs/zoo-core/\")",
-      "Bash(grep -i \"\\\\.sln$\\\\|\\\\.csproj$\\\\|package.json\")"
+      "Bash(grep -i \"\\\\.sln$\\\\|\\\\.csproj$\\\\|package.json\")",
+      "Bash(mkdir -p C:/Users/Noah/sell-house-for-free/_bmad-output/planning-artifacts)",
+      "Bash(mkdir -p C:/Users/Noah/sell-house-for-free/_bmad-output/project-working/sell-house-for-free)",
+      "mcp__azure-devops__core_list_projects",
+      "mcp__azure-devops__wit_get_work_item_type",
+      "mcp__azure-devops__wit_create_work_item",
+      "mcp__azure-devops__wit_add_child_work_items",
+      "mcp__azure-devops__wit_update_work_item",
+      "mcp__azure-devops__wit_add_work_item_comment",
+      "mcp__plugin_figma_figma__get_metadata",
+      "mcp__plugin_figma_figma__get_variable_defs",
+      "mcp__plugin_figma_figma__get_screenshot",
+      "mcp__plugin_figma_figma__get_design_context",
+      "mcp__azure-devops__wit_get_work_item"
     ]
   }
 }
