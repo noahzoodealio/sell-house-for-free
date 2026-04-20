@@ -24,6 +24,6 @@ export const ROUTES = [
     showInNav: true,
     showInSitemap: true,
     changeFrequency: "monthly",
-    priority: 0.9,
+    priority: 0.7,
   },
 ] as const satisfies readonly RouteEntry[];
