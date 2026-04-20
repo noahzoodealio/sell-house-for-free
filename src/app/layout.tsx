@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Open_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SITE } from "@/lib/site";
 import "./globals.css";
 
 const inter = Inter({
@@ -16,9 +17,7 @@ const openSans = Open_Sans({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-  ),
+  metadataBase: new URL(SITE.url),
   title: {
     template: "%s | Sell Your House Free",
     default: "Sell Your House Free — Arizona",
