@@ -1,52 +1,90 @@
-// Placeholder home content — E2 replaces with final marketing copy.
-import Link from "next/link";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { buildMetadata } from "@/lib/seo";
+import { LINKS } from "@/lib/links";
+import { entries as faqEntries } from "@/content/faq/entries";
+import { organizationSchema, faqPageSchema } from "@/lib/schema";
+import { Container } from "@/components/layout/container";
+import { Hero } from "@/components/marketing/hero";
+import { TrustBar } from "@/components/marketing/trust-bar";
+import { PillarGrid } from "@/components/marketing/pillar-grid";
+import { HowItWorks } from "@/components/marketing/how-it-works";
+import { FAQ } from "@/components/marketing/faq";
+import { CTASection } from "@/components/marketing/cta-section";
+import { JsonLd } from "@/components/marketing/json-ld";
+import { TRUST_BAR_CLAIMS } from "@/content/anti-broker/trust-bar-claims";
+import { HOME_PILLARS } from "@/content/pillars/home-pillars";
+import { HOME_HOW_IT_WORKS_STEPS } from "@/content/how-it-works/home-steps";
 
-const homeTitle =
-  "Sell Your House Free — Free Arizona cash-offer service";
-const homeDescription =
-  "Get a free, no-obligation cash offer on your Arizona home through a licensed broker. No listing fees. No agents. No pressure.";
+const HOME_TITLE =
+  "Sell Your House Free — Free Arizona cash-offer service, no fees, real PM";
+const HOME_DESCRIPTION =
+  "Sell your Arizona home for free through a licensed broker. No listing fees, no data resale, and a real Project Manager handling your sale end-to-end.";
 
 export const metadata: Metadata = {
   ...buildMetadata({
-    title: homeTitle,
-    description: homeDescription,
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
     path: "/",
   }),
-  title: { absolute: homeTitle },
+  title: { absolute: HOME_TITLE },
 };
 
-const ctaClasses =
-  "inline-flex h-[56px] w-full items-center justify-center rounded-lg " +
-  "bg-brand text-brand-foreground hover:brightness-110 " +
-  "px-7 text-[18px] font-semibold font-[var(--font-inter)] " +
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand " +
-  "sm:w-auto";
+const homeFaqExcerpt = faqEntries.filter(
+  (entry) => entry.category === "free-and-fair" || entry.skepticFirst,
+);
 
 export default function Home() {
   return (
-    <section className="py-16 md:py-24 lg:py-32">
-      <h1 className="text-[44px] leading-[50px] font-semibold font-[var(--font-inter)] text-ink-title md:text-[80px] md:leading-[1]">
-        Sell your Arizona home — <br className="hidden sm:inline" />
-        free, fast, no obligations.
-      </h1>
-
-      <p className="mt-8 max-w-[var(--container-prose)] text-[18px] leading-[32px] text-ink-body md:text-[20px]">
-        Get a no-obligation cash offer on your house through a licensed Arizona
-        broker. No listing fees. No agents chasing you. Just a straight answer
-        on what your home is worth today.
-      </p>
-
-      <p className="mt-4 max-w-[var(--container-prose)] text-[16px] leading-[24px] text-ink-muted">
-        No listing fees. Licensed broker. Arizona only.
-      </p>
-
-      <div className="mt-10">
-        <Link href="/get-started" className={ctaClasses}>
-          Get started
-        </Link>
-      </div>
-    </section>
+    <>
+      <Hero
+        heading={
+          <>
+            Sell your Arizona home <span className="whitespace-nowrap">for free.</span>
+            <br className="hidden md:inline" />
+            {" "}No listing fees. No data resale. Real people.
+          </>
+        }
+        subcopy={
+          <>
+            Sell Your House Free is a licensed-broker service for Arizona homeowners —
+            listing, vetted cash offers, repair-funded listings, or full renovation-first
+            sales, all under one Project Manager and JK Realty as broker of record.
+            You only pay what closing itself costs. Never a fee to us.
+          </>
+        }
+        primaryCta={{ label: "Get my cash offer", href: LINKS.getStarted }}
+        secondaryCta={{ label: "See how it works", href: LINKS.howItWorks }}
+      />
+      <TrustBar claims={TRUST_BAR_CLAIMS} />
+      <PillarGrid pillars={[...HOME_PILLARS]} />
+      <HowItWorks
+        steps={[...HOME_HOW_IT_WORKS_STEPS]}
+        cta={{ label: "Learn more about the process", href: LINKS.howItWorks }}
+      />
+      <FAQ entries={homeFaqExcerpt} title="Common questions" />
+      <section className="pb-12 md:pb-16">
+        <Container size="prose">
+          <Link
+            href={LINKS.faq}
+            className="inline-flex items-center gap-1 text-[16px] font-semibold text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            See all questions
+            <span aria-hidden="true">→</span>
+          </Link>
+        </Container>
+      </section>
+      <CTASection
+        heading="Ready to see your cash offer?"
+        subcopy="Get your free, no-obligation cash offer in minutes — a real PM reviews every response."
+        primaryCta={{ label: "Get my cash offer", href: LINKS.getStarted }}
+        secondaryCta={{
+          label: "Meet your Project Manager",
+          href: LINKS.meetYourPm,
+        }}
+      />
+      <JsonLd id="ld-organization" data={organizationSchema()} />
+      <JsonLd id="ld-faqpage" data={faqPageSchema(homeFaqExcerpt)} />
+    </>
   );
 }

@@ -1,0 +1,89 @@
+{/* Placeholder PM roster — real names + photos + contact info land when E6's Supabase roster seeds. Do NOT remove this file; swap its inline data for a registry import. */}
+
+import { buildMetadata } from "@/lib/seo";
+import { LINKS } from "@/lib/links";
+import { SITE } from "@/lib/site";
+import { aboutPageSchema } from "@/lib/schema";
+import { PageHeader } from "@/components/marketing/page-header";
+import { ProseContainer } from "@/components/marketing/prose-container";
+import { PMProfile } from "@/components/marketing/pm-profile";
+import { CTASection } from "@/components/marketing/cta-section";
+import { JsonLd } from "@/components/marketing/json-ld";
+import { Container } from "@/components/layout/container";
+
+export const metadata = buildMetadata({
+  title: "Meet your Project Manager",
+  description:
+    "Real humans coordinating your offer, based in Arizona and licensed under JK Realty. We match you with a PM after you submit your home.",
+  path: LINKS.meetYourPm,
+});
+
+<PageHeader
+  eyebrow="Meet your PM"
+  heading="Real humans, based in Arizona"
+  subcopy="Every Sell Your House Free sale is run end-to-end by one Project Manager on our Arizona team."
+/>
+
+<ProseContainer>
+
+When you submit your home, we match you with a PM based on your region
+(Phoenix metro, East Valley, West Valley, or Tucson) and your preferred offer
+path (Listing, Cash, Cash+ with Repairs, or Renovation-Only). Your PM is your
+single point of contact from intake through close.
+
+The profiles below represent the PM roles you’ll work with. Real names and
+photos publish here as the roster onboards.
+
+</ProseContainer>
+
+<section className="py-12 md:py-16">
+  <Container>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <PMProfile
+        name="East Valley PM"
+        role="Project Manager — East Valley (Mesa, Chandler, Gilbert)"
+        bio="Coordinates your offer path end-to-end across the East Valley. Brings in the right buyer-side broker, walks you through every offer, and runs the close."
+      />
+      <PMProfile
+        name="Phoenix Metro PM"
+        role="Project Manager — Phoenix metro (Phoenix, Scottsdale)"
+        bio="Manages Phoenix and Scottsdale sales from intake through close. Pairs you with the right path for your home and timeline."
+      />
+      <PMProfile
+        name="West Valley PM"
+        role="Project Manager — West Valley (Glendale)"
+        bio="Runs West Valley sales — Listing, Cash, Cash+ with Repairs, or Renovation-Only — under JK Realty as broker of record."
+      />
+      <PMProfile
+        name="Tucson PM"
+        role="Project Manager — Tucson (Pima County)"
+        bio="Owns Tucson-area sales end-to-end. Same fee-free service, same single point of contact across every offer path."
+      />
+    </div>
+  </Container>
+</section>
+
+<ProseContainer>
+
+PMs are paid to get your sale to a successful close — not to push you toward
+any specific path. They model every option for your home with real numbers,
+and you choose.
+
+</ProseContainer>
+
+<CTASection
+  heading="Ready to meet yours?"
+  subcopy="Submit your home and your PM picks it up the same day."
+  primaryCta={{ label: "Get my free intake", href: LINKS.getStarted }}
+  secondaryCta={{ label: "See how it works", href: LINKS.howItWorks }}
+/>
+
+<JsonLd
+  id="ld-aboutpage"
+  data={aboutPageSchema({
+    name: "Meet your Project Manager",
+    description:
+      "Real humans coordinating your offer, based in Arizona and licensed under JK Realty.",
+    url: `${SITE.url}${LINKS.meetYourPm}`,
+  })}
+/>

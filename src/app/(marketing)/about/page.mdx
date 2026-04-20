@@ -1,0 +1,83 @@
+import { buildMetadata } from "@/lib/seo";
+import { LINKS } from "@/lib/links";
+import { SITE } from "@/lib/site";
+import { aboutPageSchema } from "@/lib/schema";
+import { PageHeader } from "@/components/marketing/page-header";
+import { ProseContainer } from "@/components/marketing/prose-container";
+import { CTASection } from "@/components/marketing/cta-section";
+import { JsonLd } from "@/components/marketing/json-ld";
+
+export const metadata = buildMetadata({
+  title: "About",
+  description:
+    "Sell Your House Free is an Arizona-only home-selling service under JK Realty as broker of record. PM-assisted, fee-free for sellers, no data resale.",
+  path: LINKS.about,
+});
+
+<PageHeader
+  eyebrow="About"
+  heading="Built in Arizona, for Arizonans"
+  subcopy="A small, focused team and a single broker of record — covering seven AZ cities, no national franchise overlay."
+/>
+
+<ProseContainer>
+
+## Who we are
+
+Sell Your House Free is a home-selling service for Arizona homeowners. We pair
+every seller with a named Project Manager on our Arizona team and run the entire
+transaction under JK Realty as broker of record.
+
+We chose to start narrow on purpose. Seven AZ cities — Phoenix, Tucson, Mesa,
+Chandler, Scottsdale, Gilbert, Glendale — is enough to build the trust, the PM
+relationships, and the buyer pool that the service depends on. National scale
+without that foundation is what every other “free” home-selling pitch turns out
+to mean.
+
+## Broker of record
+
+Every listing and every transaction on this site is brokered by JK Realty under
+the {SITE.broker.stateOfRecord} licensure of record. The brokerage name and license
+number appear on the listing agreements and at the footer of every page on this
+site.
+
+</ProseContainer>
+
+<ProseContainer>
+
+## What we do
+
+- We list homes on the Arizona MLS under JK Realty for zero seller commission.
+- We bring a vetted, limited investor-buyer pool for sellers who want a fast cash close.
+- We coordinate Cash+ with Repairs through partner investors who fund pre-list improvements.
+- We run our Renovation-Only path with Hola Home as the renovation partner.
+- We staff every sale with a real, named, reachable Project Manager.
+
+## What we keep off this site
+
+- We keep your contact information inside the engagement with your PM. We do not sell, broker, or license it to outside agents, investors, or marketers.
+- We run only first-party Vercel analytics in production. No third-party tracking pixels, no session replay, no retargeting.
+- We do not take referral revenue from outside agents or services we recommend.
+- We do not run a chat widget or a newsletter signup; the only conversion path is `/get-started`.
+
+</ProseContainer>
+
+<CTASection
+  heading="Want to start a free sale?"
+  subcopy="Your intake takes a few minutes. A real PM picks it up the same day."
+  primaryCta={{ label: "Get my free intake", href: LINKS.getStarted }}
+  secondaryCta={{
+    label: "Meet your Project Manager",
+    href: LINKS.meetYourPm,
+  }}
+/>
+
+<JsonLd
+  id="ld-aboutpage"
+  data={aboutPageSchema({
+    name: "About Sell Your House Free",
+    description:
+      "Arizona-only home-selling service under JK Realty as broker of record. PM-assisted, no seller fees, no data resale.",
+    url: `${SITE.url}${LINKS.about}`,
+  })}
+/>
