@@ -28,6 +28,12 @@
   /* Feedback */
   --color-error: #c62828;
 
+  /* Pillar accents (E2-S3; one per pillar page) */
+  --color-accent-listing: #0ea5e9;
+  --color-accent-cash-offers: #16a34a;
+  --color-accent-cash-plus-repairs: #f59e0b;
+  --color-accent-renovation-only: #7c3aed;
+
   /* Radius */
   --radius-sm: 4px;
   --radius-md: 6px;
