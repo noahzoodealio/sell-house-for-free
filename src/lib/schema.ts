@@ -10,6 +10,7 @@ import type {
   WithContext,
 } from "schema-dts";
 
+import type { FaqEntry } from "@/content/faq/entries";
 import { SITE } from "./site";
 
 type Pillar =
@@ -17,14 +18,6 @@ type Pillar =
   | "cash-offers"
   | "cash-plus-repairs"
   | "renovation-only";
-
-// TODO(E2-S4): replace with `import type { FaqEntry } from "@/content/faq/entries"`.
-type FaqEntryShape = {
-  id: string;
-  question: string;
-  answer: string;
-  category?: string;
-};
 
 // TODO(E2-S10): replace with `import type { CityEntry } from "@/content/cities/registry"`.
 type CityEntryShape = {
@@ -118,7 +111,7 @@ export function serviceSchema(pillar: Pillar): WithContext<Service> {
 }
 
 export function faqPageSchema(
-  entries: ReadonlyArray<FaqEntryShape>,
+  entries: ReadonlyArray<FaqEntry>,
 ): WithContext<FAQPage> {
   return {
     "@context": SCHEMA_CONTEXT,

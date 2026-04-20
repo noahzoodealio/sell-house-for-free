@@ -26,4 +26,12 @@ export const ROUTES = [
     changeFrequency: "monthly",
     priority: 0.7,
   },
+  {
+    path: "/faq",
+    title: "FAQ",
+    showInNav: true,
+    showInSitemap: true,
+    changeFrequency: "monthly",
+    priority: 0.6,
+  },
 ] as const satisfies readonly RouteEntry[];
