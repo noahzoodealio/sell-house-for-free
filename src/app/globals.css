@@ -43,6 +43,10 @@
   --container-prose: 65ch;
   --container-form: 560px;
   --container-page: 1280px;
+
+  /* Chevron for <Select> — stroke hex tracks --color-ink-body (#212121);
+     colocated here so palette refreshes stay in this file. */
+  --chevron-down: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23212121' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M5 8l5 5 5-5'/></svg>");
 }
 
 @layer base {
