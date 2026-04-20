@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+@source not "../../_bmad";
+@source not "../../_bmad-output";
+
 @theme {
   /* Brand */
   --color-brand: #0653ab;
