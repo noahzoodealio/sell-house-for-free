@@ -4,6 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Fieldset } from "@/components/ui/fieldset";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Radio } from "@/components/ui/radio";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Container } from "@/components/layout/container";
 import { Card } from "@/components/ui/card";
 import { FormStep } from "@/components/ui/form-step";
@@ -100,6 +104,124 @@ export default function SmokeUI() {
             <Input type="email" />
           </Field>
         </Fieldset>
+      </section>
+
+      <section>
+        <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
+          Checkbox — unchecked / checked / disabled / error
+        </h2>
+        <div className="flex flex-col gap-3 max-w-[var(--container-form)]">
+          <label className="flex items-center gap-3 text-[16px] text-ink-body">
+            <Checkbox name="opt-in-1" />
+            Unchecked
+          </label>
+          <label className="flex items-center gap-3 text-[16px] text-ink-body">
+            <Checkbox name="opt-in-2" defaultChecked />
+            Checked (native accent)
+          </label>
+          <label className="flex items-center gap-3 text-[16px] text-ink-body">
+            <Checkbox name="opt-in-3" defaultChecked disabled />
+            Disabled checked
+          </label>
+          <label className="flex items-center gap-3 text-[16px] text-ink-body">
+            <Checkbox name="opt-in-4" aria-invalid />
+            Error state (aria-invalid)
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
+          Radio — grouped via Fieldset + shared name
+        </h2>
+        <Fieldset legend="Property type" className="max-w-[var(--container-form)]">
+          <label className="flex items-center gap-3 text-[16px] text-ink-body">
+            <Radio name="property-type" value="single-family" defaultChecked />
+            Single-family home
+          </label>
+          <label className="flex items-center gap-3 text-[16px] text-ink-body">
+            <Radio name="property-type" value="condo" />
+            Condo
+          </label>
+          <label className="flex items-center gap-3 text-[16px] text-ink-body">
+            <Radio name="property-type" value="townhouse" />
+            Townhouse
+          </label>
+          <label className="flex items-center gap-3 text-[16px] text-ink-body">
+            <Radio name="property-type" value="land" disabled />
+            Land (disabled)
+          </label>
+        </Fieldset>
+      </section>
+
+      <section>
+        <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
+          Select — idle / with-value / error / disabled
+        </h2>
+        <div className="grid max-w-[var(--container-form)] gap-4">
+          <Field label="State (placeholder idiom)">
+            <Select defaultValue="">
+              <option value="" disabled>
+                Select one…
+              </option>
+              <option value="AZ">Arizona</option>
+              <option value="CA">California</option>
+              <option value="TX">Texas</option>
+            </Select>
+          </Field>
+          <Field label="State (with value)">
+            <Select defaultValue="AZ">
+              <option value="AZ">Arizona</option>
+              <option value="CA">California</option>
+              <option value="TX">Texas</option>
+            </Select>
+          </Field>
+          <Field
+            label="State (error)"
+            errorText="Pick a state to see offers."
+          >
+            <Select defaultValue="">
+              <option value="" disabled>
+                Select one…
+              </option>
+              <option value="AZ">Arizona</option>
+            </Select>
+          </Field>
+          <Field label="State (disabled)">
+            <Select defaultValue="" disabled>
+              <option value="" disabled>
+                Select one…
+              </option>
+              <option value="AZ">Arizona</option>
+            </Select>
+          </Field>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
+          Textarea — idle / with-value / error / disabled
+        </h2>
+        <div className="grid max-w-[var(--container-form)] gap-4">
+          <Field
+            label="Notes (idle)"
+            helpText="Share anything you'd like us to know."
+          >
+            <Textarea placeholder="Tell us about your property…" />
+          </Field>
+          <Field label="Notes (with value)">
+            <Textarea defaultValue="Single-story ranch, 3 bed / 2 bath, detached garage." />
+          </Field>
+          <Field
+            label="Notes (error)"
+            errorText="Notes are limited to 500 characters."
+          >
+            <Textarea defaultValue="…" />
+          </Field>
+          <Field label="Notes (disabled)">
+            <Textarea disabled defaultValue="Locked content." />
+          </Field>
+        </div>
       </section>
 
       <section>
