@@ -10,7 +10,7 @@ import { HowItWorks } from "@/components/marketing/how-it-works";
 import type { HowItWorksStep } from "@/components/marketing/how-it-works";
 import { CTASection } from "@/components/marketing/cta-section";
 import { JsonLd } from "@/components/marketing/json-ld";
-import { PLACEHOLDER_HOME_TRUST_CLAIMS } from "@/content/anti-broker/placeholder-claims";
+import { TRUST_BAR_CLAIMS } from "@/content/anti-broker/trust-bar-claims";
 
 const PILLAR_SLUG = "listing" as const;
 const PILLAR_NAME = "Listing + MLS";
@@ -69,7 +69,7 @@ export default function ListingPillar() {
         primaryCta={{ label: "Get my free listing started", href: GET_STARTED_HREF }}
         secondaryCta={{ label: "See how it works", href: LINKS.howItWorks }}
       />
-      <TrustBar claims={PLACEHOLDER_HOME_TRUST_CLAIMS} />
+      <TrustBar claims={TRUST_BAR_CLAIMS} />
       <HowItWorks
         steps={[...PILLAR_STEPS]}
         cta={{ label: "Start my free listing", href: GET_STARTED_HREF }}

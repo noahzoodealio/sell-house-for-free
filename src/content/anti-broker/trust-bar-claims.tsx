@@ -1,8 +1,6 @@
-// TODO(E2-S11): replace this file's exports with imports from
-// `src/content/anti-broker/claims.ts` (the authoritative registry) and
-// delete this module. Consumers today: home page + four pillar pages.
-
+import type { ReactNode } from "react";
 import type { TrustBarClaim } from "@/components/marketing/trust-bar";
+import { claims as registry } from "./claims";
 
 function IconCheckShield() {
   return (
@@ -41,29 +39,18 @@ function IconBuildingCheck() {
   );
 }
 
-export const PLACEHOLDER_HOME_TRUST_CLAIMS: readonly TrustBarClaim[] = [
-  {
-    id: "no-fees",
-    icon: <IconCheckShield />,
-    shortLabel: "No listing fees",
-    subLabel: "You pay zero at closing.",
-  },
-  {
-    id: "no-data-resale",
-    icon: <IconLock />,
-    shortLabel: "We don't sell your data",
-    subLabel: "Not a lead farm — ever.",
-  },
-  {
-    id: "real-pm",
-    icon: <IconPerson />,
-    shortLabel: "A real Project Manager",
-    subLabel: "Named, reachable, on our team.",
-  },
-  {
-    id: "jk-broker",
-    icon: <IconBuildingCheck />,
-    shortLabel: "Licensed AZ broker",
-    subLabel: "Listings of record via JK Realty.",
-  },
-];
+const ICONS: Record<string, ReactNode> = {
+  "no-fees": <IconCheckShield />,
+  "no-data-resale": <IconLock />,
+  "real-pm": <IconPerson />,
+  "jk-realty-broker": <IconBuildingCheck />,
+};
+
+export const TRUST_BAR_CLAIMS: readonly TrustBarClaim[] = registry
+  .slice(0, 4)
+  .map((claim) => ({
+    id: claim.id,
+    icon: ICONS[claim.id] ?? <IconCheckShield />,
+    shortLabel: claim.shortLabel,
+    subLabel: claim.subLabel,
+  }));
