@@ -111,6 +111,14 @@ export const ROUTES = [
     priority: 0.6,
   },
   {
+    path: "/az",
+    title: "Arizona",
+    showInNav: false,
+    showInSitemap: true,
+    changeFrequency: "monthly",
+    priority: 0.6,
+  },
+  {
     path: "/az/phoenix",
     title: "Sell your Phoenix home",
     showInNav: false,
