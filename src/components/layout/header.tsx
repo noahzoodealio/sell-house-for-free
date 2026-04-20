@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SITE } from "@/lib/site";
-import { ROUTES } from "@/lib/routes";
+import { ROUTES, type RouteEntry } from "@/lib/routes";
 
-const navItems = ROUTES.filter(
+const navItems: readonly RouteEntry[] = (ROUTES as readonly RouteEntry[]).filter(
   (r) => r.showInNav && r.path !== "/" && r.path !== "/get-started",
 );
 
