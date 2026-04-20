@@ -1,4 +1,5 @@
 import type {
+  AboutPage,
   BreadcrumbList,
   FAQPage,
   HowTo,
@@ -201,5 +202,24 @@ export function howToSchema(
       name: step.heading,
       text: step.body,
     })),
+  };
+}
+
+export function aboutPageSchema(meta: {
+  name: string;
+  description: string;
+  url: string;
+}): WithContext<AboutPage> {
+  return {
+    "@context": SCHEMA_CONTEXT,
+    "@type": "AboutPage",
+    name: meta.name,
+    description: meta.description,
+    url: meta.url.startsWith("http") ? meta.url : `${SITE.url}${meta.url}`,
+    isPartOf: {
+      "@type": "WebSite",
+      name: SITE.name,
+      url: SITE.url,
+    },
   };
 }
