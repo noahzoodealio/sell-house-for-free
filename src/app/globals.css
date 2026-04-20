@@ -17,6 +17,7 @@
   /* Surfaces */
   --color-surface: #ffffff;
   --color-surface-tint: #fafafa;
+  --color-surface-muted: #f5f5f5;
   --color-surface-dark: #1f1f1f;
 
   /* Borders */
@@ -64,5 +65,42 @@
     font-family: var(--font-display);
     color: var(--color-ink-title);
     font-weight: 600;
+  }
+}
+
+@layer components {
+  /* Sibling-spacing rules for MDX-authored prose. Typography (font, size,
+     color) is applied by element mappers in src/mdx-components.tsx — this
+     block owns vertical rhythm only. Apply via <div class="prose-custom">
+     wrapper (shipped by E2-S3 <ProseContainer>). */
+  .prose-custom > * + * {
+    margin-top: 1rem;
+  }
+  .prose-custom > * + h1,
+  .prose-custom > * + h2 {
+    margin-top: 2.5rem;
+  }
+  .prose-custom > * + h3 {
+    margin-top: 2rem;
+  }
+  .prose-custom > * + h4,
+  .prose-custom > * + h5,
+  .prose-custom > * + h6 {
+    margin-top: 1.5rem;
+  }
+  .prose-custom > h1 + *,
+  .prose-custom > h2 + *,
+  .prose-custom > h3 + * {
+    margin-top: 1rem;
+  }
+  .prose-custom > ul + p,
+  .prose-custom > ol + p,
+  .prose-custom > p + ul,
+  .prose-custom > p + ol {
+    margin-top: 1rem;
+  }
+  .prose-custom > blockquote {
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
   }
 }
