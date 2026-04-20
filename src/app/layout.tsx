@@ -38,7 +38,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
-        {process.env.NODE_ENV === "production" && <Analytics />}
+        {/* Analytics is production-only — see docs/analytics-policy.md before touching. */}
+        {process.env.NODE_ENV === "production" &&
+          process.env.VERCEL_ENV !== "preview" && <Analytics />}
       </body>
     </html>
   );
