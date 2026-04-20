@@ -3,21 +3,18 @@ import Link from "next/link";
 import { buildMetadata } from "@/lib/seo";
 import { LINKS } from "@/lib/links";
 import { entries as faqEntries } from "@/content/faq/entries";
-import {
-  organizationSchema,
-  faqPageSchema,
-} from "@/lib/schema";
+import { organizationSchema, faqPageSchema } from "@/lib/schema";
 import { Container } from "@/components/layout/container";
 import { Hero } from "@/components/marketing/hero";
 import { TrustBar } from "@/components/marketing/trust-bar";
 import { PillarGrid } from "@/components/marketing/pillar-grid";
-import type { Pillar as PillarCard } from "@/components/marketing/pillar-grid";
 import { HowItWorks } from "@/components/marketing/how-it-works";
-import type { HowItWorksStep } from "@/components/marketing/how-it-works";
 import { FAQ } from "@/components/marketing/faq";
 import { CTASection } from "@/components/marketing/cta-section";
 import { JsonLd } from "@/components/marketing/json-ld";
 import { PLACEHOLDER_HOME_TRUST_CLAIMS } from "@/content/anti-broker/placeholder-claims";
+import { HOME_PILLARS } from "@/content/pillars/home-pillars";
+import { HOME_HOW_IT_WORKS_STEPS } from "@/content/how-it-works/home-steps";
 
 const HOME_TITLE =
   "Sell Your House Free — Free Arizona cash-offer service, no fees, real PM";
@@ -32,86 +29,6 @@ export const metadata: Metadata = {
   }),
   title: { absolute: HOME_TITLE },
 };
-
-function IconListing() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="size-6">
-      <path d="M4 21V10l8-6 8 6v11" />
-      <path d="M10 21v-6h4v6" />
-    </svg>
-  );
-}
-function IconCash() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="size-6">
-      <rect x="3" y="6" width="18" height="12" rx="2" />
-      <circle cx="12" cy="12" r="2.5" />
-    </svg>
-  );
-}
-function IconCashPlus() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="size-6">
-      <path d="M3 11l10-6 8 4v10H3z" />
-      <path d="M12 13v4M10 15h4" />
-    </svg>
-  );
-}
-function IconReno() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="size-6">
-      <path d="M3 21l9-9" />
-      <path d="M12 12l3-3-6-6-3 3z" />
-      <path d="M14 16l6-6 2 2-6 6z" />
-    </svg>
-  );
-}
-
-const PILLARS: readonly PillarCard[] = [
-  {
-    icon: <IconListing />,
-    heading: "Listing + MLS",
-    blurb:
-      "Full-service MLS listing at zero cost to you — covered by the buyer-side commission standard in AZ.",
-    href: LINKS.listing,
-  },
-  {
-    icon: <IconCash />,
-    heading: "Cash Offers",
-    blurb:
-      "Vetted cash offers with a fast close — when certainty and speed matter more than top-of-market pricing.",
-    href: LINKS.cashOffers,
-  },
-  {
-    icon: <IconCashPlus />,
-    heading: "Cash+ with Repairs",
-    blurb:
-      "We cash-fund the repairs before the home hits the MLS, so it sells for more — no money out of your pocket.",
-    href: LINKS.cashPlusRepairs,
-  },
-  {
-    icon: <IconReno />,
-    heading: "Renovation-Only",
-    blurb:
-      "Hola Home renovates the property first, then lists at maximum upside — best when you have time to spare.",
-    href: LINKS.renovationOnly,
-  },
-];
-
-const HOME_HOW_IT_WORKS_STEPS: readonly HowItWorksStep[] = [
-  {
-    heading: "Tell us about your home",
-    body: "A few minutes of address, condition, and timing lets your PM model every path that fits your situation.",
-  },
-  {
-    heading: "Get every path priced",
-    body: "Listing, cash offer, cash+ with repairs, renovation-only — you see the real numbers for each side-by-side.",
-  },
-  {
-    heading: "Pick the path, we handle the rest",
-    body: "Your Project Manager runs the sale end-to-end under a licensed AZ broker of record — no handoffs, no surprises.",
-  },
-];
 
 const homeFaqExcerpt = faqEntries.filter(
   (entry) => entry.category === "free-and-fair" || entry.skepticFirst,
@@ -140,7 +57,7 @@ export default function Home() {
         secondaryCta={{ label: "See how it works", href: LINKS.howItWorks }}
       />
       <TrustBar claims={PLACEHOLDER_HOME_TRUST_CLAIMS} />
-      <PillarGrid pillars={[...PILLARS]} />
+      <PillarGrid pillars={[...HOME_PILLARS]} />
       <HowItWorks
         steps={[...HOME_HOW_IT_WORKS_STEPS]}
         cta={{ label: "Learn more about the process", href: LINKS.howItWorks }}

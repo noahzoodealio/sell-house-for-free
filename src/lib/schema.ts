@@ -11,6 +11,7 @@ import type {
 } from "schema-dts";
 
 import type { FaqEntry } from "@/content/faq/entries";
+import type { CityEntry } from "@/content/cities/registry";
 import { SITE } from "./site";
 
 type Pillar =
@@ -18,13 +19,6 @@ type Pillar =
   | "cash-offers"
   | "cash-plus-repairs"
   | "renovation-only";
-
-// TODO(E2-S10): replace with `import type { CityEntry } from "@/content/cities/registry"`.
-type CityEntryShape = {
-  slug: string;
-  displayName: string;
-  geo?: { latitude: number; longitude: number };
-};
 
 const SCHEMA_CONTEXT = "https://schema.org" as const;
 
@@ -69,7 +63,9 @@ export function organizationSchema(): WithContext<Organization> {
   };
 }
 
-export function realEstateAgentSchema(): WithContext<RealEstateAgent> {
+export function realEstateAgentSchema(args?: {
+  city?: string;
+}): WithContext<RealEstateAgent> {
   return {
     "@context": SCHEMA_CONTEXT,
     "@type": "RealEstateAgent",
@@ -79,12 +75,12 @@ export function realEstateAgentSchema(): WithContext<RealEstateAgent> {
       "@type": "Organization",
       name: SITE.broker.name,
     },
-    areaServed: [
-      {
-        "@type": "State",
-        name: "Arizona",
-      },
-    ],
+    areaServed: args?.city
+      ? [
+          { "@type": "City", name: args.city },
+          { "@type": "State", name: "Arizona" },
+        ]
+      : [{ "@type": "State", name: "Arizona" }],
     description: SITE.description,
   };
 }
@@ -128,7 +124,7 @@ export function faqPageSchema(
 }
 
 export function localBusinessSchema(
-  city: CityEntryShape,
+  city: CityEntry,
 ): WithContext<LocalBusiness> {
   return {
     "@context": SCHEMA_CONTEXT,
