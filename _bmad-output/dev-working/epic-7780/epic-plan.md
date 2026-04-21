@@ -5,20 +5,25 @@ epic-title: Property Data Enrichment (ATTOM + MLS)
 target-service: sell-house-for-free
 branch-strategy: single-shared-branch
 branch-name: feature/e4-property-enrichment-7780
-autopilot-status: planning
+test-framework: vitest
+autopilot-status: running
 started-at: 2026-04-21T21:31:00Z
 stories-planned:
-  - {id: 7834, tag: E4-S1, depends-on: [],           strike-count: 0, status: pending}
-  - {id: 7835, tag: E4-S2, depends-on: [7834],       strike-count: 0, status: pending}
-  - {id: 7836, tag: E4-S3, depends-on: [7835],       strike-count: 0, status: pending}
-  - {id: 7840, tag: E4-S7, depends-on: [7834],       strike-count: 0, status: pending}
-  - {id: 7837, tag: E4-S4, depends-on: [7834],       strike-count: 0, status: pending}
+  - {id: 7834, tag: E4-S1, depends-on: [],           strike-count: 0, status: closed}
+  - {id: 7835, tag: E4-S2, depends-on: [7834],       strike-count: 0, status: closed}
+  - {id: 7836, tag: E4-S3, depends-on: [7835],       strike-count: 0, status: closed}
+  - {id: 7840, tag: E4-S7, depends-on: [7834],       strike-count: 0, status: closed}
+  - {id: 7837, tag: E4-S4, depends-on: [7834],       strike-count: 0, status: in-progress}
   - {id: 7838, tag: E4-S5, depends-on: [7836, 7837], strike-count: 0, status: pending}
   - {id: 7839, tag: E4-S6, depends-on: [7838, 7840], strike-count: 0, status: pending}
   - {id: 7841, tag: E4-S8, depends-on: [7839],       strike-count: 0, status: pending}
   - {id: 7842, tag: E4-S9, depends-on: [7839],       strike-count: 0, status: pending}
   - {id: 7843, tag: E4-S10, depends-on: [7839],      strike-count: 0, status: pending}
-stories-completed: []
+stories-completed:
+  - {id: 7834, outcome: closed, commit: 4273da4}
+  - {id: 7835, outcome: closed, commit: 45a60a4}
+  - {id: 7836, outcome: closed, commit: 50e6c57}
+  - {id: 7840, outcome: closed, note: "S7 closed; commit pending"}
 ---
 
 # E4 — Property Data Enrichment (ATTOM + MLS) · Autopilot Execution Plan
@@ -28,6 +33,7 @@ stories-completed: []
 **Parent:** 7776 — Sell House for Free (AZ) umbrella
 **Target service:** `sell-house-for-free` (BFF + client) — `Zoodealio.MLS` consumed read-only
 **Branch:** `feature/e4-property-enrichment-7780` (single shared branch for all 10 stories per user directive)
+**Unit-test framework:** vitest (added to repo just before autopilot start)
 
 ## Feature summary
 
@@ -50,43 +56,48 @@ Linear order the autopilot will walk. Parallel opportunities from the Feature do
 | 9 | 7842 (E4-S9) | Playwright E2E happy + degraded paths |
 | 10 | 7843 (E4-S10) | Observability + SAS rotation runbook |
 
-Rationale for this order:
-- **S1 first** — lands the BFF contract + dev-mock so everything else can light up without MLS reachability.
+Rationale:
+- **S1 first** — BFF contract + dev-mock unblocks everything without MLS reachability.
 - **S2 → S3** — real MLS client before the service orchestrator that consumes it.
-- **S7 before S6** — XS config change; `next.config.ts` remotePatterns must be in place before the photo strip renders optimized.
-- **S4 before S5** — the Combobox is the caller of the hook; defining the component surface first gives the hook a concrete integration target.
-- **S5 → S6** — hook writes to draft; UI surfaces read from draft. Order matters.
-- **S8 / S9 / S10 at the end** — copy polish, E2E tests, and observability wrap the epic; any of the earlier stories could regress them if they landed first.
+- **S7 before S6** — XS config; `next.config.ts` remotePatterns must land before the photo strip renders optimized.
+- **S4 before S5** — Combobox is the caller of the hook; define caller surface first.
+- **S5 → S6** — hook writes to draft; UI surfaces read from draft.
+- **S8 / S9 / S10 last** — copy polish, E2E, observability wrap the epic.
 
 ## Branch + commit strategy
 
-- **One branch:** `feature/e4-property-enrichment-7780` cut from `main` at autopilot start. All 10 stories commit to this branch.
-- **One commit per story** (signed off at story close-out): `E4-S{n} ({storyId}): <short summary>`. Matches prior epic convention (e.g. `e3-s10+s11(7820+7821)` in the log).
+- **One branch:** `feature/e4-property-enrichment-7780` cut from `main` at autopilot start. All 10 stories commit here.
+- **One commit per story** at close-out: `E4-S{n} ({storyId}): <short summary>`. Matches prior convention (`e3-s10+s11(7820+7821)` in the log).
 - **No per-story PRs.** Single PR at epic close targeting `main`.
-- ADO Story state transitions: `New` → `In Development` (at story start) → `Code Review` (at inner review pass) → `Ready For Testing` (at story close). Epic (Feature 7780) → `In Development` at autopilot start; stays there until final summary.
+- ADO state transitions: `New` → `In Development` (story start) → `Code Review` (inner review pass) → `Ready For Testing` (story close). Feature 7780 → `In Development` at autopilot start.
+
+## Test strategy
+
+- **Unit:** vitest. Per-story unit coverage aimed at pure logic — normalize/cache-key/envelope shape, MLS client error mapping, draft reducer, hook state transitions (with mocked fetch). `zoo-core-unit-testing` runs vitest between dev-story and code-review.
+- **E2E:** Playwright in S9 — happy AZ submit, MLS timeout, no-match, currently-listed.
 
 ## 3-strike rule
 
-Applied to outer `zoo-core-code-review` loop per story. On the 3rd fail, autopilot halts and surfaces the story + review reports + dev-story sidecar to the user. Inner `zoo-core-unit-testing` has its own 3-iteration fix cap (separate counter).
+Outer `zoo-core-code-review` loop per story. On 3rd fail, halt and surface the story + review reports + dev sidecar to the user. Inner vitest loop has its own 3-iteration fix cap (separate counter).
 
 ## EF migration halt
 
-None expected — E4 is a Next.js BFF + client feature with no database changes. If any story generates EF migrations unexpectedly, autopilot pauses for user confirmation.
+None expected — E4 is Next.js BFF + client only, no DB changes. If a story unexpectedly generates EF migrations, autopilot pauses for user confirmation.
 
-## Environment variables added (per Feature doc)
+## Environment variables added
 
-All server-only, no `NEXT_PUBLIC_` prefix:
+Server-only, no `NEXT_PUBLIC_`:
 - `MLS_API_BASE_URL` (required)
 - `MLS_API_TOKEN` (optional, forward-compat)
 - `ENRICHMENT_TIMEOUT_MS` (default 4000)
 - `ENRICHMENT_CACHE_TTL_SECONDS` (default 86400)
 - `ENRICHMENT_DEV_MOCK` (default false)
 
-Documented in `.env.example` during S1, ops notes in S10.
+Added to `.env.example` in S1, operationalized in S10.
 
 ## New dependencies
 
-- `@headlessui/react` — Combobox primitive (S4). Documented as explicit one-off exception to E1's no-Radix/shadcn rule.
+- `@headlessui/react` — Combobox primitive (S4). One-off exception to E1's no-Radix/shadcn rule; documented in story.
 
 ## Out of scope (handoff)
 
@@ -97,4 +108,4 @@ Documented in `.env.example` during S1, ops notes in S10.
 
 ## Sidecar progress tracking
 
-Per-story sidecars at `_bmad-output/dev-working/{story-id}/` managed by `zoo-core-dev-story`. Epic-level progress in this file's frontmatter `stories-planned` / `stories-completed` arrays, updated between stories.
+Per-story sidecars at `_bmad-output/dev-working/{story-id}/` managed by `zoo-core-dev-story`. Epic-level progress in this file's frontmatter, updated between stories.
