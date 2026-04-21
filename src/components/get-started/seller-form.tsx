@@ -14,7 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { AzCitySlug } from "@/lib/routes";
 import { submitSellerForm } from "@/app/get-started/actions";
 import { captureAttribution } from "@/lib/seller-form/attribution";
-import { readDraft, writeDraft } from "@/lib/seller-form/draft";
+import { clearDraft, readDraft, writeDraft } from "@/lib/seller-form/draft";
 import { useIdempotencyKey } from "@/lib/seller-form/idempotency";
 import { validateStep } from "@/lib/seller-form/schema";
 import type {
@@ -192,6 +192,15 @@ export function SellerForm({
       prevStepRef.current = next;
     }
   }, [currentStep, onStepChange]);
+
+  useEffect(() => {
+    // The Server Action `redirect()` fires before we get here on success,
+    // but if the navigation is blocked (e.g., browser back cache), still
+    // clear the draft + idempotency key so a retry starts clean.
+    if (formState.ok && formState.submissionId) {
+      clearDraft();
+    }
+  }, [formState]);
 
   const navigateToStep = useCallback(
     (next: StepSlug) => {
