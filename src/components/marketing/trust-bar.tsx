@@ -21,26 +21,31 @@ export function TrustBar({ claims }: TrustBarProps) {
   return (
     <section
       aria-label="Trust and transparency"
-      className="bg-surface-muted py-8 md:py-10"
+      className="bg-surface-soft border-y border-border-soft py-10 md:py-12"
     >
       <Container>
         <ul
           role="list"
-          className="grid grid-cols-2 gap-4 md:flex md:flex-row md:justify-between md:items-start md:gap-8"
+          className="grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-8"
         >
           {claims.map((claim) => (
             <li
               key={claim.id}
-              className="flex flex-col items-start gap-2 md:flex-1"
+              className="flex flex-col items-start gap-3"
             >
-              <div aria-hidden="true" className="size-8 text-brand">
+              <div
+                aria-hidden="true"
+                className="inline-flex size-11 items-center justify-center rounded-full bg-brand-subtle text-brand"
+              >
                 {claim.icon}
               </div>
-              <p className="text-sm font-medium text-ink-title">
+              <p className="text-[15px] font-semibold text-ink-title leading-[1.3]">
                 {claim.shortLabel}
               </p>
               {claim.subLabel ? (
-                <p className="text-xs text-ink-muted">{claim.subLabel}</p>
+                <p className="text-[13px] text-ink-muted leading-[1.4]">
+                  {claim.subLabel}
+                </p>
               ) : null}
             </li>
           ))}

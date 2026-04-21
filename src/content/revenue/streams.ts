@@ -4,7 +4,7 @@ export const streams: RevenueStream[] = [
   {
     id: "buyer-broker-mls",
     label: "Buyer-broker commission on MLS listings",
-    whoPays: "Paid from sale proceeds at close — market-standard practice for any AZ MLS listing.",
+    whoPays: "Paid from sale proceeds at close, market-standard practice for any AZ MLS listing.",
     whenItActivates: "On every closed Listing + MLS sale.",
     note: "We earn the buyer-side, not the seller-side. The seller never writes us a check.",
   },
@@ -17,16 +17,16 @@ export const streams: RevenueStream[] = [
   },
   {
     id: "cash-plus-share",
-    label: "Cash+ with Repairs ARV-uplift share",
+    label: "Cash+ ARV-uplift share",
     whoPays: "Paid by the investor partner from the resale proceeds.",
     whenItActivates: "On Cash+ closings, after the investor recovers the funded repair scope.",
     note: "You keep the spread above the investor's funded scope + share. No money out of your pocket.",
   },
   {
-    id: "renovation-only-hola",
-    label: "Renovation-Only commission via Hola Home",
-    whoPays: "Hola Home (the renovation partner) earns on the post-renovation resale, not from the seller.",
-    whenItActivates: "On Renovation-Only closings, after Hola Home completes the renovation and the listed home closes.",
-    note: "The seller funds nothing up front; we do not charge a seller fee in this path.",
+    id: "renovation-cost-at-close",
+    label: "Renovation cost settled at close (Renovation path)",
+    whoPays: "The seller, from sale proceeds at close. Never out of pocket.",
+    whenItActivates: "On Renovation closings, the full agreed renovation scope is paid from proceeds before seller net is calculated.",
+    note: "No investor takes a share of upside on this path. Hola Home Services is paid for the renovation work itself. Our own revenue on this path is the same buyer-broker commission as any listed sale.",
   },
 ];

@@ -71,42 +71,45 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ...components,
     h1: (props) => (
       <h1
-        className="text-[40px] leading-[48px] font-semibold scroll-mt-24"
+        className="text-[36px] leading-[1.15] md:text-[44px] md:leading-[1.1] font-semibold scroll-mt-24 text-ink-title"
         {...props}
       />
     ),
     h2: (props) => (
       <h2
-        className="text-[30px] leading-[38px] font-semibold scroll-mt-24"
+        className="text-[26px] leading-[1.2] md:text-[32px] md:leading-[1.15] font-semibold scroll-mt-24 text-ink-title"
         {...props}
       />
     ),
     h3: (props) => (
       <h3
-        className="text-[24px] leading-[32px] font-semibold scroll-mt-24"
+        className="text-[20px] leading-[1.25] md:text-[22px] md:leading-[1.2] font-semibold scroll-mt-24 text-ink-title"
         {...props}
       />
     ),
     h4: (props) => (
       <h4
-        className="text-[20px] leading-[28px] font-semibold scroll-mt-24"
+        className="text-[18px] leading-[26px] font-semibold scroll-mt-24 text-ink-title"
         {...props}
       />
     ),
     h5: (props) => (
       <h5
-        className="text-[18px] leading-[26px] font-semibold scroll-mt-24"
+        className="text-[16px] leading-[24px] font-semibold scroll-mt-24 text-ink-title"
         {...props}
       />
     ),
     h6: (props) => (
       <h6
-        className="text-[16px] leading-[24px] font-semibold scroll-mt-24"
+        className="text-[14px] leading-[22px] font-semibold scroll-mt-24 text-ink-title uppercase tracking-[0.08em]"
         {...props}
       />
     ),
     p: (props) => (
-      <p className="text-[16px] leading-[24px] text-ink-body" {...props} />
+      <p
+        className="text-[16px] leading-[26px] text-ink-body"
+        {...props}
+      />
     ),
     strong: (props) => <strong className="font-semibold" {...props} />,
     em: (props) => <em className="italic" {...props} />,
@@ -115,7 +118,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     li: (props) => <li className="marker:text-ink-muted" {...props} />,
     blockquote: (props) => (
       <blockquote
-        className="border-l-4 border-brand pl-4 italic text-ink-body"
+        className="border-l-4 border-brand pl-5 italic text-ink-body bg-surface-soft py-3 pr-4 rounded-r-md"
         {...props}
       />
     ),
@@ -131,7 +134,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         {...props}
       />
     ),
-    hr: (props) => <hr className="my-8 border-border" {...props} />,
+    hr: (props) => <hr className="my-10 border-border-soft" {...props} />,
     a: MdxAnchor,
     img: MdxImage as MDXComponents["img"],
   };

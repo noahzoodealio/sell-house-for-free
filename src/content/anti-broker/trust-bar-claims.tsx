@@ -2,55 +2,65 @@ import type { ReactNode } from "react";
 import type { TrustBarClaim } from "@/components/marketing/trust-bar";
 import { claims as registry } from "./claims";
 
-function IconCheckShield() {
+const svgProps = {
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+  className: "size-6",
+};
+
+function IconNoFees() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="size-full">
-      <path d="M12 3l8 3v6c0 4.5-3.2 8.3-8 9-4.8-.7-8-4.5-8-9V6l8-3z" />
-      <path d="M9 12l2 2 4-4" />
+    <svg {...svgProps}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M6 6l12 12" />
     </svg>
   );
 }
 
-function IconLock() {
+function IconPrivacy() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="size-full">
-      <rect x="4" y="10" width="16" height="10" rx="2" />
-      <path d="M8 10V7a4 4 0 018 0v3" />
+    <svg {...svgProps}>
+      <rect x="5" y="11" width="14" height="9" rx="1.5" />
+      <path d="M8.5 11V8a3.5 3.5 0 017 0v3" />
     </svg>
   );
 }
 
 function IconPerson() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="size-full">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" />
+    <svg {...svgProps}>
+      <circle cx="12" cy="9" r="3.5" />
+      <path d="M5 20c1.3-3.2 4-4.75 7-4.75s5.7 1.55 7 4.75" />
     </svg>
   );
 }
 
-function IconBuildingCheck() {
+function IconBroker() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="size-full">
-      <path d="M4 21V6l8-3 8 3v15" />
-      <path d="M9 21v-5h6v5" />
-      <path d="M9 10h.01M15 10h.01M9 13h.01M15 13h.01" />
+    <svg {...svgProps}>
+      <path d="M4 20V8l8-4 8 4v12" />
+      <path d="M10 20v-6h4v6" />
     </svg>
   );
 }
 
 const ICONS: Record<string, ReactNode> = {
-  "no-fees": <IconCheckShield />,
-  "no-data-resale": <IconLock />,
+  "no-fees": <IconNoFees />,
+  "no-data-resale": <IconPrivacy />,
   "real-pm": <IconPerson />,
-  "jk-realty-broker": <IconBuildingCheck />,
+  "jk-realty-broker": <IconBroker />,
 };
 
 export const TRUST_BAR_CLAIMS: readonly TrustBarClaim[] = registry
   .slice(0, 4)
   .map((claim) => ({
     id: claim.id,
-    icon: ICONS[claim.id] ?? <IconCheckShield />,
+    icon: ICONS[claim.id] ?? <IconNoFees />,
     shortLabel: claim.shortLabel,
     subLabel: claim.subLabel,
   }));

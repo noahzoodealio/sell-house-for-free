@@ -1,6 +1,5 @@
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { Container } from "@/components/layout/container";
 
 export default function MarketingLayout({
   children,
@@ -11,7 +10,7 @@ export default function MarketingLayout({
     <>
       <Header />
       <main id="main" className="min-h-[calc(100vh-200px)]">
-        <Container>{children}</Container>
+        {children}
       </main>
       <Footer />
     </>
