@@ -13,7 +13,7 @@ stories-planned:
   - {id: 7835, tag: E4-S2, depends-on: [7834],       strike-count: 0, status: closed}
   - {id: 7836, tag: E4-S3, depends-on: [7835],       strike-count: 0, status: closed}
   - {id: 7840, tag: E4-S7, depends-on: [7834],       strike-count: 0, status: closed}
-  - {id: 7837, tag: E4-S4, depends-on: [7834],       strike-count: 0, status: in-progress}
+  - {id: 7837, tag: E4-S4, depends-on: [7834],       strike-count: 0, status: closed}
   - {id: 7838, tag: E4-S5, depends-on: [7836, 7837], strike-count: 0, status: pending}
   - {id: 7839, tag: E4-S6, depends-on: [7838, 7840], strike-count: 0, status: pending}
   - {id: 7841, tag: E4-S8, depends-on: [7839],       strike-count: 0, status: pending}
@@ -23,7 +23,8 @@ stories-completed:
   - {id: 7834, outcome: closed, commit: 4273da4}
   - {id: 7835, outcome: closed, commit: 45a60a4}
   - {id: 7836, outcome: closed, commit: 50e6c57}
-  - {id: 7840, outcome: closed, note: "S7 closed; commit pending"}
+  - {id: 7840, outcome: closed, commit: 30ab536}
+  - {id: 7837, outcome: closed, note: "S4 closed; commit pending"}
 ---
 
 # E4 — Property Data Enrichment (ATTOM + MLS) · Autopilot Execution Plan

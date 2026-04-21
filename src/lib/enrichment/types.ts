@@ -57,6 +57,7 @@ export type SuggestedAddress = {
   state: "AZ";
   zip: string;
   mlsRecordId?: string;
+  listingStatus?: string;
 };
 
 export type SuggestEnvelope =
