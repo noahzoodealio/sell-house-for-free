@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { Hero, type HeroProps } from "./hero";
@@ -26,7 +25,7 @@ const accentClass: Record<PillarAccent, string> = {
 function Breadcrumb({ trail }: { trail: BreadcrumbCrumb[] }) {
   return (
     <nav aria-label="Breadcrumb">
-      <ol className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+      <ol className="flex flex-wrap items-center gap-2 text-[13px] text-ink-muted">
         {trail.map((crumb, idx) => {
           const isLast = idx === trail.length - 1;
           return (
@@ -63,8 +62,11 @@ export function PillarHero({
 }: PillarHeroProps) {
   return (
     <>
-      <div aria-hidden="true" className={`h-1 w-full ${accentClass[accent]}`} />
-      <div className="pt-6">
+      <div
+        aria-hidden="true"
+        className={`h-[3px] w-full ${accentClass[accent]}`}
+      />
+      <div className="pt-8 pb-2">
         <Container>
           <Breadcrumb trail={breadcrumb} />
         </Container>
