@@ -60,20 +60,20 @@ function HamburgerIcon({ open }: { open: boolean }) {
 }
 
 function DrawerSection({
-  eyebrow,
+  heading,
   items,
   pathname,
-  variant = "list",
 }: {
-  eyebrow: string;
+  heading: string;
   items: readonly NavItem[];
   pathname: string;
-  variant?: "list" | "featured";
 }) {
   return (
     <section>
-      <p className="eyebrow mb-3">{eyebrow}</p>
-      <ul className="flex flex-col gap-1">
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-ink-muted mb-4">
+        {heading}
+      </h2>
+      <ul className="flex flex-col">
         {items.map((r) => {
           const active = pathname === r.path;
           return (
@@ -81,18 +81,25 @@ function DrawerSection({
               <Link
                 href={r.path}
                 className={cn(
-                  "block rounded-lg px-3 py-3 transition-colors",
-                  variant === "featured"
-                    ? "text-[17px] font-semibold"
-                    : "text-[16px]",
+                  "flex items-center justify-between py-2.5 text-[16px] leading-[1.4] border-b border-border-soft last:border-b-0 transition-colors",
                   active
-                    ? "bg-brand-subtle text-brand font-semibold"
-                    : variant === "featured"
-                      ? "text-ink-title hover:bg-surface-soft"
-                      : "text-ink-body hover:bg-surface-soft hover:text-ink-title",
+                    ? "text-brand font-medium"
+                    : "text-ink-title hover:text-brand",
                 )}
               >
-                {r.title}
+                <span>{r.title}</span>
+                <svg
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                  className="size-4 text-ink-muted transition-transform group-hover:translate-x-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M7 5l5 5-5 5" />
+                </svg>
               </Link>
             </li>
           );
@@ -193,22 +200,19 @@ export function Header() {
             id="site-nav-panel"
             className="fixed inset-x-0 top-[77px] z-50 max-h-[calc(100vh-77px)] overflow-y-auto bg-surface border-t border-border-soft shadow-[var(--shadow-card)]"
           >
-            <div className="mx-auto flex flex-col gap-8 px-5 py-8 md:px-10 lg:px-14 md:max-w-[720px]">
+            <div className="mx-auto grid w-full max-w-[1200px] grid-cols-1 gap-x-12 gap-y-10 px-5 py-10 md:grid-cols-3 md:px-10 md:py-14 lg:px-14">
               <DrawerSection
-                eyebrow="Ways to sell"
+                heading="Ways to sell"
                 items={WAYS_TO_SELL}
                 pathname={pathname}
-                variant="featured"
               />
-
               <DrawerSection
-                eyebrow="Learn more"
+                heading="Learn more"
                 items={LEARN_MORE}
                 pathname={pathname}
               />
-
               <DrawerSection
-                eyebrow="Company"
+                heading="Company"
                 items={COMPANY}
                 pathname={pathname}
               />
