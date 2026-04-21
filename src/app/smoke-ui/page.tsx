@@ -25,7 +25,7 @@ export default function SmokeUI() {
     <main className="flex flex-col gap-12 bg-surface-tint px-6 py-16">
       <section>
         <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
-          Button — variant × size
+          Button, variant × size
         </h2>
         <div className="grid grid-cols-[auto_repeat(5,minmax(0,1fr))] items-center gap-4">
           <div />
@@ -55,7 +55,7 @@ export default function SmokeUI() {
 
       <section>
         <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
-          Input — idle / focused / error
+          Input, idle / focused / error
         </h2>
         <div className="grid max-w-[var(--container-form)] gap-4">
           <Input placeholder="Idle" />
@@ -67,7 +67,7 @@ export default function SmokeUI() {
 
       <section>
         <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
-          Field — label + help + error
+          Field, label + help + error
         </h2>
         <div className="grid max-w-[var(--container-form)] gap-6">
           <Field label="Email" helpText="We only use this to send the offer.">
@@ -91,7 +91,7 @@ export default function SmokeUI() {
 
       <section>
         <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
-          Fieldset — grouped placeholder
+          Fieldset, grouped placeholder
         </h2>
         <Fieldset legend="Contact info" className="max-w-[var(--container-form)]">
           <Field label="First name">
@@ -108,7 +108,7 @@ export default function SmokeUI() {
 
       <section>
         <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
-          Checkbox — unchecked / checked / disabled / error
+          Checkbox, unchecked / checked / disabled / error
         </h2>
         <div className="flex flex-col gap-3 max-w-[var(--container-form)]">
           <label className="flex items-center gap-3 text-[16px] text-ink-body">
@@ -132,7 +132,7 @@ export default function SmokeUI() {
 
       <section>
         <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
-          Radio — grouped via Fieldset + shared name
+          Radio, grouped via Fieldset + shared name
         </h2>
         <Fieldset legend="Property type" className="max-w-[var(--container-form)]">
           <label className="flex items-center gap-3 text-[16px] text-ink-body">
@@ -156,7 +156,7 @@ export default function SmokeUI() {
 
       <section>
         <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
-          Select — idle / with-value / error / disabled
+          Select, idle / with-value / error / disabled
         </h2>
         <div className="grid max-w-[var(--container-form)] gap-4">
           <Field label="State (placeholder idiom)">
@@ -200,7 +200,7 @@ export default function SmokeUI() {
 
       <section>
         <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
-          Textarea — idle / with-value / error / disabled
+          Textarea, idle / with-value / error / disabled
         </h2>
         <div className="grid max-w-[var(--container-form)] gap-4">
           <Field
@@ -234,7 +234,7 @@ export default function SmokeUI() {
 
       <section>
         <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
-          Container — page / prose / form (nested)
+          Container, page / prose / form (nested)
         </h2>
         <Container>
           <div className="rounded border-2 border-dashed border-ink-muted p-4 text-[14px] text-ink-muted">
@@ -255,7 +255,7 @@ export default function SmokeUI() {
 
       <section>
         <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
-          Card — default / elevated / outlined
+          Card, default / elevated / outlined
         </h2>
         <div className="grid gap-6 md:grid-cols-3 max-w-[var(--container-page)]">
           <Card>
@@ -281,7 +281,7 @@ export default function SmokeUI() {
 
       <section>
         <h2 className="mb-6 text-[24px] font-semibold text-ink-title">
-          FormStep — progress 1/5, 3/5, 5/5
+          FormStep, progress 1/5, 3/5, 5/5
         </h2>
         <div className="flex flex-col gap-12">
           <FormStep

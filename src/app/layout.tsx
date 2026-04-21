@@ -20,10 +20,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
     template: "%s | Sell Your House Free",
-    default: "Sell Your House Free — Arizona",
+    default: "Sell Your House Free, Arizona",
   },
   description:
-    "Sell your Arizona home for free — no agent, no listing fees.",
+    "Sell your Arizona home for free, no agent, no listing fees.",
 };
 
 export default function RootLayout({
@@ -38,7 +38,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
-        {/* Analytics is production-only — see docs/analytics-policy.md before touching. */}
+        {/* Analytics is production-only, see docs/analytics-policy.md before touching. */}
         {process.env.NODE_ENV === "production" &&
           process.env.VERCEL_ENV !== "preview" && <Analytics />}
       </body>

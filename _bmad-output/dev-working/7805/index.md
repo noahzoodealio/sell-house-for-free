@@ -1,0 +1,13 @@
+---
+work-item-id: 7805
+work-item-type: story
+parent-epic: 7778
+repo: sell-house-for-free
+branch: feature/e2-core-marketing-pages-7778
+file-groups:
+  - { n: 1, name: "/meet-your-pm MDX route w/ placeholder PM cards", status: pending }
+last-completed-step: 1
+last-completed-file-group: 0
+started-at: 2026-04-20
+mode: epic-autopilot
+---

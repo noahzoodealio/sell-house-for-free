@@ -41,8 +41,8 @@ export async function generateMetadata({
   const city = findCity(slug);
   if (!city) return {};
   return buildMetadata({
-    title: `Sell your ${city.displayName} home — free, licensed broker, no fees`,
-    description: `Sell your ${city.displayName} home for free under our licensed Arizona broker — listing, vetted cash offers, Cash+ with Repairs, or our Renovation-Only path, run by one Project Manager.`,
+    title: `Sell your ${city.displayName} home, free, licensed broker, no fees`,
+    description: `Sell your ${city.displayName} home for free under our licensed Arizona broker, listing, vetted cash offers, Cash+, or our Renovation path, run by one Project Manager.`,
     path: LINKS.city(city.slug),
   });
 }
@@ -56,7 +56,7 @@ export default async function CityLander({
   const city = findCity(slug);
   if (!city) notFound();
 
-  const getStartedHref = `${LINKS.getStarted}?city=${city.slug}`;
+  const getStartedHref = `${LINKS.getOffer}?city=${city.slug}`;
   const breadcrumb = [
     { label: "Home", url: LINKS.home },
     { label: "Arizona", url: "/az" },
@@ -68,7 +68,7 @@ export default async function CityLander({
       <Hero
         heading={
           <>
-            Sell your {city.displayName} home —{" "}
+            Sell your {city.displayName} home,{" "}
             <span className="whitespace-nowrap">free, licensed broker, no fees.</span>
           </>
         }

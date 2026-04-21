@@ -31,12 +31,20 @@ export const ROUTES = [
     priority: 1,
   },
   {
-    path: "/get-started",
-    title: "Get started",
-    showInNav: true,
+    path: "/get-offer",
+    title: "Get your offer",
+    showInNav: false,
     showInSitemap: true,
     changeFrequency: "monthly",
-    priority: 0.7,
+    priority: 0.8,
+  },
+  {
+    path: "/get-started",
+    title: "Get started",
+    showInNav: false,
+    showInSitemap: false,
+    changeFrequency: "monthly",
+    priority: 0.5,
   },
   {
     path: "/faq",
@@ -64,7 +72,7 @@ export const ROUTES = [
   },
   {
     path: "/cash-plus-repairs",
-    title: "Cash+ with Repairs",
+    title: "Cash+",
     showInNav: true,
     showInSitemap: true,
     changeFrequency: "monthly",
@@ -72,7 +80,7 @@ export const ROUTES = [
   },
   {
     path: "/renovation-only",
-    title: "Renovation-Only",
+    title: "Renovation",
     showInNav: true,
     showInSitemap: true,
     changeFrequency: "monthly",

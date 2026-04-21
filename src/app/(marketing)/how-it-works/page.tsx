@@ -15,7 +15,7 @@ const PAGE_DESCRIPTION =
 const STEPS = [
   {
     heading: "Tell us about your home",
-    body: "Start a free intake at /get-started. A few minutes of address, condition, and timing is enough for your Project Manager to open your file.",
+    body: "Start a free intake at /get-offer. A few minutes of address, condition, and timing is enough for your Project Manager to open your file.",
   },
   {
     heading: "Meet your PM",
@@ -23,7 +23,7 @@ const STEPS = [
   },
   {
     heading: "Choose your path",
-    body: "Your PM models every path that fits your situation — Listing, Cash Offers, Cash+ with Repairs, or Renovation-Only — with real numbers side-by-side. You pick.",
+    body: "Your PM models every path that fits your situation, Listing, Cash Offers, Cash+, or Renovation, with real numbers side-by-side. You pick.",
   },
   {
     heading: "Close on your timeline",
@@ -47,7 +47,7 @@ export default function HowItWorksPage() {
       />
       <HowItWorks
         steps={[...STEPS]}
-        cta={{ label: "Get my cash offer", href: LINKS.getStarted }}
+        cta={{ label: "Get my cash offer", href: LINKS.getOffer }}
       />
       <section className="py-12 md:py-16">
         <Container size="prose">
@@ -56,13 +56,13 @@ export default function HowItWorksPage() {
           </h2>
           <div className="mt-6 space-y-4 text-[17px] leading-[28px] text-ink-body">
             <p>
-              A home sale has a lot of decisions packed into a short window —
+              A home sale has a lot of decisions packed into a short window:
               pricing, repairs, offers, inspections, closing dates. A real
               Project Manager keeps every one of those decisions in front of
               you, with the trade-offs named honestly, so you’re never guessing.
             </p>
             <p>
-              The PM is paid to get your sale to a successful close — not to
+              The PM is paid to get your sale to a successful close, not to
               push you toward any particular path. That’s why every path on
               this site is priced for you up front, and you choose. We don’t
               steer.
@@ -73,7 +73,7 @@ export default function HowItWorksPage() {
       <CTASection
         heading="Ready to start your sale?"
         subcopy="Free intake, no obligation, real PM on the other side."
-        primaryCta={{ label: "Get my cash offer", href: LINKS.getStarted }}
+        primaryCta={{ label: "Get my cash offer", href: LINKS.getOffer }}
         secondaryCta={{ label: "Common questions", href: LINKS.faq }}
       />
       <JsonLd

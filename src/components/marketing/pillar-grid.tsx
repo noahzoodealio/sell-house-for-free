@@ -11,26 +11,49 @@ export type Pillar = {
 
 export type PillarGridProps = {
   pillars: Pillar[];
+  eyebrow?: string;
+  heading?: ReactNode;
+  subcopy?: ReactNode;
 };
 
-export function PillarGrid({ pillars }: PillarGridProps) {
+export function PillarGrid({
+  pillars,
+  eyebrow,
+  heading,
+  subcopy,
+}: PillarGridProps) {
   return (
-    <section className="py-16 md:py-20">
+    <section className="py-20 md:py-24">
       <Container>
+        {(eyebrow || heading || subcopy) && (
+          <div className="mb-12 md:mb-16 max-w-2xl">
+            {eyebrow ? <p className="eyebrow mb-3">{eyebrow}</p> : null}
+            {heading ? (
+              <h2 className="text-[32px] leading-[1.15] md:text-[44px] md:leading-[1.1] font-semibold text-ink-title">
+                {heading}
+              </h2>
+            ) : null}
+            {subcopy ? (
+              <p className="mt-4 text-[17px] leading-[28px] text-ink-body">
+                {subcopy}
+              </p>
+            ) : null}
+          </div>
+        )}
         <ul
           role="list"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
         >
           {pillars.map((pillar) => (
             <li key={pillar.href}>
-              <article className="relative h-full rounded-lg border border-border bg-surface p-6 transition-shadow hover:shadow-[var(--shadow-elevated)] focus-within:shadow-[var(--shadow-elevated)]">
+              <article className="group relative h-full rounded-[var(--radius-card)] border border-border-soft bg-surface p-6 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-brand-tint focus-within:border-brand">
                 <div
                   aria-hidden="true"
-                  className="mb-4 inline-flex size-12 items-center justify-center rounded-lg bg-brand-subtle text-brand"
+                  className="mb-5 inline-flex size-12 items-center justify-center rounded-full bg-brand-subtle text-brand"
                 >
                   {pillar.icon}
                 </div>
-                <h3 className="text-[20px] leading-[28px] font-semibold text-ink-title">
+                <h3 className="text-[19px] leading-[26px] font-semibold text-ink-title">
                   <Link
                     href={pillar.href}
                     className="static md:before:absolute md:before:inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
@@ -38,12 +61,12 @@ export function PillarGrid({ pillars }: PillarGridProps) {
                     {pillar.heading}
                   </Link>
                 </h3>
-                <p className="mt-3 text-[16px] leading-[24px] text-ink-body">
+                <p className="mt-2 text-[15px] leading-[24px] text-ink-body">
                   {pillar.blurb}
                 </p>
                 <span
                   aria-hidden="true"
-                  className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand"
+                  className="mt-5 inline-flex items-center gap-1 text-[14px] font-semibold text-brand group-hover:gap-2 transition-all"
                 >
                   Learn more
                   <span aria-hidden="true">→</span>

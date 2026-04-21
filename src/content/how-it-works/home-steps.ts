@@ -7,10 +7,10 @@ export const HOME_HOW_IT_WORKS_STEPS: readonly HowItWorksStep[] = [
   },
   {
     heading: "Get every path priced",
-    body: "Listing, cash offer, cash+ with repairs, renovation-only — you see the real numbers for each side-by-side.",
+    body: "Listing, cash offer, cash+ with repairs, renovation-only. You see the real numbers for each side-by-side.",
   },
   {
     heading: "Pick the path, we handle the rest",
-    body: "Your Project Manager runs the sale end-to-end under a licensed AZ broker of record — no handoffs, no surprises.",
+    body: "Your Project Manager runs the sale end-to-end under a licensed AZ broker of record. No handoffs, no surprises.",
   },
 ];
