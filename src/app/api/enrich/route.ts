@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { track } from "@vercel/analytics/server";
 
 import { devMockEnrich, devMockSuggest } from "@/lib/enrichment/fixtures";
 import { addressCacheKey, isAzZip } from "@/lib/enrichment/normalize";
@@ -42,6 +43,30 @@ type LogLine = {
 
 function logOne(line: LogLine): void {
   console.log("[api/enrich]", JSON.stringify(line));
+}
+
+// Fire-and-forget custom event for the enrichment outcome. Dimensions are
+// capped to `status` × `cache_hit` — no submissionId, no addressKey, no raw
+// address. Failures fall back to a single structured log line and never
+// block or reject the response.
+function trackEnrichmentStatus(
+  status: EnrichmentEnvelope["status"],
+  cacheHit: boolean,
+): void {
+  try {
+    void track("enrichment_status", { status, cache_hit: cacheHit });
+  } catch (err) {
+    console.log(
+      "[api/enrich]",
+      JSON.stringify({
+        at: new Date().toISOString(),
+        event: "track_failed",
+        status,
+        cache_hit: cacheHit,
+        error: err instanceof Error ? err.message : "unknown",
+      }),
+    );
+  }
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -96,6 +121,7 @@ async function handleEnrich(
       cacheHit: false,
       kind: "enrich",
     });
+    trackEnrichmentStatus(body.status, false);
     return NextResponse.json(body, { status: 200, headers: RESPONSE_HEADERS });
   }
 
@@ -126,6 +152,8 @@ async function handleEnrich(
     cacheHit,
     kind: "enrich",
   });
+
+  trackEnrichmentStatus(body.status, cacheHit);
 
   return NextResponse.json(body, { status: 200, headers: RESPONSE_HEADERS });
 }
