@@ -146,6 +146,29 @@ export function Header() {
           <span>{SITE.name}</span>
         </Link>
 
+        <nav
+          aria-label="Ways to sell"
+          className="hidden lg:flex flex-1 items-center justify-center gap-10"
+        >
+          {WAYS_TO_SELL.map((r) => {
+            const active = pathname === r.path;
+            return (
+              <Link
+                key={r.path}
+                href={r.path}
+                className={cn(
+                  "text-[15px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
+                  active
+                    ? "text-brand"
+                    : "text-ink-title/80 hover:text-brand",
+                )}
+              >
+                {r.title}
+              </Link>
+            );
+          })}
+        </nav>
+
         <button
           type="button"
           aria-label={open ? "Close menu" : "Open menu"}
@@ -171,33 +194,6 @@ export function Header() {
             className="fixed inset-x-0 top-[77px] z-50 max-h-[calc(100vh-77px)] overflow-y-auto bg-surface border-t border-border-soft shadow-[var(--shadow-card)]"
           >
             <div className="mx-auto flex flex-col gap-8 px-5 py-8 md:px-10 lg:px-14 md:max-w-[720px]">
-              <section>
-                <p className="eyebrow mb-3">Start here</p>
-                <Link
-                  href="/get-started"
-                  className={cn(
-                    "flex items-center justify-between rounded-xl bg-brand px-5 py-4 text-brand-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-[#084fb8]",
-                  )}
-                >
-                  <span className="text-[17px] font-semibold">
-                    Get my cash offer
-                  </span>
-                  <svg
-                    viewBox="0 0 20 20"
-                    aria-hidden="true"
-                    className="size-4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M4 10h12" />
-                    <path d="M11 5l5 5-5 5" />
-                  </svg>
-                </Link>
-              </section>
-
               <DrawerSection
                 eyebrow="Ways to sell"
                 items={WAYS_TO_SELL}
