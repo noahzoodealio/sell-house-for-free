@@ -7,6 +7,7 @@ import {
   useId,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -15,7 +16,9 @@ import { submitSellerForm } from "@/app/get-started/actions";
 import { captureAttribution } from "@/lib/seller-form/attribution";
 import { readDraft, writeDraft } from "@/lib/seller-form/draft";
 import { useIdempotencyKey } from "@/lib/seller-form/idempotency";
+import { validateStep } from "@/lib/seller-form/schema";
 import type {
+  AddressFields,
   AttributionFields,
   StepSlug,
   SubmitState,
@@ -23,6 +26,7 @@ import type {
 import { STEP_SLUGS } from "@/lib/seller-form/types";
 import { Progress } from "./progress";
 import { StepNav } from "./step-nav";
+import { AddressStep } from "./steps/address-step";
 import { PlaceholderStep } from "./steps/placeholder-step";
 
 export const PILLAR_SLUGS = [
@@ -52,6 +56,16 @@ const STEP_LABELS = [
 
 const INITIAL_SUBMIT_STATE: SubmitState = { ok: true, submissionId: "" };
 
+type StepDataMap = {
+  address: Partial<AddressFields>;
+};
+
+type DraftState = StepDataMap & {
+  submissionId?: string;
+};
+
+const EMPTY_DRAFT: DraftState = { address: {} };
+
 function stepIndex(slug: StepSlug): number {
   return STEP_SLUGS.indexOf(slug);
 }
@@ -61,6 +75,16 @@ function stepBySlug(slug: string | null | undefined): StepSlug {
     return slug as StepSlug;
   }
   return "address";
+}
+
+function readInitialDraft(): DraftState {
+  if (typeof window === "undefined") return EMPTY_DRAFT;
+  const persisted = readDraft();
+  if (!persisted) return EMPTY_DRAFT;
+  return {
+    submissionId: persisted.submissionId,
+    address: (persisted.address as Partial<AddressFields>) ?? {},
+  };
 }
 
 const EMPTY_SUBSCRIBE = () => () => {};
@@ -106,6 +130,13 @@ export function SellerForm({
   const submissionId = useSubmissionId();
   const attribution = useCapturedAttribution();
 
+  const [stepData, setStepData] = useState<StepDataMap>(
+    () => readInitialDraft(),
+  );
+  const [clientErrors, setClientErrors] = useState<
+    Partial<Record<StepSlug, Record<string, string[]>>>
+  >({});
+
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const prevStepRef = useRef<StepSlug>(currentStep);
   const liveRegionId = useId();
@@ -140,6 +171,30 @@ export function SellerForm({
     [router, searchParams],
   );
 
+  const updateAddress = useCallback(
+    (partial: Partial<AddressFields>) => {
+      setStepData((prev) => {
+        const merged = { ...prev, address: { ...prev.address, ...partial } };
+        writeDraft({ address: merged.address as AddressFields });
+        return merged;
+      });
+      // Clear the per-field client errors the user is actively correcting.
+      setClientErrors((prev) => {
+        const current = prev.address ?? {};
+        const next = { ...current };
+        let changed = false;
+        for (const key of Object.keys(partial)) {
+          if (next[key]) {
+            delete next[key];
+            changed = true;
+          }
+        }
+        return changed ? { ...prev, address: next } : prev;
+      });
+    },
+    [],
+  );
+
   const onBack = useCallback(() => {
     const idx = stepIndex(currentStep);
     if (idx <= 0) return;
@@ -149,14 +204,35 @@ export function SellerForm({
   const onNext = useCallback(() => {
     const idx = stepIndex(currentStep);
     if (idx >= STEP_SLUGS.length - 1) return;
+
+    if (currentStep === "address") {
+      const result = validateStep("address", stepData.address);
+      if (!result.success) {
+        setClientErrors((prev) => ({ ...prev, address: result.errors }));
+        // Surface focus on the first invalid field.
+        const firstField = Object.keys(result.errors)[0];
+        if (firstField) {
+          const input = document.querySelector<HTMLInputElement>(
+            `[name="${firstField}"]`,
+          );
+          input?.focus();
+        }
+        return;
+      }
+    }
+    // Property / condition / contact steps remain placeholder-gated for now;
+    // S5–S7 replace these with their own validation gates.
+
     navigateToStep(STEP_SLUGS[idx + 1]);
-  }, [currentStep, navigateToStep]);
+  }, [currentStep, stepData, navigateToStep]);
 
-  // S3 ships with placeholder steps. Advance is always permitted so QA can
-  // walk the routing; S4–S7 will replace placeholders with validated inputs.
-  const canAdvance = true;
+  const currentErrors = useMemo(() => {
+    const server = formState.ok === false ? formState.errors : undefined;
+    const client = clientErrors[currentStep];
+    if (!server && !client) return undefined;
+    return { ...(server ?? {}), ...(client ?? {}) };
+  }, [formState, clientErrors, currentStep]);
 
-  const currentErrors = formState.ok === false ? formState.errors : undefined;
   const hasErrors =
     formState.ok === false && Object.keys(formState.errors).length > 0;
 
@@ -180,7 +256,7 @@ export function SellerForm({
       {hasErrors && (
         <div
           role="alert"
-          className="rounded-md border border-error bg-error/5 px-4 py-3 text-[14px] leading-[20px] text-error"
+          className="rounded-md border border-[var(--color-error)] bg-[color:color-mix(in_srgb,var(--color-error)_5%,transparent)] px-4 py-3 text-[14px] leading-[20px] text-[var(--color-error)]"
         >
           We couldn&apos;t submit your form — please correct the fields marked
           below.
@@ -190,7 +266,9 @@ export function SellerForm({
       <StepDispatch
         step={currentStep}
         headingRef={headingRef}
+        data={stepData}
         errors={currentErrors}
+        onAddressChange={updateAddress}
       />
 
       <HiddenField name="step" value={currentStep} />
@@ -207,7 +285,7 @@ export function SellerForm({
       <StepNav
         onBack={onBack}
         onNext={onNext}
-        canAdvance={canAdvance}
+        canAdvance={true}
         step={stepIndex(currentStep) + 1}
         total={STEP_SLUGS.length}
       />
@@ -215,17 +293,31 @@ export function SellerForm({
   );
 }
 
+type StepDispatchProps = {
+  step: StepSlug;
+  headingRef: React.Ref<HTMLHeadingElement>;
+  data: StepDataMap;
+  errors?: Record<string, string[]>;
+  onAddressChange: (partial: Partial<AddressFields>) => void;
+};
+
 function StepDispatch({
   step,
   headingRef,
+  data,
   errors,
-}: {
-  step: StepSlug;
-  headingRef: React.Ref<HTMLHeadingElement>;
-  errors?: Record<string, string[]>;
-}) {
+  onAddressChange,
+}: StepDispatchProps) {
   switch (step) {
     case "address":
+      return (
+        <AddressStep
+          data={data.address}
+          errors={errors}
+          onChange={onAddressChange}
+          headingRef={headingRef}
+        />
+      );
     case "property":
     case "condition":
     case "contact":

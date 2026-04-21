@@ -3,10 +3,14 @@ import { z } from "zod";
 const AZ_ZIP_REGEX = /^8[5-6]\d{3}$/;
 
 export const addressStepSchema = z.object({
-  street1: z.string().trim().min(1, "Street is required").max(120),
+  street1: z
+    .string()
+    .trim()
+    .min(3, "Please enter your street address")
+    .max(120),
   street2: z.string().trim().max(60).optional(),
-  city: z.string().trim().min(1, "City is required").max(60),
-  state: z.literal("AZ"),
+  city: z.string().trim().min(1, "Please enter your city").max(60),
+  state: z.literal("AZ", "Arizona is the only service area right now"),
   zip: z
     .string()
     .trim()
