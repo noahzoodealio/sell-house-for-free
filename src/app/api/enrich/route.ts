@@ -1,7 +1,9 @@
-import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { devMockEnrich, devMockSuggest } from "@/lib/enrichment/fixtures";
+import { addressCacheKey, isAzZip } from "@/lib/enrichment/normalize";
+import { getEnrichment, suggest } from "@/lib/enrichment/service";
+import { createHash } from "node:crypto";
 import {
   zEnrichmentInput,
   type EnrichInput,
@@ -14,55 +16,17 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const AZ_ZIP_REGEX = /^8[5-6]\d{3}$/;
-
 const RESPONSE_HEADERS = {
   "Cache-Control": "private, no-store",
   Vary: "Accept-Encoding",
 } as const;
 
-/**
- * SHA-256 hex of the canonicalized address. Mirrors the algorithm S3
- * will move into `src/lib/enrichment/normalize.ts`; inlining here keeps
- * S1 self-contained without pulling S3 forward.
- */
-function addressKey(addr: EnrichInput["address"]): string {
-  const canonical = [
-    addr.street1.trim().toLowerCase(),
-    (addr.street2 ?? "").trim().toLowerCase(),
-    addr.city.trim().toLowerCase(),
-    "AZ",
-    addr.zip.trim(),
-  ].join("|");
-  return createHash("sha256").update(canonical).digest("hex");
-}
-
 function suggestKey(query: string): string {
   return createHash("sha256").update(query.trim().toLowerCase()).digest("hex");
 }
 
-function isAzZip(zip: string): boolean {
-  return AZ_ZIP_REGEX.test(zip);
-}
-
 function isDevMockEnabled(): boolean {
   return process.env.ENRICHMENT_DEV_MOCK === "true";
-}
-
-/**
- * S1 stub — replaced in S3 by the real orchestrator wrapped in
- * `unstable_cache`. Thrown errors are caught by the route handler and
- * emitted as `{status: 'error'}`, keeping the envelope-always-200
- * contract intact.
- */
-function getEnrichmentStub(_input: EnrichInput): EnrichmentEnvelope {
-  void _input;
-  throw new Error("not implemented — see E4-S3");
-}
-
-function getSuggestStub(_input: SuggestInput): SuggestEnvelope {
-  void _input;
-  throw new Error("not implemented — see E4-S3");
 }
 
 type LogLine = {
@@ -91,11 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       {
         error: "invalid_input",
         issues: [
-          {
-            code: "custom",
-            message: "Request body is not valid JSON",
-            path: [],
-          },
+          { code: "custom", message: "Request body is not valid JSON", path: [] },
         ],
       },
       { status: 400, headers: RESPONSE_HEADERS },
@@ -118,8 +78,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   return handleSuggest(input, startedAt);
 }
 
-function handleEnrich(input: EnrichInput, startedAt: number): NextResponse {
-  const key = addressKey(input.address);
+async function handleEnrich(
+  input: EnrichInput,
+  startedAt: number,
+): Promise<NextResponse> {
+  const key = addressCacheKey(input.address);
 
   if (!isAzZip(input.address.zip)) {
     const body: EnrichmentEnvelope = { status: "out-of-area" };
@@ -138,16 +101,13 @@ function handleEnrich(input: EnrichInput, startedAt: number): NextResponse {
 
   let body: EnrichmentEnvelope;
   try {
-    body = isDevMockEnabled()
-      ? devMockEnrich(input)
-      : getEnrichmentStub(input);
+    body = isDevMockEnabled() ? devMockEnrich(input) : await getEnrichment(input);
   } catch {
     body = { status: "error", code: "unhandled" };
   }
 
-  const cacheHit = body.status === "ok" || body.status === "no-match"
-    ? body.cacheHit
-    : false;
+  const cacheHit =
+    body.status === "ok" || body.status === "no-match" ? body.cacheHit : false;
 
   logOne({
     at: new Date().toISOString(),
@@ -155,7 +115,14 @@ function handleEnrich(input: EnrichInput, startedAt: number): NextResponse {
     addressKey: key,
     status: body.status,
     durationMs: Math.round(performance.now() - startedAt),
-    mlsHits: { search: false, details: false, images: false },
+    mlsHits: {
+      search: !isDevMockEnabled() && body.status !== "out-of-area",
+      details: body.status === "ok",
+      images:
+        body.status === "ok" &&
+        body.slot.listingStatus === "currently-listed" &&
+        (body.slot.photos?.length ?? 0) > 0,
+    },
     cacheHit,
     kind: "enrich",
   });
@@ -163,10 +130,13 @@ function handleEnrich(input: EnrichInput, startedAt: number): NextResponse {
   return NextResponse.json(body, { status: 200, headers: RESPONSE_HEADERS });
 }
 
-function handleSuggest(input: SuggestInput, startedAt: number): NextResponse {
+async function handleSuggest(
+  input: SuggestInput,
+  startedAt: number,
+): Promise<NextResponse> {
   let body: SuggestEnvelope;
   try {
-    body = isDevMockEnabled() ? devMockSuggest(input) : getSuggestStub(input);
+    body = isDevMockEnabled() ? devMockSuggest(input) : await suggest(input);
   } catch {
     body = { status: "error", code: "unhandled" };
   }
@@ -177,7 +147,11 @@ function handleSuggest(input: SuggestInput, startedAt: number): NextResponse {
     addressKey: suggestKey(input.query),
     status: body.status,
     durationMs: Math.round(performance.now() - startedAt),
-    mlsHits: { search: false, details: false, images: false },
+    mlsHits: {
+      search: !isDevMockEnabled() && body.status !== "error",
+      details: false,
+      images: false,
+    },
     cacheHit: false,
     kind: "suggest",
   });

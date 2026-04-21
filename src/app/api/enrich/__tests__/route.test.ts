@@ -135,14 +135,19 @@ describe("POST /api/enrich", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 200 + error envelope when mock is off and stub throws", async () => {
+  it("returns 200 + error envelope when mock is off and MLS config is missing", async () => {
     process.env.ENRICHMENT_DEV_MOCK = "false";
-    // @ts-expect-error — NextRequest accepts a Request in the Next runtime
-    const res = await POST(makeRequest(happyEnrichBody));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.status).toBe("error");
-    expect(body.code).toBe("unhandled");
+    const prevBase = process.env.MLS_API_BASE_URL;
+    delete process.env.MLS_API_BASE_URL;
+    try {
+      // @ts-expect-error — NextRequest accepts a Request in the Next runtime
+      const res = await POST(makeRequest(happyEnrichBody));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.status).toBe("error");
+    } finally {
+      if (prevBase) process.env.MLS_API_BASE_URL = prevBase;
+    }
   });
 
   it("does not echo submissionId in the response body", async () => {
