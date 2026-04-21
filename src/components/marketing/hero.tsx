@@ -8,11 +8,14 @@ export type HeroProps = {
   eyebrow?: string;
   heading: ReactNode;
   subcopy?: ReactNode;
-  primaryCta: { label: string; href: string };
+  primaryCta?: { label: string; href: string };
   secondaryCta?: { label: string; href: string };
+  /** Replaces the primary/secondary CTA buttons when provided (e.g., an
+   *  address search bar). CTAs are ignored if `action` is set. */
+  action?: ReactNode;
   image?: { src: string; alt: string; width: number; height: number };
   align?: "left" | "center";
-  /** Optional slot rendered below the CTA row (e.g., rating badge). */
+  /** Optional slot rendered below the action row (e.g., rating badge). */
   trailing?: ReactNode;
   children?: ReactNode;
 };
@@ -23,6 +26,7 @@ export function Hero({
   subcopy,
   primaryCta,
   secondaryCta,
+  action,
   image,
   align = "left",
   trailing,
@@ -60,22 +64,36 @@ export function Hero({
             ) : null}
             <div
               className={cn(
-                "mt-8 flex flex-col sm:flex-row gap-3",
-                align === "center" ? "justify-center" : "",
+                "mt-8",
+                action ? "" : "flex flex-col sm:flex-row gap-3",
+                align === "center" && !action ? "justify-center" : "",
+                align === "center" && action ? "flex justify-center" : "",
               )}
             >
-              <CtaLink href={primaryCta.href} variant="primary" size="lg">
-                {primaryCta.label}
-              </CtaLink>
-              {secondaryCta ? (
-                <CtaLink
-                  href={secondaryCta.href}
-                  variant="secondary"
-                  size="lg"
-                >
-                  {secondaryCta.label}
-                </CtaLink>
-              ) : null}
+              {action ? (
+                action
+              ) : (
+                <>
+                  {primaryCta ? (
+                    <CtaLink
+                      href={primaryCta.href}
+                      variant="primary"
+                      size="lg"
+                    >
+                      {primaryCta.label}
+                    </CtaLink>
+                  ) : null}
+                  {secondaryCta ? (
+                    <CtaLink
+                      href={secondaryCta.href}
+                      variant="secondary"
+                      size="lg"
+                    >
+                      {secondaryCta.label}
+                    </CtaLink>
+                  ) : null}
+                </>
+              )}
             </div>
             {trailing ? <div className="mt-6">{trailing}</div> : null}
           </div>

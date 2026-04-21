@@ -6,6 +6,7 @@ import { entries as faqEntries } from "@/content/faq/entries";
 import { organizationSchema, faqPageSchema } from "@/lib/schema";
 import { Container } from "@/components/layout/container";
 import { Hero } from "@/components/marketing/hero";
+import { AddressSearchBar } from "@/components/marketing/address-search-bar";
 import { StatBar } from "@/components/marketing/stat-bar";
 import { PillarGrid } from "@/components/marketing/pillar-grid";
 import { FeatureSplit } from "@/components/marketing/feature-split";
@@ -113,8 +114,13 @@ export default function Home() {
             Never a fee to us.
           </>
         }
-        primaryCta={{ label: "Get my cash offer", href: LINKS.getStarted }}
-        secondaryCta={{ label: "See how it works", href: LINKS.howItWorks }}
+        action={
+          <AddressSearchBar
+            destination={LINKS.getStarted}
+            buttonLabel="Get my cash offer"
+            placeholder="Enter your home address"
+          />
+        }
         trailing={<RatingBadge />}
       />
 
