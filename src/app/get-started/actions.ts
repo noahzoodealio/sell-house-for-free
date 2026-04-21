@@ -48,6 +48,9 @@ function parseFormData(formData: FormData): unknown {
   const submissionId = strOrUndefined(formData.get("submissionId"));
   const pillarHint = strOrUndefined(formData.get("pillarHint"));
   const cityHint = strOrUndefined(formData.get("cityHint"));
+  const currentListingStatus = strOrUndefined(
+    formData.get("currentListingStatus"),
+  );
 
   const candidate: Record<string, unknown> = {
     submissionId,
@@ -61,6 +64,7 @@ function parseFormData(formData: FormData): unknown {
   };
   if (pillarHint) candidate.pillarHint = pillarHint;
   if (cityHint) candidate.cityHint = cityHint;
+  if (currentListingStatus) candidate.currentListingStatus = currentListingStatus;
 
   return candidate;
 }

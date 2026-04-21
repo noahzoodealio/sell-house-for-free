@@ -212,9 +212,9 @@ export function SellerForm({
   const [clientErrors, setClientErrors] = useState<
     Partial<Record<StepSlug, Record<string, string[]>>>
   >({});
-  // Listed-notice chip state — S6 keeps this in-memory only. S8 will widen
-  // `currentListingStatus` on the draft schema to accept these reason values
-  // and persist via `writeDraft`.
+  // Listed-notice chip is session-scoped (PII/consent posture — see E3-S7,
+  // story 7841 AC13). Value is forwarded to the Server Action via a hidden
+  // field, never written to localStorage.
   const [listedReason, setListedReason] = useState<ListedReason | undefined>(
     undefined,
   );
@@ -530,6 +530,11 @@ export function SellerForm({
         enrichmentSlot={enrichmentSlot}
         listedReason={listedReason}
         onListedReasonChange={setListedReason}
+        showCashOffersPrenudge={
+          initialHints?.pillar === "cash-offers" &&
+          enrichmentSlot?.listingStatus === "currently-listed" &&
+          listedReason !== "just-exploring"
+        }
       />
 
       <HiddenField name="step" value={currentStep} />
@@ -538,6 +543,9 @@ export function SellerForm({
       <HiddenField name="attribution" value={JSON.stringify(attribution)} />
       <HiddenField name="draftJson" value={JSON.stringify(stepData)} />
       <HiddenField name="consentJson" value={JSON.stringify(consent)} />
+      {listedReason && (
+        <HiddenField name="currentListingStatus" value={listedReason} />
+      )}
       {initialHints?.pillar && (
         <HiddenField name="pillarHint" value={initialHints.pillar} />
       )}
@@ -571,6 +579,7 @@ type StepDispatchProps = {
   enrichmentSlot: import("@/lib/seller-form/types").EnrichmentSlot | undefined;
   listedReason: ListedReason | undefined;
   onListedReasonChange: (reason: ListedReason) => void;
+  showCashOffersPrenudge: boolean;
 };
 
 function StepDispatch({
@@ -588,6 +597,7 @@ function StepDispatch({
   enrichmentSlot,
   listedReason,
   onListedReasonChange,
+  showCashOffersPrenudge,
 }: StepDispatchProps) {
   const listingStatus = enrichmentSlot?.listingStatus;
   switch (step) {
@@ -625,6 +635,7 @@ function StepDispatch({
           errors={errors}
           onChange={onConditionChange}
           headingRef={headingRef}
+          showCashOffersPrenudge={showCashOffersPrenudge}
         />
       );
     case "contact":

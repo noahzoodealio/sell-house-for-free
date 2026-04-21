@@ -2,38 +2,22 @@
 
 import { useId, useRef } from "react";
 import { cn } from "@/lib/cn";
+import {
+  CURRENT_LISTING_STATUS_VALUES,
+  type CurrentListingStatus,
+} from "@/lib/seller-form/schema";
 import type { EnrichmentSlot } from "@/lib/seller-form/types";
 
-// S6 skeleton values — S8 will finalize copy + wire the strict z.enum on the
-// draft schema's `currentListingStatus` field. These string literals are
-// intentionally standalone from the schema enum (which today shares names
-// with `listingStatus`) so S8 has a clear edit target.
-export const LISTED_REASON_VALUES = [
-  "second-opinion",
-  "ready-to-switch",
-  "just-exploring",
-] as const;
+export const LISTED_REASON_VALUES = CURRENT_LISTING_STATUS_VALUES;
 
-export type ListedReason = (typeof LISTED_REASON_VALUES)[number];
+export type ListedReason = CurrentListingStatus;
 
-type ChipCopy = { value: ListedReason; label: string; helper: string };
+type ChipCopy = { value: ListedReason; label: string };
 
 const CHIPS: readonly ChipCopy[] = [
-  {
-    value: "second-opinion",
-    label: "Looking for a second opinion",
-    helper: "I want another look at what my home could sell for",
-  },
-  {
-    value: "ready-to-switch",
-    label: "Ready to switch agents",
-    helper: "I'm not happy with how my listing is going",
-  },
-  {
-    value: "just-exploring",
-    label: "Just exploring options",
-    helper: "I'm curious what else is out there",
-  },
+  { value: "second-opinion", label: "Second opinion" },
+  { value: "ready-to-switch", label: "Ready to switch" },
+  { value: "just-exploring", label: "Just exploring" },
 ];
 
 export type ListedNoticeProps = {
@@ -79,11 +63,12 @@ export function ListedNotice({
       )}
     >
       <legend id={`${groupId}-legend`} className="contents">
-        <p className="text-[14px] leading-[20px] font-medium text-ink-title">
-          Looks like your home is currently listed.
-        </p>
-        <p className="text-[13px] leading-[18px] text-ink-muted">
-          Want to tell us a bit more so we can help?
+        <h3 className="text-[16px] leading-[22px] font-semibold text-ink-title">
+          We see your home is currently listed.
+        </h3>
+        <p className="text-[14px] leading-[20px] text-ink-body">
+          We can still help &mdash; are you exploring a second opinion, or
+          ready to switch representation?
         </p>
       </legend>
 
@@ -101,9 +86,10 @@ export function ListedNotice({
               role="radio"
               aria-checked={isSelected}
               tabIndex={isTabTarget ? 0 : -1}
-              onClick={() => onChange(chip.value)}
+              onClick={() => {
+                if (value !== chip.value) onChange(chip.value);
+              }}
               onKeyDown={handleKeyDown}
-              title={chip.helper}
               className={cn(
                 "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border px-4 py-2 text-[14px] leading-[20px]",
                 "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",

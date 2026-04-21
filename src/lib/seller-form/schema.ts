@@ -46,6 +46,13 @@ export const propertyStepSchema = z.object({
   lotSize: z.number().int().min(0).max(5_000_000).optional(),
 });
 
+export const CURRENT_LISTING_STATUS_VALUES = [
+  "second-opinion",
+  "ready-to-switch",
+  "just-exploring",
+] as const;
+export type CurrentListingStatus = (typeof CURRENT_LISTING_STATUS_VALUES)[number];
+
 export const CONDITION_VALUES = ["move-in", "needs-work", "major-reno"] as const;
 export const TIMELINE_VALUES = [
   "0-3mo",
@@ -147,7 +154,7 @@ export const fullSellerFormSchema = z
     cityHint: z.string().optional(),
     attribution: attributionSchema,
     currentListingStatus: z
-      .enum(["not-listed", "currently-listed", "previously-listed"])
+      .enum(CURRENT_LISTING_STATUS_VALUES)
       .optional(),
     enrichment: enrichmentSlotSchema.optional(),
   })

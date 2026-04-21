@@ -17,6 +17,7 @@ type ConditionStepProps = {
   errors?: Record<string, string[]>;
   onChange: (partial: Partial<ConditionFields>) => void;
   headingRef: Ref<HTMLHeadingElement>;
+  showCashOffersPrenudge?: boolean;
 };
 
 const CONDITION_OPTIONS: Array<{
@@ -65,6 +66,7 @@ export function ConditionStep({
   errors,
   onChange,
   headingRef,
+  showCashOffersPrenudge = false,
 }: ConditionStepProps) {
   const radioGroupId = useId();
   const motivationValue = data.motivation ?? "";
@@ -82,6 +84,13 @@ export function ConditionStep({
       >
         Step 3 of 4: Condition &amp; timeline
       </h2>
+
+      {showCashOffersPrenudge && (
+        <p className="text-[14px] leading-[20px] italic text-ink-muted">
+          You mentioned you&apos;re currently listed &mdash; a cash offer can
+          close without waiting for MLS days.
+        </p>
+      )}
 
       <Fieldset legend="What's your home's current condition?">
         <ul className="flex flex-col gap-2" role="radiogroup">
