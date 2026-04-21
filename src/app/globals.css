@@ -131,3 +131,13 @@
     margin-bottom: 1.5rem;
   }
 }
+
+/* E3-S5: hide native number spinner buttons on property-step fields */
+.property-number::-webkit-outer-spin-button,
+.property-number::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.property-number {
+  -moz-appearance: textfield;
+}

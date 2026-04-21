@@ -43,8 +43,12 @@ export const ROUTES = [
     title: "Get started",
     showInNav: false,
     showInSitemap: false,
-    changeFrequency: "monthly",
-    priority: 0.5,
+  },
+  {
+    path: "/get-started/thanks",
+    title: "Thanks",
+    showInNav: false,
+    showInSitemap: false,
   },
   {
     path: "/faq",
