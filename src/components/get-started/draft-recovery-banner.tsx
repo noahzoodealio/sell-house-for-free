@@ -21,10 +21,14 @@ export function DraftRecoveryBanner({
         <strong>Welcome back.</strong> We kept your previous answers except your
         contact info (for privacy).
       </p>
-      <div className="flex gap-2">
-        <Button type="button" size="sm" variant="secondary" onClick={onDiscard}>
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={onDiscard}
+          className="inline-flex items-center h-[40px] px-3 rounded-md text-[14px] leading-[20px] font-medium font-[var(--font-inter)] text-ink-muted hover:text-ink-body hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
           Start fresh
-        </Button>
+        </button>
         <Button type="button" size="sm" variant="primary" onClick={onDismiss}>
           Continue
         </Button>

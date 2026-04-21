@@ -25,6 +25,12 @@ export type AddressSearchBarProps = {
   className?: string;
 };
 
+type AddressComponent = {
+  short_name?: string;
+  long_name?: string;
+  types?: string[];
+};
+
 type MapsNamespace = {
   maps?: {
     places?: {
@@ -39,6 +45,7 @@ type MapsNamespace = {
         getPlace: () => {
           formatted_address?: string;
           place_id?: string;
+          address_components?: AddressComponent[];
         } | null;
       };
     };
@@ -47,6 +54,35 @@ type MapsNamespace = {
     };
   };
 };
+
+type ParsedAddress = {
+  street1?: string;
+  street2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+};
+
+function parseComponents(
+  components: AddressComponent[] | undefined,
+): ParsedAddress {
+  if (!components) return {};
+  const get = (type: string, which: "short" | "long" = "long") =>
+    components.find((c) => c.types?.includes(type))?.[
+      which === "short" ? "short_name" : "long_name"
+    ];
+
+  const streetNumber = get("street_number");
+  const route = get("route");
+  const street1 = [streetNumber, route].filter(Boolean).join(" ") || undefined;
+  const street2 = get("subpremise");
+  const city =
+    get("locality") ?? get("sublocality_level_1") ?? get("postal_town");
+  const state = get("administrative_area_level_1", "short");
+  const zip = get("postal_code");
+
+  return { street1, street2, city, state, zip };
+}
 
 function PinIcon() {
   return (
@@ -82,13 +118,18 @@ export function AddressSearchBar({
   const navigatedRef = useRef(false);
 
   const navigate = useCallback(
-    (address: string, placeId?: string) => {
+    (address: string, placeId?: string, parsed?: ParsedAddress) => {
       if (navigatedRef.current) return;
       const trimmed = address.trim();
       if (!trimmed) return;
       navigatedRef.current = true;
       const params = new URLSearchParams({ address: trimmed });
       if (placeId) params.set("placeId", placeId);
+      if (parsed?.street1) params.set("street1", parsed.street1);
+      if (parsed?.street2) params.set("street2", parsed.street2);
+      if (parsed?.city) params.set("city", parsed.city);
+      if (parsed?.state) params.set("state", parsed.state);
+      if (parsed?.zip) params.set("zip", parsed.zip);
       router.push(`${destination}?${params.toString()}`);
     },
     [router, destination],
@@ -114,7 +155,7 @@ export function AddressSearchBar({
       const placeId = place?.place_id;
       if (!formatted) return;
       if (inputRef.current) inputRef.current.value = formatted;
-      navigate(formatted, placeId);
+      navigate(formatted, placeId, parseComponents(place?.address_components));
     });
 
     return () => {

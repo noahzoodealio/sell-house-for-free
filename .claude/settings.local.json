@@ -138,7 +138,11 @@
       "Bash(export LC_ALL=C.UTF-8)",
       "Bash(xargs -0 sed -i 's/ — /, /g')",
       "Bash(xargs -0 -I{} sed -i 's/Cash+ with Repairs/Cash+/g' {})",
-      "Bash(xargs -0 -I{} sed -i 's/Renovation-Only/Renovation/g' {})"
+      "Bash(xargs -0 -I{} sed -i 's/Renovation-Only/Renovation/g' {})",
+      "Read(//c/Users/Noah/source/**)",
+      "Read(//c/Users/Noah/**)",
+      "Read(//c//**)",
+      "Read(//c/c/Users/Noah/**)"
     ]
   }
 }

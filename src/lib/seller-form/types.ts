@@ -22,6 +22,14 @@ export type SellerFormDraft = z.infer<typeof fullSellerFormSchema>;
 export const STEP_SLUGS = ["address", "property", "condition", "contact"] as const;
 export type StepSlug = (typeof STEP_SLUGS)[number];
 
+export const PILLAR_SLUGS = [
+  "listing",
+  "cash-offers",
+  "cash-plus-repairs",
+  "renovation-only",
+] as const;
+export type PillarSlug = (typeof PILLAR_SLUGS)[number];
+
 export type SubmitState =
   | { ok: true; submissionId: string; referralCode?: string }
   | { ok: false; errors: Record<string, string[]> };

@@ -18,6 +18,9 @@ function isBrowser(): boolean {
   return typeof window !== "undefined" && typeof sessionStorage !== "undefined";
 }
 
+const EMPTY_ATTRIBUTION: AttributionFields = Object.freeze({}) as AttributionFields;
+let memoized: AttributionFields | null = null;
+
 function readCached(): AttributionFields | null {
   try {
     const raw = sessionStorage.getItem(ATTRIBUTION_STORAGE_KEY);
@@ -28,10 +31,14 @@ function readCached(): AttributionFields | null {
 }
 
 export function captureAttribution(): AttributionFields {
-  if (!isBrowser()) return {};
+  if (!isBrowser()) return EMPTY_ATTRIBUTION;
+  if (memoized) return memoized;
 
   const cached = readCached();
-  if (cached) return cached;
+  if (cached) {
+    memoized = cached;
+    return memoized;
+  }
 
   const params = new URLSearchParams(window.location.search);
   const captured: AttributionFields = {};
@@ -53,7 +60,8 @@ export function captureAttribution(): AttributionFields {
     // ignore storage failures — attribution is best-effort.
   }
 
-  return captured;
+  memoized = captured;
+  return memoized;
 }
 
 export function readAttribution(): AttributionFields | null {

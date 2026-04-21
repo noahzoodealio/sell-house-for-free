@@ -1,13 +1,13 @@
 import { Suspense } from "react";
 import { buildMetadata } from "@/lib/seo";
 import { AZ_CITY_SLUGS, type AzCitySlug } from "@/lib/routes";
+import { SellerForm } from "@/components/get-started/seller-form";
 import {
-  SellerForm,
   PILLAR_SLUGS,
   STEP_SLUGS,
   type PillarSlug,
   type StepSlug,
-} from "@/components/get-started/seller-form";
+} from "@/lib/seller-form/types";
 
 export const metadata = buildMetadata({
   title: "Get started",

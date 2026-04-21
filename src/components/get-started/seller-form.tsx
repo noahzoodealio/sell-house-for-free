@@ -29,6 +29,7 @@ import type {
   ConditionFields,
   ConsentFields,
   ContactFields,
+  PillarSlug,
   PropertyFields,
   StepSlug,
   SubmitState,
@@ -42,17 +43,8 @@ import { ConditionStep } from "./steps/condition-step";
 import { ContactStep } from "./steps/contact-step";
 import { PropertyStep } from "./steps/property-step";
 
-export const PILLAR_SLUGS = [
-  "listing",
-  "cash-offers",
-  "cash-plus-repairs",
-  "renovation-only",
-] as const;
-
-export { STEP_SLUGS } from "@/lib/seller-form/types";
-export type { StepSlug } from "@/lib/seller-form/types";
-
-export type PillarSlug = (typeof PILLAR_SLUGS)[number];
+export { PILLAR_SLUGS, STEP_SLUGS } from "@/lib/seller-form/types";
+export type { PillarSlug, StepSlug } from "@/lib/seller-form/types";
 
 export type SellerFormProps = {
   initialHints?: { pillar?: PillarSlug; city?: AzCitySlug };
@@ -100,13 +92,53 @@ function stepBySlug(slug: string | null | undefined): StepSlug {
   return "address";
 }
 
+function readAddressFromUrl(): Partial<AddressFields> {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+
+  const structured: Partial<AddressFields> = {};
+  const street1 = params.get("street1")?.trim();
+  const street2 = params.get("street2")?.trim();
+  const city = params.get("city")?.trim();
+  const state = params.get("state")?.trim();
+  const zip = params.get("zip")?.trim();
+  if (street1) structured.street1 = street1;
+  if (street2) structured.street2 = street2;
+  if (city) structured.city = city;
+  if (state === "AZ") structured.state = state;
+  if (zip && /^\d{5}$/.test(zip)) structured.zip = zip;
+  if (Object.keys(structured).length > 0) return structured;
+
+  // Fallback: parse formatted-address from `?address=` (typed entries, no Places).
+  // Expected shape: "123 Main St, City, ST 12345[, USA]" — best-effort only.
+  const formatted = params.get("address")?.trim();
+  if (!formatted) return {};
+  const match = formatted.match(
+    /^(.+?),\s*(.+?),\s*([A-Z]{2})\s+(\d{5})(?:-\d{4})?(?:,\s*USA)?$/,
+  );
+  if (!match) return {};
+  const [, s1, parsedCity, parsedState, parsedZip] = match;
+  const out: Partial<AddressFields> = { street1: s1.trim(), city: parsedCity.trim(), zip: parsedZip };
+  if (parsedState === "AZ") out.state = parsedState;
+  return out;
+}
+
 function readInitialDraft(): DraftState {
   if (typeof window === "undefined") return EMPTY_DRAFT;
   const persisted = readDraft();
-  if (!persisted) return EMPTY_DRAFT;
+  const urlAddress = readAddressFromUrl();
+  if (!persisted) {
+    return { ...EMPTY_DRAFT, address: urlAddress };
+  }
   return {
     submissionId: persisted.submissionId,
-    address: (persisted.address as Partial<AddressFields>) ?? {},
+    // URL params win over a stale persisted draft when both are present — the
+    // user just re-submitted from the landing bar, so their latest address is
+    // in the URL.
+    address:
+      Object.keys(urlAddress).length > 0
+        ? urlAddress
+        : (persisted.address as Partial<AddressFields>) ?? {},
     property: (persisted.property as Partial<PropertyFields>) ?? {},
     condition: (persisted.condition as Partial<ConditionFields>) ?? {},
     // contact & consent are PII-stripped by draft.ts on write; always empty on read.
@@ -116,6 +148,8 @@ function readInitialDraft(): DraftState {
 }
 
 const EMPTY_SUBSCRIBE = () => () => {};
+const EMPTY_ATTRIBUTION: AttributionFields = {};
+const getEmptyAttribution = (): AttributionFields => EMPTY_ATTRIBUTION;
 
 function getOrCreateSubmissionId(): string {
   if (typeof window === "undefined") return "";
@@ -136,7 +170,11 @@ function useSubmissionId(): string {
 }
 
 function useCapturedAttribution(): AttributionFields {
-  return useSyncExternalStore(EMPTY_SUBSCRIBE, captureAttribution, () => ({}));
+  return useSyncExternalStore(
+    EMPTY_SUBSCRIBE,
+    captureAttribution,
+    getEmptyAttribution,
+  );
 }
 
 export function SellerForm({
@@ -158,30 +196,17 @@ export function SellerForm({
   const submissionId = useSubmissionId();
   const attribution = useCapturedAttribution();
 
-  const [stepData, setStepData] = useState<StepDataMap>(() => {
-    const d = readInitialDraft();
-    return {
-      address: d.address,
-      property: d.property,
-      condition: d.condition,
-      contact: d.contact,
-    };
-  });
-  const [consent, setConsent] = useState<Partial<ConsentFields>>(() => {
-    const d = readInitialDraft();
-    return d.consent;
-  });
-  const hadDraftOnMount = useMemo(() => {
-    const d = readInitialDraft();
-    return (
-      Object.keys(d.address).length > 0 ||
-      Object.keys(d.property).length > 0 ||
-      Object.keys(d.condition).length > 0
-    );
-  }, []);
-  const [showDraftBanner, setShowDraftBanner] = useState<boolean>(
-    () => hadDraftOnMount,
-  );
+  // First render must match the server output (empty state) to avoid hydration
+  // mismatches — localStorage and window.location.search are client-only. The
+  // draft is hydrated in the mount effect below.
+  const [stepData, setStepData] = useState<StepDataMap>(() => ({
+    address: {},
+    property: {},
+    condition: {},
+    contact: {},
+  }));
+  const [consent, setConsent] = useState<Partial<ConsentFields>>({});
+  const [showDraftBanner, setShowDraftBanner] = useState<boolean>(false);
   const [clientErrors, setClientErrors] = useState<
     Partial<Record<StepSlug, Record<string, string[]>>>
   >({});
@@ -204,6 +229,50 @@ export function SellerForm({
   useEffect(() => {
     // Fire step_entered on first mount for the initial step.
     trackStepEntered(currentStep);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    // Client-only hydration: reads localStorage draft + ?address=… URL seed.
+    // Kept out of the useState initializer so SSR and first client render
+    // agree (both start empty), which is why this has to run post-mount.
+    const d = readInitialDraft();
+    const hadDraft =
+      Object.keys(d.address).length > 0 ||
+      Object.keys(d.property).length > 0 ||
+      Object.keys(d.condition).length > 0;
+    setStepData({
+      address: d.address,
+      property: d.property,
+      condition: d.condition,
+      contact: d.contact,
+    });
+    setConsent(d.consent);
+    // Only show the "welcome back" banner for pre-existing drafts, never for
+    // an address freshly seeded from the landing bar on this page load.
+    const urlAddress = readAddressFromUrl();
+    const seededFromUrl = Object.keys(urlAddress).length > 0;
+    setShowDraftBanner(hadDraft && !seededFromUrl);
+
+    if (!seededFromUrl) return;
+
+    writeDraft({ address: urlAddress } as { address: AddressFields });
+
+    const params = new URLSearchParams(searchParams.toString());
+    for (const k of ["address", "placeId", "street1", "street2", "city", "state", "zip"]) {
+      params.delete(k);
+    }
+
+    const complete = validateStep("address", urlAddress).success;
+    if (complete && currentStep === "address") {
+      params.set("step", "property");
+    }
+
+    const qs = params.toString();
+    router.replace(
+      `${window.location.pathname}${qs ? `?${qs}` : ""}`,
+      { scroll: false },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
