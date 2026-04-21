@@ -34,6 +34,7 @@ import type {
   SubmitState,
 } from "@/lib/seller-form/types";
 import { STEP_SLUGS } from "@/lib/seller-form/types";
+import { DraftRecoveryBanner } from "./draft-recovery-banner";
 import { Progress } from "./progress";
 import { StepNav } from "./step-nav";
 import { AddressStep } from "./steps/address-step";
@@ -170,6 +171,17 @@ export function SellerForm({
     const d = readInitialDraft();
     return d.consent;
   });
+  const hadDraftOnMount = useMemo(() => {
+    const d = readInitialDraft();
+    return (
+      Object.keys(d.address).length > 0 ||
+      Object.keys(d.property).length > 0 ||
+      Object.keys(d.condition).length > 0
+    );
+  }, []);
+  const [showDraftBanner, setShowDraftBanner] = useState<boolean>(
+    () => hadDraftOnMount,
+  );
   const [clientErrors, setClientErrors] = useState<
     Partial<Record<StepSlug, Record<string, string[]>>>
   >({});
@@ -371,8 +383,23 @@ export function SellerForm({
   const hasErrors =
     formState.ok === false && Object.keys(formState.errors).length > 0;
 
+  const handleDiscardDraft = useCallback(() => {
+    clearDraft();
+    setStepData({ address: {}, property: {}, condition: {}, contact: {} });
+    setConsent({});
+    setClientErrors({});
+    setShowDraftBanner(false);
+  }, []);
+
   return (
     <form action={formAction} className="flex flex-col gap-6 py-6" noValidate>
+      {showDraftBanner && (
+        <DraftRecoveryBanner
+          onDismiss={() => setShowDraftBanner(false)}
+          onDiscard={handleDiscardDraft}
+        />
+      )}
+
       <Progress
         current={stepIndex(currentStep) + 1}
         total={STEP_SLUGS.length}
