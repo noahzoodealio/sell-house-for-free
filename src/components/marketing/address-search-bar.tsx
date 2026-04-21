@@ -79,10 +79,21 @@ export function AddressSearchBar({
     typeof window !== "undefined" &&
       Boolean((window as unknown as { google?: MapsNamespace }).google?.maps),
   );
-  const selectedRef = useRef<{ address: string; placeId?: string } | null>(
-    null,
-  );
   const router = useRouter();
+  const navigatedRef = useRef(false);
+
+  const navigate = useCallback(
+    (address: string, placeId?: string) => {
+      if (navigatedRef.current) return;
+      const trimmed = address.trim();
+      if (!trimmed) return;
+      navigatedRef.current = true;
+      const params = new URLSearchParams({ address: trimmed });
+      if (placeId) params.set("placeId", placeId);
+      router.push(`${destination}?${params.toString()}`);
+    },
+    [router, destination],
+  );
 
   useEffect(() => {
     if (!scriptReady || !inputRef.current) return;
@@ -102,32 +113,27 @@ export function AddressSearchBar({
       const place = autocomplete.getPlace();
       const formatted = place?.formatted_address ?? "";
       const placeId = place?.place_id;
-      if (formatted && inputRef.current) {
-        inputRef.current.value = formatted;
-        selectedRef.current = { address: formatted, placeId };
-      }
+      if (!formatted) return;
+      if (inputRef.current) inputRef.current.value = formatted;
+      navigate(formatted, placeId);
     });
 
     return () => {
       g?.maps?.event?.removeListener(listener);
     };
-  }, [scriptReady, country]);
+  }, [scriptReady, country, navigate]);
 
   const handleSubmit = useCallback(
     (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       const typed = inputRef.current?.value?.trim() ?? "";
-      const selected = selectedRef.current;
-      const address = selected?.address ?? typed;
-      if (!address) {
+      if (!typed) {
         inputRef.current?.focus();
         return;
       }
-      const params = new URLSearchParams({ address });
-      if (selected?.placeId) params.set("placeId", selected.placeId);
-      router.push(`${destination}?${params.toString()}`);
+      navigate(typed);
     },
-    [router, destination],
+    [navigate],
   );
 
   return (
