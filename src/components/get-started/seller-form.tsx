@@ -13,6 +13,12 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AzCitySlug } from "@/lib/routes";
 import { submitSellerForm } from "@/app/get-started/actions";
+import {
+  trackFormAbandoned,
+  trackFormSubmitted,
+  trackStepCompleted,
+  trackStepEntered,
+} from "@/lib/seller-form/analytics";
 import { captureAttribution } from "@/lib/seller-form/attribution";
 import { clearDraft, readDraft, writeDraft } from "@/lib/seller-form/draft";
 import { useIdempotencyKey } from "@/lib/seller-form/idempotency";
@@ -184,9 +190,17 @@ export function SellerForm({
   }, [currentStep, formState]);
 
   useEffect(() => {
+    // Fire step_entered on first mount for the initial step.
+    trackStepEntered(currentStep);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     const next = currentStep;
     const prev = prevStepRef.current;
     if (prev !== next) {
+      trackStepCompleted(prev);
+      trackStepEntered(next);
       if (onStepChange) onStepChange(prev, next);
       headingRef.current?.focus();
       prevStepRef.current = next;
@@ -194,10 +208,47 @@ export function SellerForm({
   }, [currentStep, onStepChange]);
 
   useEffect(() => {
-    // The Server Action `redirect()` fires before we get here on success,
-    // but if the navigation is blocked (e.g., browser back cache), still
-    // clear the draft + idempotency key so a retry starts clean.
+    // Abandonment: fire once on pagehide / tab-hidden, via sendBeacon so it
+    // survives navigation teardown (plain track() doesn't guarantee delivery
+    // from these lifecycle events).
+    let fired = false;
+    const onTeardown = () => {
+      if (fired) return;
+      if (formState.ok && formState.submissionId) return; // submitted, not abandoned
+      fired = true;
+      const stepNow = prevStepRef.current;
+      trackFormAbandoned(stepNow);
+      if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
+        try {
+          const payload = JSON.stringify({
+            event: "seller_form_abandoned",
+            step: stepNow,
+          });
+          navigator.sendBeacon(
+            "/api/submit",
+            new Blob([payload], { type: "application/json" }),
+          );
+        } catch {
+          // best-effort.
+        }
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") onTeardown();
+    };
+    window.addEventListener("pagehide", onTeardown);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", onTeardown);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [formState]);
+
+  useEffect(() => {
     if (formState.ok && formState.submissionId) {
+      trackFormSubmitted(formState.submissionId);
+      // The Server Action `redirect()` normally fires first; this is a
+      // back-cache / blocked-navigation safety net.
       clearDraft();
     }
   }, [formState]);
