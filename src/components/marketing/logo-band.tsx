@@ -15,7 +15,7 @@ export type LogoBandProps = {
 
 /**
  * Placeholder partner/brand band. Renders wordmarks in a muted type
- * treatment until real SVG logos are wired in — this is an intentional
+ * treatment until real SVG logos are wired in, this is an intentional
  * visual slot that reads as logo-band without licensed assets.
  */
 export function LogoBand({

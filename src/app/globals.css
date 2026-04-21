@@ -12,7 +12,7 @@
   --color-brand-sky: #a7c5ed;
   --color-brand-deep: #466c9d;
 
-  /* Ink — Figma palette (Bear Black / Tortoise / Koala) */
+  /* Ink, Figma palette (Bear Black / Tortoise / Koala) */
   --color-ink-title: #1f1f1f;
   --color-ink-body: #565656;
   --color-ink-muted: #706c6c;
@@ -61,7 +61,7 @@
   --container-form: 560px;
   --container-page: 1440px;
 
-  /* Chevron for <Select> — stroke hex tracks --color-ink-body (#565656). */
+  /* Chevron for <Select>, stroke hex tracks --color-ink-body (#565656). */
   --chevron-down: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23565656' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M5 8l5 5 5-5'/></svg>");
 }
 
@@ -97,7 +97,7 @@
   }
 
   /* Sibling-spacing rules for MDX-authored prose. Typography (font, size,
-     color) is applied by element mappers in src/mdx-components.tsx — this
+     color) is applied by element mappers in src/mdx-components.tsx, this
      block owns vertical rhythm only. Apply via <div class="prose-custom">
      wrapper (shipped by E2-S3 <ProseContainer>). */
   .prose-custom > * + * {

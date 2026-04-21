@@ -13,7 +13,7 @@ import { FeatureSplit } from "@/components/marketing/feature-split";
 import { NumberedReasons } from "@/components/marketing/numbered-reasons";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 import { Testimonial } from "@/components/marketing/testimonial";
-import { LogoBand } from "@/components/marketing/logo-band";
+import { ServicesBand } from "@/components/marketing/services-band";
 import { FAQ } from "@/components/marketing/faq";
 import { CTASection } from "@/components/marketing/cta-section";
 import { JsonLd } from "@/components/marketing/json-ld";
@@ -21,7 +21,7 @@ import { HOME_PILLARS } from "@/content/pillars/home-pillars";
 import { HOME_HOW_IT_WORKS_STEPS } from "@/content/how-it-works/home-steps";
 
 const HOME_TITLE =
-  "Sell Your House Free — Free Arizona cash-offer service, no fees, real PM";
+  "Sell Your House Free. Free Arizona cash offers, no fees, real PM";
 const HOME_DESCRIPTION =
   "Sell your Arizona home for free through a licensed broker. No listing fees, no data resale, and a real Project Manager handling your sale end-to-end.";
 
@@ -48,7 +48,7 @@ const HOME_STATS = [
 const HOME_REASONS = [
   {
     heading: "Zero fees means zero surprises",
-    body: "You pay what closing itself costs — taxes, title, recording. Never a fee to us. We are funded by buyer-side and partner relationships, never by the seller.",
+    body: "You pay what closing itself costs: taxes, title, recording. Never a fee to us. We are funded by buyer-side and partner relationships, never by the seller.",
   },
   {
     heading: "Four paths, not one",
@@ -56,17 +56,35 @@ const HOME_REASONS = [
   },
   {
     heading: "A real broker, a real PM",
-    body: "Listed through JK Realty, a licensed Arizona broker. Handled by a Project Manager whose name you know before day one — no call centers, no handoffs.",
+    body: "Every sale runs through a licensed Arizona broker of record and a Project Manager whose name you know before day one. No call centers, no handoffs.",
   },
 ] as const;
 
-const HOME_LOGOS = [
-  { label: "JK Realty" },
-  { label: "ARMLS" },
-  { label: "Hola Home" },
-  { label: "AAR" },
-  { label: "NAR" },
-  { label: "Zoodealio" },
+const HOME_SERVICES = [
+  {
+    label: "Real MLS listings",
+    description: "Full syndication on ARMLS and every major buyer site.",
+  },
+  {
+    label: "Paperwork handled for you",
+    description: "Contracts, disclosures, and addenda drafted and reviewed.",
+  },
+  {
+    label: "Negotiation assistance",
+    description: "Your PM counters, concedes, and defends your bottom line.",
+  },
+  {
+    label: "Licensed AZ broker of record",
+    description: "Every transaction closes under a licensed Arizona brokerage.",
+  },
+  {
+    label: "Title and escrow coordination",
+    description: "We line up title, escrow, and closing logistics end-to-end.",
+  },
+  {
+    label: "Dedicated Project Manager",
+    description: "One named point of contact from first call to keys handed over.",
+  },
 ] as const;
 
 function RatingBadge() {
@@ -102,16 +120,12 @@ export default function Home() {
           <>
             Sell your Arizona home{" "}
             <span className="text-brand">for free.</span>
-            <br className="hidden md:inline" />{" "}
-            No listing fees. No data resale.
           </>
         }
         subcopy={
           <>
-            A licensed-broker service for Arizona homeowners — cash offers,
-            repair-funded listings, MLS, or full renovation-first sales, all
-            under one Project Manager. You only pay what closing itself costs.
-            Never a fee to us.
+            Four ways to sell, zero seller fees, one Project Manager from
+            offer to close.
           </>
         }
         action={
@@ -132,8 +146,8 @@ export default function Home() {
 
       <PillarGrid
         eyebrow="Put your sale on autopilot"
-        heading="Four ways to sell — pick the one that fits your home."
-        subcopy="Every path is routed through JK Realty as broker of record and a single Project Manager who stays with you until keys change hands."
+        heading="Four ways to sell. Pick the one that fits your home."
+        subcopy="Every path runs under a licensed Arizona broker of record and a single Project Manager who stays with you until keys change hands."
         pillars={[...HOME_PILLARS]}
       />
 
@@ -141,10 +155,10 @@ export default function Home() {
         tone="soft"
         eyebrow="One point of contact"
         heading="A real Project Manager, every step from offer to close."
-        body="Your PM coordinates cash offers, listing prep, repair funding, and buyer negotiations — and stays with you until keys change hands."
+        body="Your PM coordinates cash offers, listing prep, repair funding, and buyer negotiations, then stays with you until keys change hands."
         bullets={[
           "Real phone number, real name, real email",
-          "Coordinates with JK Realty and buyer-side partners",
+          "Coordinates with the broker of record and buyer-side partners",
           "No handoffs to junior agents or call centers",
           "Available for questions at every stage of the sale",
         ]}
@@ -154,7 +168,7 @@ export default function Home() {
 
       <NumberedReasons
         eyebrow="Why Sell Your House Free"
-        heading="Built for sellers — not for broker commissions."
+        heading="Built for sellers, not for broker commissions."
         subcopy="We do not charge you. We do not resell your data. We do not push you toward one path. Everything else is detail."
         reasons={HOME_REASONS}
         cta={{ label: "Read the full story", href: LINKS.whyItsFree }}
@@ -163,7 +177,7 @@ export default function Home() {
       <HowItWorks
         eyebrow="How it works"
         heading="Four steps, no pressure."
-        subcopy="Start with a cash offer or a listing plan — we will pick the right path together on the first call."
+        subcopy="Start with a cash offer or a listing plan. We will pick the right path together on the first call."
         steps={[...HOME_HOW_IT_WORKS_STEPS]}
         cta={{ label: "Learn more about the process", href: LINKS.howItWorks }}
       />
@@ -174,30 +188,37 @@ export default function Home() {
         author={{ name: "Arizona homeowner", title: "Closed via cash offer" }}
       />
 
-      <LogoBand
-        eyebrow="Our partners"
-        heading="Backed by licensed Arizona real estate."
-        logos={HOME_LOGOS}
+      <ServicesBand
+        eyebrow="What's included"
+        heading="Everything a full-service sale needs, zero seller fees."
+        items={HOME_SERVICES}
       />
 
-      <FAQ entries={homeFaqExcerpt} title="Common questions" />
-      <section className="pb-12 md:pb-16">
-        <Container size="prose">
-          <Link
-            href={LINKS.faq}
-            className="inline-flex items-center gap-1 text-[16px] font-semibold text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-          >
-            See all questions
-            <span aria-hidden="true">→</span>
-          </Link>
+      <FAQ
+        entries={homeFaqExcerpt}
+        eyebrow="Common questions"
+        title="Answers to what sellers ask us first."
+        size="page"
+      />
+      <section className="pb-20 md:pb-24">
+        <Container>
+          <div className="max-w-3xl">
+            <Link
+              href={LINKS.faq}
+              className="inline-flex items-center gap-1 text-[16px] font-semibold text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            >
+              See all questions
+              <span aria-hidden="true">→</span>
+            </Link>
+          </div>
         </Container>
       </section>
 
       <CTASection
         tone="brand"
         heading="Ready to see your cash offer?"
-        subcopy="Get your free, no-obligation cash offer in minutes — a real PM reviews every response."
-        primaryCta={{ label: "Get my cash offer", href: LINKS.getStarted }}
+        subcopy="Get your free, no-obligation cash offer in minutes. A real PM reviews every response."
+        primaryCta={{ label: "Get my cash offer", href: LINKS.getOffer }}
         secondaryCta={{
           label: "Meet your Project Manager",
           href: LINKS.meetYourPm,

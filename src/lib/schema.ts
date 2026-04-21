@@ -40,15 +40,15 @@ const PILLAR_META: Record<
     serviceType: "Cash home buying",
   },
   "cash-plus-repairs": {
-    name: "Cash+ with Repairs",
+    name: "Cash+",
     description:
-      "Cash-funded repairs and improvements before listing on the MLS, so the home sells for a higher price — no out-of-pocket cost to the seller.",
+      "Cash-funded repairs and improvements before listing on the MLS, so the home sells for a higher price, no out-of-pocket cost to the seller.",
     serviceType: "Pre-list renovation with cash-backed repairs",
   },
   "renovation-only": {
-    name: "Renovation-Only",
+    name: "Renovation",
     description:
-      "Hola Home renovates the property first, then the home goes to the MLS without a cash-offer component — maximum upside for sellers with time.",
+      "Hola Home Services renovates the property first, then the home goes to the MLS without a cash-offer component, maximum upside for sellers with time.",
     serviceType: "Renovation-first listing",
   },
 };
@@ -130,7 +130,7 @@ export function localBusinessSchema(
   return {
     "@context": SCHEMA_CONTEXT,
     "@type": "LocalBusiness",
-    name: `${SITE.name} — ${city.displayName}`,
+    name: `${SITE.name}, ${city.displayName}`,
     url: `${SITE.url}/az/${city.slug}`,
     areaServed: city.displayName,
     address: {

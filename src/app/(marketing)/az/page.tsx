@@ -12,7 +12,7 @@ import { JsonLd } from "@/components/marketing/json-ld";
 
 const PAGE_TITLE = "Sell your home in Arizona";
 const PAGE_DESCRIPTION =
-  "Sell Your House Free serves seven Arizona cities — Phoenix, Tucson, Mesa, Chandler, Scottsdale, Gilbert, Glendale — with a fee-free path under our licensed AZ broker.";
+  "Sell Your House Free serves seven Arizona cities, Phoenix, Tucson, Mesa, Chandler, Scottsdale, Gilbert, Glendale, with a fee-free path under our licensed AZ broker.";
 
 export const metadata: Metadata = buildMetadata({
   title: "Arizona",
@@ -59,8 +59,8 @@ export default function AzIndex() {
       </section>
       <CTASection
         heading="Ready to start a free sale?"
-        subcopy="Submit your home and your PM picks it up the same day — no city pre-selection required."
-        primaryCta={{ label: "Get my free intake", href: LINKS.getStarted }}
+        subcopy="Submit your home and your PM picks it up the same day, no city pre-selection required."
+        primaryCta={{ label: "Get my free intake", href: LINKS.getOffer }}
         secondaryCta={{ label: "See how it works", href: LINKS.howItWorks }}
       />
       <JsonLd

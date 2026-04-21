@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "Sell Your House Free — keep 100% of your sale proceeds";
+  "Sell Your House Free, keep 100% of your sale proceeds";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -43,7 +43,7 @@ export default function OpenGraphImage() {
             textAlign: "center",
           }}
         >
-          Keep 100% of your sale proceeds — Arizona
+          Keep 100% of your sale proceeds, Arizona
         </div>
       </div>
     ),

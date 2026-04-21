@@ -23,7 +23,7 @@ export const cities: readonly CityEntry[] = [
       "Active across central Phoenix neighborhoods including Arcadia and the North Central corridor.",
     heroImage: null,
     intro:
-      "Phoenix homeowners can sell free under our licensed Arizona broker — listing, vetted cash offers, or a renovation-first path, all run by one Project Manager.",
+      "Phoenix homeowners can sell free under our licensed Arizona broker, listing, vetted cash offers, or a renovation-first path, all run by one Project Manager.",
     geo: { latitude: 33.4484, longitude: -112.074 },
   },
   {
@@ -33,7 +33,7 @@ export const cities: readonly CityEntry[] = [
     populationApprox: 545_000,
     neighborhoodsSampled: ["Sam Hughes", "Catalina Foothills", "Armory Park"],
     localProofPoint:
-      "Working across central Tucson and the Catalina Foothills — single broker of record, no Tucson-specific markup.",
+      "Working across central Tucson and the Catalina Foothills, single broker of record, no Tucson-specific markup.",
     heroImage: null,
     intro:
       "Tucson sellers get the same fee-free path: a Project Manager handles listing or cash-offer flows under our licensed Arizona broker.",
@@ -49,7 +49,7 @@ export const cities: readonly CityEntry[] = [
       "Active in East Valley Mesa neighborhoods including Eastmark and Las Sendas.",
     heroImage: null,
     intro:
-      "Mesa homeowners can sell free with us — full MLS listing, a vetted cash offer, or a Cash+ repair path before listing.",
+      "Mesa homeowners can sell free with us, full MLS listing, a vetted cash offer, or a Cash+ repair path before listing.",
     geo: { latitude: 33.4152, longitude: -111.8315 },
   },
   {
@@ -62,7 +62,7 @@ export const cities: readonly CityEntry[] = [
       "Active throughout the East Valley including Ocotillo and Fulton Ranch in Chandler.",
     heroImage: null,
     intro:
-      "Chandler sellers get a free path to market — your Project Manager prices the listing, walks every offer, and closes under our Arizona broker of record.",
+      "Chandler sellers get a free path to market, your Project Manager prices the listing, walks every offer, and closes under our Arizona broker of record.",
     geo: { latitude: 33.3062, longitude: -111.8413 },
   },
   {
@@ -75,7 +75,7 @@ export const cities: readonly CityEntry[] = [
       "Working across Old Town Scottsdale through DC Ranch and McCormick Ranch.",
     heroImage: null,
     intro:
-      "Scottsdale homeowners can sell free under our licensed Arizona broker — listing, cash offers, Cash+ with Repairs, or our Renovation-Only path.",
+      "Scottsdale homeowners can sell free under our licensed Arizona broker, listing, cash offers, Cash+, or our Renovation path.",
     geo: { latitude: 33.4942, longitude: -111.9261 },
   },
   {
@@ -88,7 +88,7 @@ export const cities: readonly CityEntry[] = [
       "Active in Gilbert master-planned communities including Power Ranch, Seville, and Agritopia.",
     heroImage: null,
     intro:
-      "Gilbert sellers get fee-free listing and cash-offer paths — one Project Manager, one licensed AZ broker.",
+      "Gilbert sellers get fee-free listing and cash-offer paths, one Project Manager, one licensed AZ broker.",
     geo: { latitude: 33.3528, longitude: -111.789 },
   },
   {
@@ -101,7 +101,7 @@ export const cities: readonly CityEntry[] = [
       "Active in West Valley Glendale neighborhoods from Arrowhead Ranch through Westgate.",
     heroImage: null,
     intro:
-      "Glendale homeowners can sell free with us — listing under our Arizona broker, a vetted cash offer, or a Cash+ repair path before market.",
+      "Glendale homeowners can sell free with us, listing under our Arizona broker, a vetted cash offer, or a Cash+ repair path before market.",
     geo: { latitude: 33.5387, longitude: -112.186 },
   },
 ];

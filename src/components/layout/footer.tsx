@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SITE } from "@/lib/site";
@@ -19,7 +20,7 @@ export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-20 border-t border-border-soft bg-surface-soft">
+    <footer className="border-t border-border-soft bg-surface-soft">
       <Container>
         <div className="grid gap-10 py-14 md:grid-cols-4 md:gap-8">
           <div className="md:col-span-1">
@@ -55,9 +56,13 @@ export function Footer() {
 
           <div className="flex flex-col gap-2.5">
             <div className={headingClasses}>Compliance</div>
-            <p className="text-[13px] leading-[20px] text-ink-muted">
-              Equal Housing Opportunity
-            </p>
+            <Image
+              src="/logos/equal-housing-opportunity.jpg"
+              alt="Equal Housing Opportunity"
+              width={1130}
+              height={1209}
+              className="h-12 w-auto self-start mix-blend-multiply"
+            />
           </div>
         </div>
 

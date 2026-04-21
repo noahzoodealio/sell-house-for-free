@@ -141,7 +141,7 @@ export function Header() {
       <div className="mx-auto flex h-[76px] w-full items-center justify-between gap-6 px-5 md:px-10 lg:px-14">
         <Link
           href="/"
-          aria-label={`${SITE.name} — home`}
+          aria-label={`${SITE.name}, home`}
           className="flex items-center gap-2 text-[18px] md:text-[20px] font-semibold font-[var(--font-inter)] text-ink-title shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           <span

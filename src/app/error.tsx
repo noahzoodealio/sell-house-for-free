@@ -11,7 +11,7 @@ export default function Error({
   unstable_retry: () => void;
 }) {
   useEffect(() => {
-    // E8: swap for Sentry.captureException(error) — one-line change.
+    // E8: swap for Sentry.captureException(error), one-line change.
     console.error(error);
   }, [error]);
 

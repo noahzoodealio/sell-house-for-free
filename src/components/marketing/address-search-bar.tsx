@@ -212,7 +212,7 @@ export function AddressSearchBar({
             <>
               {" "}
               <span className="text-ink-title">
-                Autocomplete is temporarily unavailable — type your address and
+                Autocomplete is temporarily unavailable, type your address and
                 continue.
               </span>
             </>
