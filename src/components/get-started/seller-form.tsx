@@ -21,6 +21,8 @@ import type {
   AddressFields,
   AttributionFields,
   ConditionFields,
+  ConsentFields,
+  ContactFields,
   PropertyFields,
   StepSlug,
   SubmitState,
@@ -30,7 +32,7 @@ import { Progress } from "./progress";
 import { StepNav } from "./step-nav";
 import { AddressStep } from "./steps/address-step";
 import { ConditionStep } from "./steps/condition-step";
-import { PlaceholderStep } from "./steps/placeholder-step";
+import { ContactStep } from "./steps/contact-step";
 import { PropertyStep } from "./steps/property-step";
 
 export const PILLAR_SLUGS = [
@@ -64,13 +66,21 @@ type StepDataMap = {
   address: Partial<AddressFields>;
   property: Partial<PropertyFields>;
   condition: Partial<ConditionFields>;
+  contact: Partial<ContactFields>;
 };
 
 type DraftState = StepDataMap & {
+  consent: Partial<ConsentFields>;
   submissionId?: string;
 };
 
-const EMPTY_DRAFT: DraftState = { address: {}, property: {}, condition: {} };
+const EMPTY_DRAFT: DraftState = {
+  address: {},
+  property: {},
+  condition: {},
+  contact: {},
+  consent: {},
+};
 
 function stepIndex(slug: StepSlug): number {
   return STEP_SLUGS.indexOf(slug);
@@ -92,6 +102,9 @@ function readInitialDraft(): DraftState {
     address: (persisted.address as Partial<AddressFields>) ?? {},
     property: (persisted.property as Partial<PropertyFields>) ?? {},
     condition: (persisted.condition as Partial<ConditionFields>) ?? {},
+    // contact & consent are PII-stripped by draft.ts on write; always empty on read.
+    contact: {},
+    consent: {},
   };
 }
 
@@ -138,9 +151,19 @@ export function SellerForm({
   const submissionId = useSubmissionId();
   const attribution = useCapturedAttribution();
 
-  const [stepData, setStepData] = useState<StepDataMap>(
-    () => readInitialDraft(),
-  );
+  const [stepData, setStepData] = useState<StepDataMap>(() => {
+    const d = readInitialDraft();
+    return {
+      address: d.address,
+      property: d.property,
+      condition: d.condition,
+      contact: d.contact,
+    };
+  });
+  const [consent, setConsent] = useState<Partial<ConsentFields>>(() => {
+    const d = readInitialDraft();
+    return d.consent;
+  });
   const [clientErrors, setClientErrors] = useState<
     Partial<Record<StepSlug, Record<string, string[]>>>
   >({});
@@ -193,6 +216,7 @@ export function SellerForm({
             address: AddressFields;
             property: PropertyFields;
             condition: ConditionFields;
+            contact: ContactFields;
           }>);
           return merged;
         });
@@ -215,6 +239,24 @@ export function SellerForm({
   const updateAddress = useMemo(() => makeStepUpdater("address"), [makeStepUpdater]);
   const updateProperty = useMemo(() => makeStepUpdater("property"), [makeStepUpdater]);
   const updateCondition = useMemo(() => makeStepUpdater("condition"), [makeStepUpdater]);
+  const updateContact = useMemo(() => makeStepUpdater("contact"), [makeStepUpdater]);
+
+  const updateConsent = useCallback((partial: Partial<ConsentFields>) => {
+    setConsent((prev) => ({ ...prev, ...partial }));
+    // Consent is deliberately NOT persisted to draft (PII-strip rule).
+    setClientErrors((prev) => {
+      const current = prev.contact ?? {};
+      const next = { ...current };
+      let changed = false;
+      for (const key of Object.keys(partial)) {
+        if (next[key]) {
+          delete next[key];
+          changed = true;
+        }
+      }
+      return changed ? { ...prev, contact: next } : prev;
+    });
+  }, []);
 
   const onBack = useCallback(() => {
     const idx = stepIndex(currentStep);
@@ -226,30 +268,38 @@ export function SellerForm({
     const idx = stepIndex(currentStep);
     if (idx >= STEP_SLUGS.length - 1) return;
 
-    const stepKey =
-      currentStep === "address" ||
-      currentStep === "property" ||
-      currentStep === "condition"
-        ? currentStep
-        : null;
-    if (stepKey) {
-      const result = validateStep(stepKey, stepData[stepKey]);
-      if (!result.success) {
-        setClientErrors((prev) => ({ ...prev, [stepKey]: result.errors }));
-        const firstField = Object.keys(result.errors)[0];
-        if (firstField) {
-          const input = document.querySelector<HTMLInputElement>(
-            `[name="${firstField}"]`,
-          );
-          input?.focus();
+    const result = validateStep(currentStep, stepData[currentStep]);
+    if (!result.success) {
+      setClientErrors((prev) => ({ ...prev, [currentStep]: result.errors }));
+      const firstField = Object.keys(result.errors)[0];
+      if (firstField) {
+        const input = document.querySelector<HTMLInputElement>(
+          `[name="${firstField}"]`,
+        );
+        input?.focus();
+      }
+      return;
+    }
+    // On the contact step, we additionally require all three consents.
+    if (currentStep === "contact") {
+      const consentErrors: Record<string, string[]> = {};
+      const keys: Array<keyof ConsentFields> = ["tcpa", "terms", "privacy"];
+      for (const k of keys) {
+        if (!consent[k]?.acceptedAt) {
+          consentErrors[k] = ["You must check this box to continue"];
         }
+      }
+      if (Object.keys(consentErrors).length > 0) {
+        setClientErrors((prev) => ({
+          ...prev,
+          contact: { ...(prev.contact ?? {}), ...consentErrors },
+        }));
         return;
       }
     }
-    // Contact step still placeholder-gated; S7 adds its validation gate.
 
     navigateToStep(STEP_SLUGS[idx + 1]);
-  }, [currentStep, stepData, navigateToStep]);
+  }, [currentStep, stepData, consent, navigateToStep]);
 
   const currentErrors = useMemo(() => {
     const server = formState.ok === false ? formState.errors : undefined;
@@ -293,15 +343,20 @@ export function SellerForm({
         headingRef={headingRef}
         data={stepData}
         errors={currentErrors}
+        consent={consent}
         onAddressChange={updateAddress}
         onPropertyChange={updateProperty}
         onConditionChange={updateCondition}
+        onContactChange={updateContact}
+        onConsentChange={updateConsent}
       />
 
       <HiddenField name="step" value={currentStep} />
       <HiddenField name="submissionId" value={submissionId} />
       <HiddenField name="idempotencyKey" value={idempotencyKey ?? ""} />
       <HiddenField name="attribution" value={JSON.stringify(attribution)} />
+      <HiddenField name="draftJson" value={JSON.stringify(stepData)} />
+      <HiddenField name="consentJson" value={JSON.stringify(consent)} />
       {initialHints?.pillar && (
         <HiddenField name="pillarHint" value={initialHints.pillar} />
       )}
@@ -324,20 +379,26 @@ type StepDispatchProps = {
   step: StepSlug;
   headingRef: React.Ref<HTMLHeadingElement>;
   data: StepDataMap;
+  consent: Partial<ConsentFields>;
   errors?: Record<string, string[]>;
   onAddressChange: (partial: Partial<AddressFields>) => void;
   onPropertyChange: (partial: Partial<PropertyFields>) => void;
   onConditionChange: (partial: Partial<ConditionFields>) => void;
+  onContactChange: (partial: Partial<ContactFields>) => void;
+  onConsentChange: (partial: Partial<ConsentFields>) => void;
 };
 
 function StepDispatch({
   step,
   headingRef,
   data,
+  consent,
   errors,
   onAddressChange,
   onPropertyChange,
   onConditionChange,
+  onContactChange,
+  onConsentChange,
 }: StepDispatchProps) {
   switch (step) {
     case "address":
@@ -369,7 +430,14 @@ function StepDispatch({
       );
     case "contact":
       return (
-        <PlaceholderStep slug={step} headingRef={headingRef} errors={errors} />
+        <ContactStep
+          data={data.contact}
+          consent={consent}
+          errors={errors}
+          onChange={onContactChange}
+          onConsentChange={onConsentChange}
+          headingRef={headingRef}
+        />
       );
     default: {
       const _exhaustive: never = step;
