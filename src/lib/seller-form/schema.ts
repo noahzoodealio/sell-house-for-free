@@ -103,7 +103,15 @@ export const attributionSchema = z.object({
 });
 
 export const enrichmentSlotSchema = z.object({
-  status: z.enum(["idle", "loading", "ok", "error", "timeout"]),
+  status: z.enum([
+    "idle",
+    "loading",
+    "ok",
+    "no-match",
+    "out-of-area",
+    "timeout",
+    "error",
+  ]),
   attomId: z.string().optional(),
   mlsRecordId: z.string().optional(),
   listingStatus: z
