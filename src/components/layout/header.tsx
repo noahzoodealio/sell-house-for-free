@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Container } from "@/components/layout/container";
 import { SITE } from "@/lib/site";
 import { ROUTES, type RouteEntry } from "@/lib/routes";
 
@@ -15,43 +14,47 @@ const ctaClasses =
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border-soft bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
+    <header className="border-b border-border-soft bg-surface">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-4 focus:py-2 focus:text-ink-title focus:outline-2 focus:outline-brand"
       >
         Skip to main content
       </a>
-      <Container>
-        <div className="flex h-[72px] items-center justify-between gap-6">
-          <Link
-            href="/"
-            aria-label={`${SITE.name} — home`}
-            className="text-[20px] font-semibold font-[var(--font-inter)] text-ink-title focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+      <div className="mx-auto flex h-[76px] w-full items-center justify-between gap-8 px-6 md:px-10 lg:px-14">
+        <Link
+          href="/"
+          aria-label={`${SITE.name} — home`}
+          className="flex items-center gap-2 text-[20px] font-semibold font-[var(--font-inter)] text-ink-title shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          <span
+            aria-hidden="true"
+            className="inline-flex size-8 items-center justify-center rounded-lg bg-brand text-brand-foreground text-[14px] font-bold"
           >
-            {SITE.name}
-          </Link>
+            S
+          </span>
+          <span className="hidden sm:inline">{SITE.name}</span>
+        </Link>
 
-          <nav
-            aria-label="Primary"
-            className="hidden md:flex items-center gap-7"
-          >
-            {navItems.map((r) => (
-              <Link
-                key={r.path}
-                href={r.path}
-                className="text-[15px] font-medium text-ink-body transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-              >
-                {r.title}
-              </Link>
-            ))}
-          </nav>
+        <nav
+          aria-label="Primary"
+          className="hidden md:flex flex-1 items-center justify-center gap-10"
+        >
+          {navItems.map((r) => (
+            <Link
+              key={r.path}
+              href={r.path}
+              className="text-[15px] font-semibold text-ink-title/80 transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            >
+              {r.title}
+            </Link>
+          ))}
+        </nav>
 
-          <Link href="/get-started" className={ctaClasses}>
-            Get started
-          </Link>
-        </div>
-      </Container>
+        <Link href="/get-started" className={`${ctaClasses} shrink-0`}>
+          Get started
+        </Link>
+      </div>
     </header>
   );
 }
