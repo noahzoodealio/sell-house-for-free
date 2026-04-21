@@ -20,6 +20,7 @@ import { validateStep } from "@/lib/seller-form/schema";
 import type {
   AddressFields,
   AttributionFields,
+  PropertyFields,
   StepSlug,
   SubmitState,
 } from "@/lib/seller-form/types";
@@ -28,6 +29,7 @@ import { Progress } from "./progress";
 import { StepNav } from "./step-nav";
 import { AddressStep } from "./steps/address-step";
 import { PlaceholderStep } from "./steps/placeholder-step";
+import { PropertyStep } from "./steps/property-step";
 
 export const PILLAR_SLUGS = [
   "listing",
@@ -58,13 +60,14 @@ const INITIAL_SUBMIT_STATE: SubmitState = { ok: true, submissionId: "" };
 
 type StepDataMap = {
   address: Partial<AddressFields>;
+  property: Partial<PropertyFields>;
 };
 
 type DraftState = StepDataMap & {
   submissionId?: string;
 };
 
-const EMPTY_DRAFT: DraftState = { address: {} };
+const EMPTY_DRAFT: DraftState = { address: {}, property: {} };
 
 function stepIndex(slug: StepSlug): number {
   return STEP_SLUGS.indexOf(slug);
@@ -84,6 +87,7 @@ function readInitialDraft(): DraftState {
   return {
     submissionId: persisted.submissionId,
     address: (persisted.address as Partial<AddressFields>) ?? {},
+    property: (persisted.property as Partial<PropertyFields>) ?? {},
   };
 }
 
@@ -171,29 +175,40 @@ export function SellerForm({
     [router, searchParams],
   );
 
-  const updateAddress = useCallback(
-    (partial: Partial<AddressFields>) => {
-      setStepData((prev) => {
-        const merged = { ...prev, address: { ...prev.address, ...partial } };
-        writeDraft({ address: merged.address as AddressFields });
-        return merged;
-      });
-      // Clear the per-field client errors the user is actively correcting.
-      setClientErrors((prev) => {
-        const current = prev.address ?? {};
-        const next = { ...current };
-        let changed = false;
-        for (const key of Object.keys(partial)) {
-          if (next[key]) {
-            delete next[key];
-            changed = true;
+  const makeStepUpdater = useCallback(
+    <K extends keyof StepDataMap>(step: K) =>
+      (partial: Partial<StepDataMap[K]>) => {
+        setStepData((prev) => {
+          const merged = {
+            ...prev,
+            [step]: { ...prev[step], ...partial },
+          } as StepDataMap;
+          writeDraft({
+            [step]: merged[step],
+          } as Partial<{
+            address: AddressFields;
+            property: PropertyFields;
+          }>);
+          return merged;
+        });
+        setClientErrors((prev) => {
+          const current = prev[step as StepSlug] ?? {};
+          const next = { ...current };
+          let changed = false;
+          for (const key of Object.keys(partial)) {
+            if (next[key]) {
+              delete next[key];
+              changed = true;
+            }
           }
-        }
-        return changed ? { ...prev, address: next } : prev;
-      });
-    },
+          return changed ? { ...prev, [step as StepSlug]: next } : prev;
+        });
+      },
     [],
   );
+
+  const updateAddress = useMemo(() => makeStepUpdater("address"), [makeStepUpdater]);
+  const updateProperty = useMemo(() => makeStepUpdater("property"), [makeStepUpdater]);
 
   const onBack = useCallback(() => {
     const idx = stepIndex(currentStep);
@@ -205,11 +220,14 @@ export function SellerForm({
     const idx = stepIndex(currentStep);
     if (idx >= STEP_SLUGS.length - 1) return;
 
-    if (currentStep === "address") {
-      const result = validateStep("address", stepData.address);
+    const stepKey =
+      currentStep === "address" || currentStep === "property"
+        ? currentStep
+        : null;
+    if (stepKey) {
+      const result = validateStep(stepKey, stepData[stepKey]);
       if (!result.success) {
-        setClientErrors((prev) => ({ ...prev, address: result.errors }));
-        // Surface focus on the first invalid field.
+        setClientErrors((prev) => ({ ...prev, [stepKey]: result.errors }));
         const firstField = Object.keys(result.errors)[0];
         if (firstField) {
           const input = document.querySelector<HTMLInputElement>(
@@ -220,8 +238,8 @@ export function SellerForm({
         return;
       }
     }
-    // Property / condition / contact steps remain placeholder-gated for now;
-    // S5–S7 replace these with their own validation gates.
+    // Condition / contact steps remain placeholder-gated for now;
+    // S6–S7 replace these with their own validation gates.
 
     navigateToStep(STEP_SLUGS[idx + 1]);
   }, [currentStep, stepData, navigateToStep]);
@@ -269,6 +287,7 @@ export function SellerForm({
         data={stepData}
         errors={currentErrors}
         onAddressChange={updateAddress}
+        onPropertyChange={updateProperty}
       />
 
       <HiddenField name="step" value={currentStep} />
@@ -299,6 +318,7 @@ type StepDispatchProps = {
   data: StepDataMap;
   errors?: Record<string, string[]>;
   onAddressChange: (partial: Partial<AddressFields>) => void;
+  onPropertyChange: (partial: Partial<PropertyFields>) => void;
 };
 
 function StepDispatch({
@@ -307,6 +327,7 @@ function StepDispatch({
   data,
   errors,
   onAddressChange,
+  onPropertyChange,
 }: StepDispatchProps) {
   switch (step) {
     case "address":
@@ -319,6 +340,14 @@ function StepDispatch({
         />
       );
     case "property":
+      return (
+        <PropertyStep
+          data={data.property}
+          errors={errors}
+          onChange={onPropertyChange}
+          headingRef={headingRef}
+        />
+      );
     case "condition":
     case "contact":
       return (

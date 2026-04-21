@@ -18,25 +18,32 @@ export const addressStepSchema = z.object({
 });
 
 export const propertyStepSchema = z.object({
-  propertyType: z.enum([
-    "single-family",
-    "townhouse",
-    "condo",
-    "multi-family",
-    "manufactured",
-    "land",
-    "other",
-  ]),
-  bedrooms: z.number().int().min(0).max(20),
-  bathrooms: z.number().min(0).max(20),
+  propertyType: z
+    .enum([
+      "single-family",
+      "townhouse",
+      "condo",
+      "multi-family",
+      "manufactured",
+      "land",
+      "other",
+    ])
+    .optional(),
+  bedrooms: z.number().int().min(0).max(20).optional(),
+  bathrooms: z
+    .number()
+    .min(0)
+    .max(20)
+    .multipleOf(0.5, "Half-bath increments only (e.g. 2.5)")
+    .optional(),
   squareFootage: z.number().int().min(100).max(50000).optional(),
   yearBuilt: z
     .number()
     .int()
-    .min(1800)
-    .max(new Date().getFullYear() + 2)
+    .min(1850, "Year must be 1850 or later")
+    .max(new Date().getFullYear(), "Year cannot be in the future")
     .optional(),
-  lotSize: z.number().min(0).max(1_000_000).optional(),
+  lotSize: z.number().int().min(0).max(5_000_000).optional(),
 });
 
 export const conditionStepSchema = z.object({
