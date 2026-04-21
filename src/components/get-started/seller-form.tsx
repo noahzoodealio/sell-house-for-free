@@ -22,7 +22,8 @@ import {
 import { captureAttribution } from "@/lib/seller-form/attribution";
 import { clearDraft, readDraft, writeDraft } from "@/lib/seller-form/draft";
 import { useIdempotencyKey } from "@/lib/seller-form/idempotency";
-import { validateStep } from "@/lib/seller-form/schema";
+import { addressStepSchema, validateStep } from "@/lib/seller-form/schema";
+import { useAddressEnrichment } from "@/lib/enrichment/use-address-enrichment";
 import type {
   AddressFields,
   AttributionFields,
@@ -36,6 +37,7 @@ import type {
 } from "@/lib/seller-form/types";
 import { STEP_SLUGS } from "@/lib/seller-form/types";
 import { DraftRecoveryBanner } from "./draft-recovery-banner";
+import type { ListedReason } from "./listed-notice";
 import { Progress } from "./progress";
 import { StepNav } from "./step-nav";
 import { AddressStep } from "./steps/address-step";
@@ -210,10 +212,29 @@ export function SellerForm({
   const [clientErrors, setClientErrors] = useState<
     Partial<Record<StepSlug, Record<string, string[]>>>
   >({});
+  // Listed-notice chip state — S6 keeps this in-memory only. S8 will widen
+  // `currentListingStatus` on the draft schema to accept these reason values
+  // and persist via `writeDraft`.
+  const [listedReason, setListedReason] = useState<ListedReason | undefined>(
+    undefined,
+  );
 
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const prevStepRef = useRef<StepSlug>(currentStep);
   const liveRegionId = useId();
+
+  // Promote the address partial to a validated AddressFields when complete —
+  // otherwise the hook stays idle. Re-memoized on each change to the five
+  // address inputs so the hook's input identity only flips when the
+  // canonical address does.
+  const completeAddress = useMemo(() => {
+    const parsed = addressStepSchema.safeParse(stepData.address);
+    return parsed.success ? parsed.data : null;
+  }, [stepData.address]);
+
+  const enrichment = useAddressEnrichment(completeAddress, submissionId);
+  const enrichmentSlot =
+    enrichment.status === "ok" ? enrichment.slot : undefined;
 
   const liveMessage = useMemo(() => {
     if (formState.ok === false) {
@@ -505,6 +526,10 @@ export function SellerForm({
         onConditionChange={updateCondition}
         onContactChange={updateContact}
         onConsentChange={updateConsent}
+        enrichmentStatus={enrichment.status}
+        enrichmentSlot={enrichmentSlot}
+        listedReason={listedReason}
+        onListedReasonChange={setListedReason}
       />
 
       <HiddenField name="step" value={currentStep} />
@@ -542,6 +567,10 @@ type StepDispatchProps = {
   onConditionChange: (partial: Partial<ConditionFields>) => void;
   onContactChange: (partial: Partial<ContactFields>) => void;
   onConsentChange: (partial: Partial<ConsentFields>) => void;
+  enrichmentStatus: ReturnType<typeof useAddressEnrichment>["status"];
+  enrichmentSlot: import("@/lib/seller-form/types").EnrichmentSlot | undefined;
+  listedReason: ListedReason | undefined;
+  onListedReasonChange: (reason: ListedReason) => void;
 };
 
 function StepDispatch({
@@ -555,7 +584,12 @@ function StepDispatch({
   onConditionChange,
   onContactChange,
   onConsentChange,
+  enrichmentStatus,
+  enrichmentSlot,
+  listedReason,
+  onListedReasonChange,
 }: StepDispatchProps) {
+  const listingStatus = enrichmentSlot?.listingStatus;
   switch (step) {
     case "address":
       return (
@@ -564,6 +598,10 @@ function StepDispatch({
           errors={errors}
           onChange={onAddressChange}
           headingRef={headingRef}
+          enrichmentStatus={enrichmentStatus}
+          listingStatus={listingStatus}
+          listedReason={listedReason}
+          onListedReasonChange={onListedReasonChange}
         />
       );
     case "property":
@@ -573,6 +611,11 @@ function StepDispatch({
           errors={errors}
           onChange={onPropertyChange}
           headingRef={headingRef}
+          enrichmentDetails={enrichmentSlot?.details}
+          photos={enrichmentSlot?.photos}
+          listingStatus={listingStatus}
+          listedReason={listedReason}
+          onListedReasonChange={onListedReasonChange}
         />
       );
     case "condition":

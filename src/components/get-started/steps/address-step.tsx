@@ -4,8 +4,11 @@ import type { Ref } from "react";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import type { AddressFields } from "@/lib/seller-form/types";
+import type { EnrichmentHookStatus } from "@/lib/enrichment/use-address-enrichment";
+import type { AddressFields, EnrichmentSlot } from "@/lib/seller-form/types";
 import { AddressField } from "../address-field";
+import { EnrichmentBadge } from "../enrichment-badge";
+import { ListedNotice, type ListedReason } from "../listed-notice";
 
 type AddressStepProps = {
   data: Partial<AddressFields>;
@@ -13,6 +16,10 @@ type AddressStepProps = {
   onChange: (partial: Partial<AddressFields>) => void;
   onAddressComplete?: (addr: AddressFields) => void;
   headingRef: Ref<HTMLHeadingElement>;
+  enrichmentStatus: EnrichmentHookStatus;
+  listingStatus: EnrichmentSlot["listingStatus"];
+  listedReason: ListedReason | undefined;
+  onListedReasonChange: (reason: ListedReason) => void;
 };
 
 function firstError(
@@ -28,6 +35,10 @@ export function AddressStep({
   onChange,
   onAddressComplete,
   headingRef,
+  enrichmentStatus,
+  listingStatus,
+  listedReason,
+  onListedReasonChange,
 }: AddressStepProps) {
   return (
     <div className="flex flex-col gap-5">
@@ -118,6 +129,14 @@ export function AddressStep({
       <p className="text-[13px] leading-[18px] text-ink-muted">
         We currently serve Arizona only.
       </p>
+
+      <EnrichmentBadge status={enrichmentStatus} />
+
+      <ListedNotice
+        listingStatus={listingStatus}
+        value={listedReason}
+        onChange={onListedReasonChange}
+      />
 
       {/* Guarantee `state` ships in FormData even though the select is disabled. */}
       <input type="hidden" name="state" value="AZ" readOnly />
