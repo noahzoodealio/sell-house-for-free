@@ -17,7 +17,6 @@ const SCRIPT_SRC = GOOGLE_API_KEY
   : "";
 
 export type AddressSearchBarProps = {
-  /** Where to route on submit. Address + placeId are appended as query params. */
   destination?: string;
   buttonLabel?: string;
   placeholder?: string;
@@ -149,14 +148,27 @@ export function AddressSearchBar({
       ) : null}
       <form
         onSubmit={handleSubmit}
-        className={cn("w-full max-w-[560px]", className)}
+        className={cn("w-full max-w-[640px]", className)}
         role="search"
         aria-label="Get a cash offer by entering your home address"
       >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-0 sm:rounded-[14px] sm:bg-surface sm:p-1.5 sm:shadow-[var(--shadow-card)] sm:border sm:border-border-soft">
-          <div className="flex items-center gap-2 rounded-xl border border-border-soft bg-surface px-4 py-3 sm:flex-1 sm:border-0 sm:py-0 sm:px-3">
+        <div
+          className={cn(
+            "group flex flex-col gap-2 sm:gap-0",
+            "sm:flex-row sm:items-center",
+            "sm:h-[64px] sm:rounded-full sm:bg-surface sm:pl-5 sm:pr-1.5",
+            "sm:shadow-[var(--shadow-card)] sm:border sm:border-border-soft",
+            "sm:focus-within:border-brand sm:focus-within:shadow-[0_0_0_4px_#0653ab1f,var(--shadow-card)]",
+            "transition-[box-shadow,border-color] duration-150",
+          )}
+        >
+          <label
+            htmlFor="home-address"
+            className="flex items-center gap-3 rounded-full border border-border-soft bg-surface px-5 h-[60px] sm:h-full sm:flex-1 sm:border-0 sm:bg-transparent sm:px-0 sm:rounded-none"
+          >
             <PinIcon />
             <input
+              id="home-address"
               ref={inputRef}
               type="search"
               name="address"
@@ -164,27 +176,48 @@ export function AddressSearchBar({
               required
               placeholder={placeholder}
               aria-label="Home address"
-              className="w-full bg-transparent text-[16px] text-ink-title placeholder:text-ink-muted focus:outline-none"
+              className="w-full bg-transparent text-[17px] leading-none text-ink-title placeholder:text-ink-muted focus:outline-none"
             />
-          </div>
+          </label>
           <button
             type="submit"
             className={cn(
-              "inline-flex items-center justify-center rounded-xl font-semibold font-[var(--font-inter)]",
+              "inline-flex items-center justify-center gap-2",
+              "rounded-full font-semibold font-[var(--font-inter)]",
               "bg-brand text-brand-foreground transition-colors hover:bg-[#084fb8] active:bg-[#063f90]",
-              "h-[52px] px-6 text-[16px] shadow-[var(--shadow-card)] sm:shadow-none",
+              "h-[56px] px-7 text-[16px]",
+              "shadow-[var(--shadow-card)] sm:shadow-none",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
             )}
           >
             {buttonLabel}
+            <svg
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+              className="size-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 10h12" />
+              <path d="M11 5l5 5-5 5" />
+            </svg>
           </button>
         </div>
-        {!GOOGLE_API_KEY ? (
-          <p className="mt-2 text-[12px] text-ink-muted">
-            Address autocomplete is temporarily unavailable — you can still
-            enter an address to continue.
-          </p>
-        ) : null}
+        <p className="mt-3 text-[13px] text-ink-muted">
+          Free, no-obligation. Takes under 2 minutes.
+          {!GOOGLE_API_KEY ? (
+            <>
+              {" "}
+              <span className="text-ink-title">
+                Autocomplete is temporarily unavailable — type your address and
+                continue.
+              </span>
+            </>
+          ) : null}
+        </p>
       </form>
     </>
   );
