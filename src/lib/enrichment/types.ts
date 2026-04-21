@@ -72,3 +72,67 @@ export type InvalidInputResponse = {
   error: "invalid_input";
   issues: z.core.$ZodIssue[];
 };
+
+// ───────────────────────────── MLS DTOs (E4-S2) ─────────────────────────────
+//
+// Only the fields E4 consumes are typed. `PropertyDetailsDto` in the real
+// `Zoodealio.MLS` schema has ~168 fields — every field we pin here is a
+// field we have to maintain when MLS shifts. Leave the rest as `unknown`.
+
+export type PropertySearchResultDto = {
+  attomId?: string;
+  mlsRecordId?: string;
+  listingStatus?: string;
+  latestListingPrice?: number;
+  daysOnMarket?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  squareFootage?: number;
+  yearBuilt?: number;
+  photoCount?: number;
+  city?: string;
+  zip?: string;
+};
+
+export type PropertyDetailsDto = {
+  bedrooms?: number;
+  bathrooms?: number;
+  squareFootage?: number;
+  yearBuilt?: number;
+  lotSize?: number;
+  [k: string]: unknown;
+};
+
+export type ListingImageDto = {
+  url: string;
+  caption?: string;
+  displayOrder?: number;
+};
+
+export type MlsErrorCode = "timeout" | "network" | "http" | "parse" | "config";
+export type MlsEndpoint = "search" | "attom" | "images" | "all";
+
+export type MlsErrorInit = {
+  code: MlsErrorCode;
+  endpoint: MlsEndpoint;
+  status?: number;
+  cause?: unknown;
+  message?: string;
+};
+
+export class MlsError extends Error {
+  readonly code: MlsErrorCode;
+  readonly endpoint: MlsEndpoint;
+  readonly status?: number;
+
+  constructor(init: MlsErrorInit) {
+    super(init.message ?? `MLS ${init.endpoint} failed: ${init.code}`);
+    this.name = "MlsError";
+    this.code = init.code;
+    this.endpoint = init.endpoint;
+    this.status = init.status;
+    if (init.cause !== undefined) {
+      (this as { cause?: unknown }).cause = init.cause;
+    }
+  }
+}
