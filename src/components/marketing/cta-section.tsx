@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { CtaLink } from "./cta-link";
 import { cn } from "@/lib/cn";
@@ -21,6 +22,11 @@ const toneBg: Record<Tone, string> = {
   brand: "bg-brand",
   dark: "bg-[var(--color-surface-dark)]",
 };
+
+const buttonBase =
+  "inline-flex items-center justify-center rounded-lg font-semibold font-[var(--font-inter)] " +
+  "transition-colors duration-150 h-[52px] px-7 text-[16px] " +
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
 export function CTASection({
   heading,
@@ -65,37 +71,44 @@ export function CTASection({
             )}
           >
             {onDark ? (
-              <CtaLink
-                href={primaryCta.href}
-                size="lg"
-                className="bg-white text-brand shadow-[var(--shadow-card)] hover:bg-white/95"
-              >
-                {primaryCta.label}
-              </CtaLink>
+              <>
+                <Link
+                  href={primaryCta.href}
+                  className={cn(
+                    buttonBase,
+                    "bg-white text-brand shadow-[var(--shadow-card)] hover:bg-white/95 active:bg-white/90",
+                  )}
+                >
+                  {primaryCta.label}
+                </Link>
+                {secondaryCta ? (
+                  <Link
+                    href={secondaryCta.href}
+                    className={cn(
+                      buttonBase,
+                      "bg-transparent border border-white/70 text-white hover:bg-white/10 active:bg-white/15",
+                    )}
+                  >
+                    {secondaryCta.label}
+                  </Link>
+                ) : null}
+              </>
             ) : (
-              <CtaLink href={primaryCta.href} variant="primary" size="lg">
-                {primaryCta.label}
-              </CtaLink>
+              <>
+                <CtaLink href={primaryCta.href} variant="primary" size="lg">
+                  {primaryCta.label}
+                </CtaLink>
+                {secondaryCta ? (
+                  <CtaLink
+                    href={secondaryCta.href}
+                    variant="secondary"
+                    size="lg"
+                  >
+                    {secondaryCta.label}
+                  </CtaLink>
+                ) : null}
+              </>
             )}
-            {secondaryCta ? (
-              onDark ? (
-                <CtaLink
-                  href={secondaryCta.href}
-                  size="lg"
-                  className="bg-transparent border border-white/70 text-white hover:bg-white/10"
-                >
-                  {secondaryCta.label}
-                </CtaLink>
-              ) : (
-                <CtaLink
-                  href={secondaryCta.href}
-                  variant="secondary"
-                  size="lg"
-                >
-                  {secondaryCta.label}
-                </CtaLink>
-              )
-            ) : null}
           </div>
         </div>
       </Container>
