@@ -80,14 +80,15 @@ export async function submitSellerForm(
   const idempotencyKey =
     strOrUndefined(formData.get("idempotencyKey")) ?? draft.submissionId;
 
-  // TODO(E8): before production launch, gate this log behind
-  // `process.env.NODE_ENV !== 'production'` or redact `contact.*` first.
   // E5 replaces this block with the real Offervana HTTP call + retry.
-  console.log("[submitSellerForm]", {
-    idempotencyKey,
-    submissionId: draft.submissionId,
-    draft,
-  });
+  if (process.env.NODE_ENV !== "production") {
+    const { contact: _contact, ...safeDraft } = draft;
+    console.log("[submitSellerForm]", {
+      idempotencyKey,
+      submissionId: draft.submissionId,
+      draft: safeDraft,
+    });
+  }
 
   redirect(`/get-started/thanks?ref=${encodeURIComponent(draft.submissionId)}`);
 }

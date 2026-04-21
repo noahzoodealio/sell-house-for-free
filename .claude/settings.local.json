@@ -142,7 +142,8 @@
       "Read(//c/Users/Noah/source/**)",
       "Read(//c/Users/Noah/**)",
       "Read(//c//**)",
-      "Read(//c/c/Users/Noah/**)"
+      "Read(//c/c/Users/Noah/**)",
+      "Bash(npm test *)"
     ]
   }
 }
