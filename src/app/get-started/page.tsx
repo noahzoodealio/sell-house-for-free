@@ -1,33 +1,63 @@
-import Link from "next/link";
+import { Suspense } from "react";
 import { buildMetadata } from "@/lib/seo";
+import { AZ_CITY_SLUGS, type AzCitySlug } from "@/lib/routes";
+import {
+  SellerForm,
+  PILLAR_SLUGS,
+  STEP_SLUGS,
+  type PillarSlug,
+  type StepSlug,
+} from "@/components/get-started/seller-form";
 
 export const metadata = buildMetadata({
   title: "Get started",
   description:
-    "Start your free, no-obligation cash offer on your Arizona home.",
+    "Start your free, no-obligation request on your Arizona home.",
   path: "/get-started",
+  noindex: true,
 });
 
-export default function GetStartedPage() {
+type RawSearchParams = {
+  pillar?: string | string[];
+  city?: string | string[];
+  step?: string | string[];
+};
+
+function coerce<T extends readonly string[]>(
+  value: string | string[] | undefined,
+  allowlist: T,
+): T[number] | undefined {
+  const first = Array.isArray(value) ? value[0] : value;
+  if (!first) return undefined;
+  return (allowlist as readonly string[]).includes(first)
+    ? (first as T[number])
+    : undefined;
+}
+
+export default async function GetStartedPage({
+  searchParams,
+}: {
+  searchParams: Promise<RawSearchParams>;
+}) {
+  const params = await searchParams;
+  const pillar: PillarSlug | undefined = coerce(params.pillar, PILLAR_SLUGS);
+  const city: AzCitySlug | undefined = coerce(params.city, AZ_CITY_SLUGS);
+  const step: StepSlug = coerce(params.step, STEP_SLUGS) ?? "address";
+
   return (
-    <main className="bg-surface-tint flex min-h-screen flex-col">
-      {/* TODO(E1-S8 cleanup): replace inline container with <Container /> */}
-      <div className="mx-auto flex w-full max-w-[var(--container-page)] flex-1 flex-col gap-6 px-4 py-24 md:px-6 lg:px-8">
-        <h1 className="text-ink-title text-[36px] leading-[44px] md:text-[48px] md:leading-[56px]">
-          Get started
-        </h1>
-        <p className="text-ink-body max-w-[var(--container-prose)] text-[18px] leading-[28px]">
-          This is where the short-form submission flow will live. It will ask
-          a few questions about your property and request a no-obligation
-          all-cash offer.
-        </p>
-        <Link
-          href="/"
-          className="text-brand text-[16px] underline underline-offset-4"
-        >
-          ← Back to home
-        </Link>
-      </div>
-    </main>
+    <Suspense fallback={<SellerFormSkeleton />}>
+      <SellerForm initialHints={{ pillar, city }} initialStep={step} />
+    </Suspense>
+  );
+}
+
+function SellerFormSkeleton() {
+  return (
+    <div className="flex flex-col gap-4 py-8" aria-hidden="true">
+      <div className="h-5 w-32 rounded bg-surface-tint" />
+      <div className="h-12 w-full rounded-lg bg-surface-tint" />
+      <div className="h-3 w-48 rounded bg-surface-tint" />
+      <div className="h-12 w-32 rounded-lg bg-surface-tint" />
+    </div>
   );
 }
