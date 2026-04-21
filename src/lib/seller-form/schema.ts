@@ -46,10 +46,22 @@ export const propertyStepSchema = z.object({
   lotSize: z.number().int().min(0).max(5_000_000).optional(),
 });
 
+export const CONDITION_VALUES = ["move-in", "needs-work", "major-reno"] as const;
+export const TIMELINE_VALUES = [
+  "0-3mo",
+  "3-6mo",
+  "6-12mo",
+  "exploring",
+] as const;
+
 export const conditionStepSchema = z.object({
-  condition: z.enum(["excellent", "good", "fair", "needs-work", "distressed"]),
-  timeline: z.enum(["asap", "30-days", "60-days", "90-days", "flexible"]),
-  reasonForSelling: z.string().trim().max(500).optional(),
+  currentCondition: z.enum(CONDITION_VALUES, {
+    error: "Please pick your home's current condition",
+  }),
+  timeline: z.enum(TIMELINE_VALUES, {
+    error: "Please pick a target timeline",
+  }),
+  motivation: z.string().trim().max(500).optional(),
 });
 
 export const contactStepSchema = z.object({

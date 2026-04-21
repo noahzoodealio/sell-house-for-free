@@ -20,6 +20,7 @@ import { validateStep } from "@/lib/seller-form/schema";
 import type {
   AddressFields,
   AttributionFields,
+  ConditionFields,
   PropertyFields,
   StepSlug,
   SubmitState,
@@ -28,6 +29,7 @@ import { STEP_SLUGS } from "@/lib/seller-form/types";
 import { Progress } from "./progress";
 import { StepNav } from "./step-nav";
 import { AddressStep } from "./steps/address-step";
+import { ConditionStep } from "./steps/condition-step";
 import { PlaceholderStep } from "./steps/placeholder-step";
 import { PropertyStep } from "./steps/property-step";
 
@@ -61,13 +63,14 @@ const INITIAL_SUBMIT_STATE: SubmitState = { ok: true, submissionId: "" };
 type StepDataMap = {
   address: Partial<AddressFields>;
   property: Partial<PropertyFields>;
+  condition: Partial<ConditionFields>;
 };
 
 type DraftState = StepDataMap & {
   submissionId?: string;
 };
 
-const EMPTY_DRAFT: DraftState = { address: {}, property: {} };
+const EMPTY_DRAFT: DraftState = { address: {}, property: {}, condition: {} };
 
 function stepIndex(slug: StepSlug): number {
   return STEP_SLUGS.indexOf(slug);
@@ -88,6 +91,7 @@ function readInitialDraft(): DraftState {
     submissionId: persisted.submissionId,
     address: (persisted.address as Partial<AddressFields>) ?? {},
     property: (persisted.property as Partial<PropertyFields>) ?? {},
+    condition: (persisted.condition as Partial<ConditionFields>) ?? {},
   };
 }
 
@@ -188,6 +192,7 @@ export function SellerForm({
           } as Partial<{
             address: AddressFields;
             property: PropertyFields;
+            condition: ConditionFields;
           }>);
           return merged;
         });
@@ -209,6 +214,7 @@ export function SellerForm({
 
   const updateAddress = useMemo(() => makeStepUpdater("address"), [makeStepUpdater]);
   const updateProperty = useMemo(() => makeStepUpdater("property"), [makeStepUpdater]);
+  const updateCondition = useMemo(() => makeStepUpdater("condition"), [makeStepUpdater]);
 
   const onBack = useCallback(() => {
     const idx = stepIndex(currentStep);
@@ -221,7 +227,9 @@ export function SellerForm({
     if (idx >= STEP_SLUGS.length - 1) return;
 
     const stepKey =
-      currentStep === "address" || currentStep === "property"
+      currentStep === "address" ||
+      currentStep === "property" ||
+      currentStep === "condition"
         ? currentStep
         : null;
     if (stepKey) {
@@ -238,8 +246,7 @@ export function SellerForm({
         return;
       }
     }
-    // Condition / contact steps remain placeholder-gated for now;
-    // S6–S7 replace these with their own validation gates.
+    // Contact step still placeholder-gated; S7 adds its validation gate.
 
     navigateToStep(STEP_SLUGS[idx + 1]);
   }, [currentStep, stepData, navigateToStep]);
@@ -288,6 +295,7 @@ export function SellerForm({
         errors={currentErrors}
         onAddressChange={updateAddress}
         onPropertyChange={updateProperty}
+        onConditionChange={updateCondition}
       />
 
       <HiddenField name="step" value={currentStep} />
@@ -319,6 +327,7 @@ type StepDispatchProps = {
   errors?: Record<string, string[]>;
   onAddressChange: (partial: Partial<AddressFields>) => void;
   onPropertyChange: (partial: Partial<PropertyFields>) => void;
+  onConditionChange: (partial: Partial<ConditionFields>) => void;
 };
 
 function StepDispatch({
@@ -328,6 +337,7 @@ function StepDispatch({
   errors,
   onAddressChange,
   onPropertyChange,
+  onConditionChange,
 }: StepDispatchProps) {
   switch (step) {
     case "address":
@@ -349,6 +359,14 @@ function StepDispatch({
         />
       );
     case "condition":
+      return (
+        <ConditionStep
+          data={data.condition}
+          errors={errors}
+          onChange={onConditionChange}
+          headingRef={headingRef}
+        />
+      );
     case "contact":
       return (
         <PlaceholderStep slug={step} headingRef={headingRef} errors={errors} />
