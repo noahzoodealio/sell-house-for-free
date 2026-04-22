@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import type { AddressFields, EnrichmentSlot } from "@/lib/seller-form/types";
 import type {
+  AttomProfileDto,
+  EnrichmentSource,
   ListingImageDto,
   PropertyDetailsDto,
   PropertySearchResultDto,
@@ -119,25 +121,55 @@ function mapPhotos(
 
 type SettledDetails = PromiseSettledResult<PropertyDetailsDto>;
 type SettledImages = PromiseSettledResult<ListingImageDto[] | undefined>;
+type SettledAttom = PromiseSettledResult<AttomProfileDto | null>;
 
-export function mergeToEnrichmentSlot(
-  search: PropertySearchResultDto,
-  detailsSettled: SettledDetails,
-  imagesSettled: SettledImages,
-  fetchedAt: string,
-): EnrichmentSlot {
+export type MergeSlotInput = {
+  search: PropertySearchResultDto | null;
+  detailsSettled: SettledDetails | null;
+  imagesSettled: SettledImages | null;
+  attomProfileSettled: SettledAttom;
+  sources: EnrichmentSource[];
+  slotStatus: "ok" | "ok-partial";
+  fetchedAt: string;
+};
+
+/**
+ * Assemble the final `EnrichmentSlot` from the parallel-fetched source
+ * results. Per-field fallback chain is `details → search → attom`;
+ * MLS-specific fields (ids, listingStatus, photos) stay empty when MLS
+ * didn't contribute (attom-only path). Caller owns `sources` + envelope
+ * status — this function doesn't infer them from the settled results so
+ * ENRICHMENT_SOURCES disables can't leak as ok-partial.
+ */
+export function mergeToEnrichmentSlot(input: MergeSlotInput): EnrichmentSlot {
+  const {
+    search,
+    detailsSettled,
+    imagesSettled,
+    attomProfileSettled,
+    sources,
+    slotStatus,
+    fetchedAt,
+  } = input;
+
   const details =
-    detailsSettled.status === "fulfilled" ? detailsSettled.value : undefined;
+    detailsSettled?.status === "fulfilled" ? detailsSettled.value : undefined;
 
   const images =
-    imagesSettled.status === "fulfilled" ? imagesSettled.value : undefined;
+    imagesSettled?.status === "fulfilled" ? imagesSettled.value : undefined;
 
-  const slotDetails: EnrichmentSlot["details"] = {
-    bedrooms: details?.bedrooms ?? search.bedrooms,
-    bathrooms: details?.bathrooms ?? search.bathrooms,
-    squareFootage: details?.squareFootage ?? search.squareFootage,
-    yearBuilt: details?.yearBuilt ?? search.yearBuilt,
-    lotSize: details?.lotSize,
+  const attom =
+    attomProfileSettled.status === "fulfilled"
+      ? attomProfileSettled.value ?? undefined
+      : undefined;
+
+  const slotDetails: NonNullable<EnrichmentSlot["details"]> = {
+    bedrooms: details?.bedrooms ?? search?.bedrooms ?? attom?.bedrooms,
+    bathrooms: details?.bathrooms ?? search?.bathrooms ?? attom?.bathrooms,
+    squareFootage:
+      details?.squareFootage ?? search?.squareFootage ?? attom?.squareFootage,
+    yearBuilt: details?.yearBuilt ?? search?.yearBuilt ?? attom?.yearBuilt,
+    lotSize: details?.lotSize ?? attom?.lotSize,
   };
 
   const hasAnyDetail = Object.values(slotDetails).some(
@@ -145,14 +177,19 @@ export function mergeToEnrichmentSlot(
   );
 
   return {
-    status: "ok",
-    attomId: search.attomId,
-    mlsRecordId: search.mlsRecordId,
-    listingStatus: normalizeListingStatus(search.listingStatus),
-    rawListingStatus: search.listingStatus,
-    listingStatusDisplay: displayListingStatus(search.listingStatus),
+    status: slotStatus,
+    attomId: search?.attomId,
+    mlsRecordId: search?.mlsRecordId,
+    listingStatus: search
+      ? normalizeListingStatus(search.listingStatus)
+      : undefined,
+    rawListingStatus: search?.listingStatus,
+    listingStatusDisplay: search
+      ? displayListingStatus(search.listingStatus)
+      : undefined,
     details: hasAnyDetail ? slotDetails : undefined,
     photos: mapPhotos(images),
+    sources: sources.length > 0 ? sources : undefined,
     fetchedAt,
   };
 }
