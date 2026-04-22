@@ -102,14 +102,20 @@ function formatAddressParts(addr: AddressFields): {
 
 // Narrow shape of the `property[0]` node we extract. The rest of the
 // ATTOM response (168+ fields) is intentionally untyped — mirror the
-// `PropertyDetailsDto` discipline.
+// `PropertyDetailsDto` discipline. Paths confirmed against a live
+// expandedprofile response (Phoenix SFR, Apr 2026) — ATTOM's actual
+// response uses camelCase, not the lowercase form the story doc cited.
 type AttomProperty = {
   building?: {
     rooms?: { beds?: number; bathsTotal?: number };
-    size?: { universalsize?: number };
+    size?: {
+      universalSize?: number;
+      livingSize?: number;
+      bldgSize?: number;
+    };
   };
-  summary?: { yearbuilt?: number };
-  lot?: { lotsize2?: number };
+  summary?: { yearBuilt?: number };
+  lot?: { lotSize2?: number };
 };
 
 function extractProfile(body: unknown): AttomProfileDto | null {
@@ -121,9 +127,14 @@ function extractProfile(body: unknown): AttomProfileDto | null {
   return {
     bedrooms: first.building?.rooms?.beds,
     bathrooms: first.building?.rooms?.bathsTotal,
-    squareFootage: first.building?.size?.universalsize,
-    yearBuilt: first.summary?.yearbuilt,
-    lotSize: first.lot?.lotsize2,
+    // universalSize is ATTOM's recommended square-footage (normalized);
+    // livingSize / bldgSize are near-identical fallbacks when absent.
+    squareFootage:
+      first.building?.size?.universalSize ??
+      first.building?.size?.livingSize ??
+      first.building?.size?.bldgSize,
+    yearBuilt: first.summary?.yearBuilt,
+    lotSize: first.lot?.lotSize2,
   };
 }
 
@@ -163,8 +174,13 @@ export async function getAttomProfile(
     const body = await parseJson(res);
     const profile = extractProfile(body);
     if (process.env.NODE_ENV !== "production") {
-      // Dev-only manual-test log. Narrow 5-field extract only — never the raw
-      // body (can include owner names / PII per AC13).
+      // Dev-only manual-test log. Includes the building/summary/lot subtrees
+      // (the sections our narrow extractor looks at) so we can spot
+      // path-mismatch bugs. Never the full body — `property[0].assessment.owner`,
+      // `property[0].sale.{buyer,seller}`, etc. carry real PII per AC13.
+      const first = (body as { property?: unknown[] } | null)?.property?.[0] as
+        | Record<string, unknown>
+        | undefined;
       console.log(
         "[attom-client]",
         JSON.stringify({
@@ -172,6 +188,18 @@ export async function getAttomProfile(
           httpStatus: res.status,
           noMatch: profile === null,
           profile,
+          debug: first
+            ? {
+                building: first.building,
+                summary: first.summary,
+                lot: first.lot,
+                size: (first as { size?: unknown }).size,
+                identifierKeys: first.identifier
+                  ? Object.keys(first.identifier as object)
+                  : undefined,
+                topLevelKeys: Object.keys(first),
+              }
+            : undefined,
         }),
       );
     }

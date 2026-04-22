@@ -47,16 +47,17 @@ function mockFetchOnce(
 }
 
 // Full-shape ATTOM property node with all five fields populated.
+// Keys match ATTOM's live expandedprofile response (camelCase).
 function fullProperty(): unknown {
   return {
     property: [
       {
         building: {
           rooms: { beds: 4, bathsTotal: 2.5 },
-          size: { universalsize: 2400 },
+          size: { universalSize: 2400, livingSize: 2400 },
         },
-        summary: { yearbuilt: 1998 },
-        lot: { lotsize2: 7200 },
+        summary: { yearBuilt: 1998 },
+        lot: { lotSize2: 7200 },
       },
     ],
   };
@@ -96,7 +97,7 @@ describe("attom-client", () => {
           property: [
             {
               building: { rooms: { beds: 3 } },
-              summary: { yearbuilt: 2001 },
+              summary: { yearBuilt: 2001 },
             },
           ],
         },
@@ -109,6 +110,22 @@ describe("attom-client", () => {
     expect(profile?.bathrooms).toBeUndefined();
     expect(profile?.squareFootage).toBeUndefined();
     expect(profile?.lotSize).toBeUndefined();
+  });
+
+  it("squareFootage falls back to livingSize then bldgSize when universalSize missing", async () => {
+    mockFetchOnce([
+      {
+        body: {
+          property: [
+            {
+              building: { size: { livingSize: 2100, bldgSize: 2200 } },
+            },
+          ],
+        },
+      },
+    ]);
+    const { getAttomProfile } = await import("../attom-client");
+    expect((await getAttomProfile(ADDR))?.squareFootage).toBe(2100);
   });
 
   it("returns null when property[] is empty (no-match)", async () => {
