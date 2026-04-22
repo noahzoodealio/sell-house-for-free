@@ -58,13 +58,18 @@ export function AddressStep({
 
   return (
     <div>
-      <span className="eyebrow" style={{ marginBottom: 12 }}>
-        Step 1 · Address
+      <span className="eyebrow" style={{ marginBottom: 16, display: "block" }}>
+        Address
       </span>
-      <h2 ref={headingRef} tabIndex={-1} style={{ outline: "none" }}>
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="flow-page-title"
+        style={{ outline: "none" }}
+      >
         Where’s the property?
       </h2>
-      <p className="lede">
+      <p className="flow-page-lede">
         Enter the address you want to sell. We’ll pull public-records and MLS
         data in the background so you don’t have to re-type it.
       </p>

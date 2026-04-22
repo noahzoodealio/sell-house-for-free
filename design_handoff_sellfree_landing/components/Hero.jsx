@@ -167,7 +167,12 @@ function EstimateCard({ revealed }) {
 
 function Hero() {
   const [revealed, setRevealed] = useState(null);
-  const launchFlow = (addr) => { window.dispatchEvent(new CustomEvent("sf:open-flow", { detail: addr })); };
+  const launchFlow = (addr) => {
+    const seed = { addr: addr.addr, city: addr.city };
+    const existing = (() => { try { return JSON.parse(localStorage.getItem("sellfree:flow") || "{}"); } catch { return {}; } })();
+    localStorage.setItem("sellfree:flow", JSON.stringify({ ...existing, seedAddress: seed }));
+    window.location.hash = "#/submit/address";
+  };
 
   return (
     <section className="hero">

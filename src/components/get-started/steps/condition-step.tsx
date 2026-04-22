@@ -60,14 +60,20 @@ export function ConditionStep({
 
   return (
     <div>
-      <span className="eyebrow" style={{ marginBottom: 12 }}>
-        Step 4 · A few more details
+      <span className="eyebrow" style={{ marginBottom: 16, display: "block" }}>
+        A few more details
       </span>
-      <h2 ref={headingRef} tabIndex={-1} style={{ outline: "none" }}>
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="flow-page-title"
+        style={{ outline: "none" }}
+      >
         Tell us about the home and timing.
       </h2>
-      <p className="lede">
-        Helps us recommend the right plan and pricing strategy.
+      <p className="flow-page-lede">
+        Two quick questions so we can recommend the right plan and pricing
+        strategy for your market.
       </p>
 
       <div className="field">

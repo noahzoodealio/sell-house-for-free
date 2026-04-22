@@ -90,6 +90,15 @@ const EMPTY_DRAFT: DraftState = {
   consent: {},
 };
 
+function visibleSlugs(hasActiveMlsMatch: boolean): readonly StepSlug[] {
+  // The MLS step only makes sense when we actually have a listing to show.
+  // When there's no active MLS match the flow collapses to 4 steps:
+  // address → property → condition → contact.
+  return hasActiveMlsMatch
+    ? STEP_SLUGS
+    : (STEP_SLUGS.filter((s) => s !== "mls") as readonly StepSlug[]);
+}
+
 function stepBySlug(slug: string | null | undefined): StepSlug {
   if (slug && (STEP_SLUGS as readonly string[]).includes(slug)) {
     return slug as StepSlug;
@@ -237,7 +246,10 @@ export function SellerForm({
     return ACTIVE_STATUS_RAW_KEYS.has(canonical);
   }, [enrichmentSlot]);
 
-  const visible = STEP_SLUGS;
+  const visible = useMemo(
+    () => visibleSlugs(hasActiveMlsMatch),
+    [hasActiveMlsMatch],
+  );
 
   const visibleIdx = visible.indexOf(currentStep);
 
@@ -360,6 +372,16 @@ export function SellerForm({
   );
 
   useEffect(() => {
+    // Guard against landing on ?step=mls when there's no active MLS match
+    // (direct URL, back-nav after enrichment re-ran with a different result).
+    // Send the seller forward to condition so they don't see a blank MLS step
+    // that has nothing to render.
+    if (currentStep === "mls" && !hasActiveMlsMatch) {
+      navigateToStep("condition");
+    }
+  }, [currentStep, hasActiveMlsMatch, navigateToStep]);
+
+  useEffect(() => {
     // Auto-advance for URL-seeded entries (landing-bar submit). Always jumps to
     // property — MLS check is deferred until after the seller eyeballs the
     // ATTOM-autofilled facts.
@@ -417,48 +439,10 @@ export function SellerForm({
   const updateCondition = useMemo(() => makeStepUpdater("condition"), [makeStepUpdater]);
   const updateContact = useMemo(() => makeStepUpdater("contact"), [makeStepUpdater]);
 
-  const updateConsent = useCallback((partial: Partial<ConsentFields>) => {
-    setConsent((prev) => ({ ...prev, ...partial }));
-    setClientErrors((prev) => {
-      const current = prev.contact ?? {};
-      const next = { ...current };
-      let changed = false;
-      for (const key of Object.keys(partial)) {
-        if (next[key]) {
-          delete next[key];
-          changed = true;
-        }
-      }
-      return changed ? { ...prev, contact: next } : prev;
-    });
-  }, []);
-
   const onBack = useCallback(() => {
     if (visibleIdx <= 0) return;
     navigateToStep(visible[visibleIdx - 1]);
   }, [navigateToStep, visible, visibleIdx]);
-
-  const canAdvance = useMemo(() => {
-    if (currentStep === "mls") {
-      // Active MLS match requires a claim-intent pick; no-match requires the
-      // seller to acknowledge they're clear to list. `listedReason` carries
-      // both in-session — exploring / second-opinion / ready-to-switch for
-      // active matches, or is left undefined with a separate "confirmed" flag.
-      if (hasActiveMlsMatch) return listedReason !== undefined;
-      return mlsAcknowledged;
-    }
-    return true;
-  // mlsAcknowledged is declared below — safe because this memo re-runs on its change.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, hasActiveMlsMatch, listedReason]);
-
-  const [mlsAcknowledged, setMlsAcknowledged] = useState(false);
-
-  useEffect(() => {
-    // Reset the acknowledgement whenever the seller leaves the MLS step, so
-    // re-entering always forces a fresh tap.
-    if (currentStep !== "mls") setMlsAcknowledged(false);
-  }, [currentStep]);
 
   const onNext = useCallback(() => {
     if (visibleIdx < 0 || visibleIdx >= visible.length - 1) return;
@@ -499,34 +483,15 @@ export function SellerForm({
         return;
       }
     }
-    if (currentStep === "mls" && !canAdvance) return;
-    if (currentStep === "contact") {
-      const consentErrors: Record<string, string[]> = {};
-      const keys: Array<keyof ConsentFields> = ["tcpa", "terms", "privacy"];
-      for (const k of keys) {
-        if (!consent[k]?.acceptedAt) {
-          consentErrors[k] = ["You must check this box to continue"];
-        }
-      }
-      if (Object.keys(consentErrors).length > 0) {
-        setClientErrors((prev) => ({
-          ...prev,
-          contact: { ...(prev.contact ?? {}), ...consentErrors },
-        }));
-        return;
-      }
-    }
 
     navigateToStep(visible[visibleIdx + 1]);
   }, [
     currentStep,
     stepData,
-    consent,
     navigateToStep,
     isMultiUnit,
     visible,
     visibleIdx,
-    canAdvance,
   ]);
 
   const currentErrors = useMemo(() => {
@@ -554,114 +519,132 @@ export function SellerForm({
 
   return (
     <form action={formAction} className="sellfree-flow" noValidate>
-      <div className="flow-head">
-        <Link href="/" className="wordmark" aria-label="sellfree.ai — home">
-          <span className="dot">sellfree</span>
-          <span className="ai">.ai</span>
-        </Link>
-        <div className="flow-progress" aria-hidden="true">
-          <div className="flow-progress-fill" style={{ width: `${progressPct}%` }} />
-        </div>
-        <span className="flow-step-n">
-          {Math.max(visibleIdx, 0) + 1} / {visible.length}
-        </span>
-        <Link href="/" className="flow-close" aria-label="Close and return home">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </Link>
-      </div>
-
-      <div className="flow-body">
-        <div
-          id={liveRegionId}
-          role="status"
-          aria-live="polite"
-          className="sr-only"
-        >
-          {liveMessage}
-        </div>
-
-        {showDraftBanner && (
-          <DraftRecoveryBanner
-            onDismiss={() => setShowDraftBanner(false)}
-            onDiscard={handleDiscardDraft}
-          />
-        )}
-
-        {hasErrors && (
-          <div role="alert" className="error-banner">
-            We couldn&apos;t submit your form — please correct the fields marked
-            below.
-          </div>
-        )}
-
-        <StepDispatch
-          step={currentStep}
-          headingRef={headingRef}
-          data={stepData}
-          errors={currentErrors}
-          consent={consent}
-          onAddressChange={updateAddress}
-          onPropertyChange={updateProperty}
-          onConditionChange={updateCondition}
-          onContactChange={updateContact}
-          onConsentChange={updateConsent}
-          enrichmentStatus={enrichment.status}
-          enrichmentSlot={enrichmentSlot}
-          isMultiUnit={isMultiUnit}
-          hasActiveMlsMatch={hasActiveMlsMatch}
-          listedReason={listedReason}
-          onListedReasonChange={setListedReason}
-          hasAgent={hasAgent}
-          onHasAgentChange={setHasAgent}
-          mlsAcknowledged={mlsAcknowledged}
-          onMlsAcknowledge={() => setMlsAcknowledged(true)}
-        />
-
-        <HiddenField name="step" value={currentStep} />
-        <HiddenField name="submissionId" value={submissionId} />
-        <HiddenField name="idempotencyKey" value={idempotencyKey ?? ""} />
-        <HiddenField name="attribution" value={JSON.stringify(attribution)} />
-        <HiddenField name="draftJson" value={JSON.stringify(stepData)} />
-        <HiddenField name="consentJson" value={JSON.stringify(consent)} />
-        {listedReason && (
-          <HiddenField name="currentListingStatus" value={listedReason} />
-        )}
-        {hasAgent && <HiddenField name="hasAgent" value={hasAgent} />}
-        {initialHints?.pillar && (
-          <HiddenField name="pillarHint" value={initialHints.pillar} />
-        )}
-        {initialHints?.city && (
-          <HiddenField name="cityHint" value={initialHints.city} />
-        )}
-      </div>
-
-      <div className="flow-foot">
-        <div className="flow-foot-inner">
-          <button
-            type="button"
-            className={"flow-back" + (visibleIdx === 0 ? " hidden" : "")}
-            onClick={onBack}
-            disabled={visibleIdx === 0}
+      <div className="flow-page">
+        <header className="flow-page-nav">
+          <Link href="/" className="wordmark" aria-label="sellfree.ai — home">
+            <span className="dot">sellfree</span>
+            <span className="ai">.ai</span>
+          </Link>
+          <div
+            className="flow-progress-wrap"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
+              flex: 1,
+              maxWidth: 420,
+              margin: "0 32px",
+            }}
           >
-            ← Back
-          </button>
-          {isFinalStep ? (
-            <SubmitButton />
-          ) : (
+            <span className="flow-step-n">
+              Step {Math.max(visibleIdx, 0) + 1} of {visible.length}
+            </span>
+            <div
+              className="flow-progress"
+              style={{ flex: 1 }}
+              aria-hidden="true"
+            >
+              <div
+                className="flow-progress-fill"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+          <Link
+            href="/"
+            className="flow-exit"
+            aria-label="Save and exit — return home"
+          >
+            Save &amp; exit ×
+          </Link>
+        </header>
+
+        <main className="flow-page-body">
+          <div className="flow-page-content">
+            <div
+              id={liveRegionId}
+              role="status"
+              aria-live="polite"
+              className="sr-only"
+            >
+              {liveMessage}
+            </div>
+
+            {showDraftBanner && (
+              <DraftRecoveryBanner
+                onDismiss={() => setShowDraftBanner(false)}
+                onDiscard={handleDiscardDraft}
+              />
+            )}
+
+            {hasErrors && (
+              <div role="alert" className="error-banner">
+                We couldn&apos;t submit your form — please correct the fields
+                marked below.
+              </div>
+            )}
+
+            <StepDispatch
+              step={currentStep}
+              headingRef={headingRef}
+              data={stepData}
+              errors={currentErrors}
+              onAddressChange={updateAddress}
+              onPropertyChange={updateProperty}
+              onConditionChange={updateCondition}
+              onContactChange={updateContact}
+              enrichmentStatus={enrichment.status}
+              enrichmentSlot={enrichmentSlot}
+              isMultiUnit={isMultiUnit}
+              listedReason={listedReason}
+              onListedReasonChange={setListedReason}
+              hasAgent={hasAgent}
+              onHasAgentChange={setHasAgent}
+            />
+
+            <HiddenField name="step" value={currentStep} />
+            <HiddenField name="submissionId" value={submissionId} />
+            <HiddenField name="idempotencyKey" value={idempotencyKey ?? ""} />
+            <HiddenField name="attribution" value={JSON.stringify(attribution)} />
+            <HiddenField name="draftJson" value={JSON.stringify(stepData)} />
+            <HiddenField name="consentJson" value={JSON.stringify(consent)} />
+            {listedReason && (
+              <HiddenField name="currentListingStatus" value={listedReason} />
+            )}
+            {hasAgent && <HiddenField name="hasAgent" value={hasAgent} />}
+            {initialHints?.pillar && (
+              <HiddenField name="pillarHint" value={initialHints.pillar} />
+            )}
+            {initialHints?.city && (
+              <HiddenField name="cityHint" value={initialHints.city} />
+            )}
+          </div>
+        </main>
+
+        <footer className="flow-page-foot">
+          <div className="flow-page-foot-inner">
             <button
               type="button"
-              className="btn btn-primary"
-              onClick={onNext}
-              aria-disabled={currentStep === "mls" && !canAdvance}
-              disabled={currentStep === "mls" && !canAdvance}
+              className={"flow-back" + (visibleIdx === 0 ? " hidden" : "")}
+              onClick={onBack}
+              disabled={visibleIdx === 0}
             >
-              Continue
-              <ArrowRightIcon />
+              ← Back
             </button>
-          )}
-        </div>
+            {isFinalStep ? (
+              <SubmitButton />
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary btn-lg"
+                onClick={onNext}
+              >
+                Continue
+                <ArrowRightIcon />
+              </button>
+            )}
+          </div>
+        </footer>
       </div>
     </form>
   );
@@ -700,46 +683,36 @@ type StepDispatchProps = {
   step: StepSlug;
   headingRef: React.Ref<HTMLHeadingElement>;
   data: StepDataMap;
-  consent: Partial<ConsentFields>;
   errors?: Record<string, string[]>;
   onAddressChange: (partial: Partial<AddressFields>) => void;
   onPropertyChange: (partial: Partial<PropertyFields>) => void;
   onConditionChange: (partial: Partial<ConditionFields>) => void;
   onContactChange: (partial: Partial<ContactFields>) => void;
-  onConsentChange: (partial: Partial<ConsentFields>) => void;
   enrichmentStatus: ReturnType<typeof useAddressEnrichment>["status"];
   enrichmentSlot: import("@/lib/seller-form/types").EnrichmentSlot | undefined;
   isMultiUnit: boolean;
-  hasActiveMlsMatch: boolean;
   listedReason: CurrentListingStatus | undefined;
   onListedReasonChange: (reason: CurrentListingStatus) => void;
   hasAgent: HasAgent | undefined;
   onHasAgentChange: (value: HasAgent) => void;
-  mlsAcknowledged: boolean;
-  onMlsAcknowledge: () => void;
 };
 
 function StepDispatch({
   step,
   headingRef,
   data,
-  consent,
   errors,
   onAddressChange,
   onPropertyChange,
   onConditionChange,
   onContactChange,
-  onConsentChange,
   enrichmentStatus,
   enrichmentSlot,
   isMultiUnit,
-  hasActiveMlsMatch,
   listedReason,
   onListedReasonChange,
   hasAgent,
   onHasAgentChange,
-  mlsAcknowledged,
-  onMlsAcknowledge,
 }: StepDispatchProps) {
   switch (step) {
     case "address":
@@ -770,14 +743,12 @@ function StepDispatch({
           headingRef={headingRef}
           enrichmentStatus={enrichmentStatus}
           enrichmentSlot={enrichmentSlot}
-          hasActiveMlsMatch={hasActiveMlsMatch}
           address={data.address}
+          property={data.property}
           listedReason={listedReason}
           onListedReasonChange={onListedReasonChange}
           hasAgent={hasAgent}
           onHasAgentChange={onHasAgentChange}
-          acknowledged={mlsAcknowledged}
-          onAcknowledge={onMlsAcknowledge}
         />
       );
     case "condition":
@@ -793,11 +764,10 @@ function StepDispatch({
       return (
         <ContactStep
           data={data.contact}
-          consent={consent}
           errors={errors}
           onChange={onContactChange}
-          onConsentChange={onConsentChange}
           headingRef={headingRef}
+          enrichmentSlot={enrichmentSlot}
         />
       );
     default: {

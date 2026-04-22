@@ -272,7 +272,10 @@ describe("mergeToEnrichmentSlot", () => {
     expect(slot.photos).toBeUndefined();
   });
 
-  it("returns first 3 photos sorted by displayOrder", () => {
+  it("returns all photos sorted by displayOrder", () => {
+    // The submission-flow MLS step drives a carousel over the full set, so
+    // normalize no longer slices to 3 — it preserves every image sorted by
+    // displayOrder so the carousel can page through them.
     const slot = mergeToEnrichmentSlot({
       search,
       detailsSettled: { status: "fulfilled", value: { bedrooms: 3 } },
@@ -290,9 +293,9 @@ describe("mergeToEnrichmentSlot", () => {
       slotStatus: "ok-partial",
       fetchedAt: "2026-01-01T00:00:00.000Z",
     });
-    expect(slot.photos).toHaveLength(3);
+    expect(slot.photos).toHaveLength(4);
     expect(slot.photos?.[0].url).toBe("x/1.jpg");
-    expect(slot.photos?.[2].url).toBe("x/3.jpg");
+    expect(slot.photos?.[3].url).toBe("x/4.jpg");
   });
 
   it("always sets fetchedAt", () => {

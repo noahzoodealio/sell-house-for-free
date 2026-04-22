@@ -93,15 +93,20 @@ export function PropertyStep({
 
   return (
     <div>
-      <span className="eyebrow" style={{ marginBottom: 12 }}>
-        Step 2 · Property details
+      <span className="eyebrow" style={{ marginBottom: 16, display: "block" }}>
+        Property details
       </span>
-      <h2 ref={headingRef} tabIndex={-1} style={{ outline: "none" }}>
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="flow-page-title"
+        style={{ outline: "none" }}
+      >
         Verify the details.
       </h2>
-      <p className="lede">
+      <p className="flow-page-lede">
         We pulled these from public records and tax data. Edit anything that’s
-        off.
+        off — we’ll use it to set a pricing range.
       </p>
 
       {details && (

@@ -1,35 +1,27 @@
 "use client";
 
-import { useId, type Ref } from "react";
-import { PRIVACY_CONSENT } from "@/content/consent/privacy";
-import { TCPA_CONSENT } from "@/content/consent/tcpa";
-import { TERMS_CONSENT } from "@/content/consent/terms";
+import type { Ref } from "react";
 import type {
-  ConsentFields,
   ContactFields,
+  EnrichmentSlot,
 } from "@/lib/seller-form/types";
 
 type ContactStepProps = {
   data: Partial<ContactFields>;
-  consent: Partial<ConsentFields>;
   errors?: Record<string, string[]>;
   onChange: (partial: Partial<ContactFields>) => void;
-  onConsentChange: (partial: Partial<ConsentFields>) => void;
   headingRef: Ref<HTMLHeadingElement>;
+  enrichmentSlot: EnrichmentSlot | undefined;
 };
 
-type ConsentKey = keyof ConsentFields;
-type ConsentItem = {
-  key: ConsentKey;
-  label: string;
-  constant: { version: string; isPlaceholder: boolean; text: string };
-};
+// Pricing anchors for the est-savings callout (see landing-page TIERS.pro).
+const SELLFREE_PRO_FEE = 2999;
+const TRADITIONAL_COMMISSION_PCT = 0.06;
 
-const CONSENT_ITEMS: ReadonlyArray<ConsentItem> = [
-  { key: "tcpa", label: "I agree to phone + text contact", constant: TCPA_CONSENT },
-  { key: "terms", label: "I agree to the Terms of Service", constant: TERMS_CONSENT },
-  { key: "privacy", label: "I acknowledge the Privacy Policy", constant: PRIVACY_CONSENT },
-];
+// Fallback Arizona-median home value when we have no MLS list price and no
+// valuation signal. Keeps the Est-savings number meaningful on the no-match
+// path without shipping an outright mock. Conservative so we don't oversell.
+const AZ_MEDIAN_FALLBACK = 425_000;
 
 function firstError(
   errors: Record<string, string[]> | undefined,
@@ -55,154 +47,127 @@ function trim(value: string): string {
 
 export function ContactStep({
   data,
-  consent,
   errors,
   onChange,
-  onConsentChange,
   headingRef,
+  enrichmentSlot,
 }: ContactStepProps) {
-  const groupId = useId();
-
-  const toggleConsent = (item: ConsentItem, next: boolean) => {
-    if (next) {
-      onConsentChange({
-        [item.key]: {
-          version: item.constant.version,
-          acceptedAt: new Date().toISOString(),
-          isPlaceholder: item.constant.isPlaceholder,
-        },
-      } as Partial<ConsentFields>);
-    } else {
-      onConsentChange({ [item.key]: undefined } as Partial<ConsentFields>);
-    }
-  };
+  const homeValue = enrichmentSlot?.listPrice ?? AZ_MEDIAN_FALLBACK;
+  const estSavings = Math.max(
+    0,
+    Math.round(homeValue * TRADITIONAL_COMMISSION_PCT - SELLFREE_PRO_FEE),
+  );
 
   return (
     <div>
-      <span className="eyebrow" style={{ marginBottom: 12 }}>
-        Step 5 · Your info
+      <span
+        className="eyebrow"
+        style={{ marginBottom: 16, display: "block" }}
+      >
+        Your info
       </span>
-      <h2 ref={headingRef} tabIndex={-1} style={{ outline: "none" }}>
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="flow-page-title"
+        style={{ outline: "none" }}
+      >
         Where should we send your report?
       </h2>
-      <p className="lede">
-        We’ll email your full property report and connect you with a licensed
-        Arizona Project Manager — no spam, no call center.
+      <p className="flow-page-lede">
+        We’ll email your full property report, estimated savings breakdown, and
+        recommended plan — no spam, no call center.
       </p>
+
+      <div className="field">
+        <label htmlFor="name">Full name</label>
+        <input
+          id="name"
+          name="name"
+          type="text"
+          autoComplete="name"
+          maxLength={120}
+          placeholder="First and last"
+          value={data.name ?? ""}
+          onChange={(e) => onChange({ name: e.target.value })}
+          onBlur={(e) => {
+            const t = trim(e.target.value);
+            if (t !== e.target.value) onChange({ name: t });
+          }}
+          aria-invalid={firstError(errors, "name") ? true : undefined}
+        />
+        {firstError(errors, "name") && (
+          <p className="field-error">{firstError(errors, "name")}</p>
+        )}
+      </div>
 
       <div className="field-row">
         <div className="field">
-          <label htmlFor="firstName">First name</label>
+          <label htmlFor="email">Email</label>
           <input
-            id="firstName"
-            name="firstName"
-            type="text"
-            autoComplete="given-name"
-            maxLength={60}
-            value={data.firstName ?? ""}
-            onChange={(e) => onChange({ firstName: e.target.value })}
+            id="email"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            maxLength={254}
+            placeholder="you@email.com"
+            value={data.email ?? ""}
+            onChange={(e) => onChange({ email: e.target.value })}
             onBlur={(e) => {
               const t = trim(e.target.value);
-              if (t !== e.target.value) onChange({ firstName: t });
+              if (t !== e.target.value) onChange({ email: t });
             }}
-            aria-invalid={firstError(errors, "firstName") ? true : undefined}
+            aria-invalid={firstError(errors, "email") ? true : undefined}
           />
-          {firstError(errors, "firstName") && (
-            <p className="field-error">{firstError(errors, "firstName")}</p>
+          {firstError(errors, "email") && (
+            <p className="field-error">{firstError(errors, "email")}</p>
           )}
         </div>
         <div className="field">
-          <label htmlFor="lastName">Last name</label>
+          <label htmlFor="phone">Phone</label>
           <input
-            id="lastName"
-            name="lastName"
-            type="text"
-            autoComplete="family-name"
-            maxLength={60}
-            value={data.lastName ?? ""}
-            onChange={(e) => onChange({ lastName: e.target.value })}
+            id="phone"
+            name="phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            maxLength={20}
+            placeholder="(555) 123-4567"
+            value={data.phone ?? ""}
+            onChange={(e) => onChange({ phone: e.target.value })}
             onBlur={(e) => {
-              const t = trim(e.target.value);
-              if (t !== e.target.value) onChange({ lastName: t });
+              const formatted = formatPhone(e.target.value);
+              if (formatted !== e.target.value) onChange({ phone: formatted });
             }}
-            aria-invalid={firstError(errors, "lastName") ? true : undefined}
+            aria-invalid={firstError(errors, "phone") ? true : undefined}
           />
-          {firstError(errors, "lastName") && (
-            <p className="field-error">{firstError(errors, "lastName")}</p>
+          {firstError(errors, "phone") && (
+            <p className="field-error">{firstError(errors, "phone")}</p>
           )}
         </div>
       </div>
 
-      <div className="field">
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          maxLength={254}
-          placeholder="you@email.com"
-          value={data.email ?? ""}
-          onChange={(e) => onChange({ email: e.target.value })}
-          onBlur={(e) => {
-            const t = trim(e.target.value);
-            if (t !== e.target.value) onChange({ email: t });
-          }}
-          aria-invalid={firstError(errors, "email") ? true : undefined}
-        />
-        {firstError(errors, "email") && (
-          <p className="field-error">{firstError(errors, "email")}</p>
-        )}
+      <div className="contact-savings">
+        <div>
+          <div className="contact-savings-k">
+            Your savings report will include
+          </div>
+          <div className="contact-savings-v">
+            Est. home value · Projected savings · Recommended plan · Sample
+            listing preview
+          </div>
+        </div>
+        <div className="contact-savings-num">
+          <div className="n">${estSavings.toLocaleString()}</div>
+          <div className="k">Est savings</div>
+        </div>
       </div>
 
-      <div className="field">
-        <label htmlFor="phone">Phone</label>
-        <input
-          id="phone"
-          name="phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          maxLength={20}
-          placeholder="(555) 123-4567"
-          value={data.phone ?? ""}
-          onChange={(e) => onChange({ phone: e.target.value })}
-          onBlur={(e) => {
-            const formatted = formatPhone(e.target.value);
-            if (formatted !== e.target.value) onChange({ phone: formatted });
-          }}
-          aria-invalid={firstError(errors, "phone") ? true : undefined}
-        />
-        {firstError(errors, "phone") && (
-          <p className="field-error">{firstError(errors, "phone")}</p>
-        )}
-      </div>
-
-      <div className="consent">
-        {CONSENT_ITEMS.map((item) => {
-          const id = `${groupId}-${item.key}`;
-          const checked = Boolean(consent[item.key]?.acceptedAt);
-          const err = firstError(errors, item.key);
-          return (
-            <div key={item.key} className="consent-item">
-              <input
-                id={id}
-                type="checkbox"
-                name={`consent.${item.key}`}
-                checked={checked}
-                onChange={(e) => toggleConsent(item, e.target.checked)}
-                aria-invalid={err ? true : undefined}
-              />
-              <label htmlFor={id}>
-                <strong>{item.label}</strong>
-                {item.constant.text}
-                {err && <span className="field-error"> {err}</span>}
-              </label>
-            </div>
-          );
-        })}
-      </div>
+      <p className="field-help" style={{ marginTop: 16 }}>
+        By continuing you agree to our Terms and Privacy Policy. We never share
+        your data.
+      </p>
     </div>
   );
 }

@@ -20,8 +20,7 @@ function buildBaseFormData(): FormData {
       property: {},
       condition: { currentCondition: "move-in", timeline: "0-3mo" },
       contact: {
-        firstName: "Jane",
-        lastName: "Doe",
+        name: "Jane Doe",
         email: "jane@example.com",
         phone: "602-555-0123",
       },
