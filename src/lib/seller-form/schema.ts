@@ -117,6 +117,7 @@ export const enrichmentSlotSchema = z.object({
     "idle",
     "loading",
     "ok",
+    "ok-partial",
     "no-match",
     "out-of-area",
     "timeout",
@@ -141,6 +142,7 @@ export const enrichmentSlotSchema = z.object({
   photos: z
     .array(z.object({ url: z.url(), caption: z.string().optional() }))
     .optional(),
+  sources: z.array(z.enum(["mls", "attom"])).optional(),
   fetchedAt: z.string().datetime().optional(),
 });
 

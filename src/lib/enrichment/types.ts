@@ -36,14 +36,38 @@ export type EnrichmentInput = z.infer<typeof zEnrichmentInput>;
 /**
  * Envelope returned for `kind: 'enrich'`. `status` carries the outcome;
  * HTTP is always 200 (except on BFF crash) so the client branches on
- * `body.status` rather than the HTTP code.
+ * `body.status` rather than the HTTP code. `ok-partial` means exactly
+ * one enrichment source (MLS or ATTOM) returned usable data — the slot
+ * carries `sources` to disambiguate which.
  */
 export type EnrichmentEnvelope =
   | { status: "ok"; slot: EnrichmentSlot; cacheHit: boolean }
+  | { status: "ok-partial"; slot: EnrichmentSlot; cacheHit: boolean }
   | { status: "no-match"; cacheHit: boolean }
   | { status: "out-of-area" }
   | { status: "timeout"; retryable: true }
   | { status: "error"; code?: string };
+
+/**
+ * Internal telemetry returned alongside the envelope to the BFF route,
+ * never serialized to the client. Feeds the structured log line in
+ * `route.ts` so ops can see which source paid the latency cost.
+ */
+export type EnrichmentTelemetry = {
+  mlsSearchOk: boolean;
+  mlsDetailsOk: boolean;
+  mlsImagesOk: boolean;
+  attomOk: boolean;
+  attomLatencyMs?: number;
+  sources: EnrichmentSource[];
+};
+
+export type EnrichmentResult = {
+  envelope: EnrichmentEnvelope;
+  telemetry: EnrichmentTelemetry;
+};
+
+export type EnrichmentSource = "mls" | "attom";
 
 /**
  * Suggestion result — structured address the combobox can turn into a
@@ -131,6 +155,45 @@ export class MlsError extends Error {
     this.name = "MlsError";
     this.code = init.code;
     this.endpoint = init.endpoint;
+    this.status = init.status;
+    if (init.cause !== undefined) {
+      (this as { cause?: unknown }).cause = init.cause;
+    }
+  }
+}
+
+// ──────────────────────────── ATTOM DTOs (E4-S11) ────────────────────────────
+//
+// Only the five fields E4 consumes are typed. ATTOM's `expandedprofile`
+// response has 168+ fields across `property[0].{building,lot,summary,...}`.
+// Leave the rest as `unknown` — same discipline as `PropertyDetailsDto`.
+
+export type AttomProfileDto = {
+  bedrooms?: number;
+  bathrooms?: number;
+  squareFootage?: number;
+  yearBuilt?: number;
+  lotSize?: number;
+  [k: string]: unknown;
+};
+
+export type AttomErrorCode = "timeout" | "network" | "http" | "parse" | "config";
+
+export type AttomErrorInit = {
+  code: AttomErrorCode;
+  status?: number;
+  cause?: unknown;
+  message?: string;
+};
+
+export class AttomError extends Error {
+  readonly code: AttomErrorCode;
+  readonly status?: number;
+
+  constructor(init: AttomErrorInit) {
+    super(init.message ?? `ATTOM expandedprofile failed: ${init.code}`);
+    this.name = "AttomError";
+    this.code = init.code;
     this.status = init.status;
     if (init.cause !== undefined) {
       (this as { cause?: unknown }).cause = init.cause;

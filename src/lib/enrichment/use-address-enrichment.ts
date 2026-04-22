@@ -117,6 +117,9 @@ function writeSessionEnvelope(key: string, envelope: EnrichmentEnvelope): void {
 function envelopeToResult(env: EnrichmentEnvelope): EnrichmentHookResult {
   switch (env.status) {
     case "ok":
+    case "ok-partial":
+      // Hook consumers (UI) don't need to distinguish — slot.sources carries
+      // the per-source provenance when they care.
       return { status: "ok", slot: env.slot };
     case "no-match":
       return { status: "no-match" };
@@ -130,7 +133,7 @@ function envelopeToResult(env: EnrichmentEnvelope): EnrichmentHookResult {
 }
 
 function envelopeToSlot(env: EnrichmentEnvelope): EnrichmentSlot {
-  if (env.status === "ok") return env.slot;
+  if (env.status === "ok" || env.status === "ok-partial") return env.slot;
   return {
     status: env.status,
     fetchedAt: new Date().toISOString(),
