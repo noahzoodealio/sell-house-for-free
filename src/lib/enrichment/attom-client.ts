@@ -161,7 +161,21 @@ export async function getAttomProfile(
       throw new AttomError({ code: "http", status: res.status });
     }
     const body = await parseJson(res);
-    return extractProfile(body);
+    const profile = extractProfile(body);
+    if (process.env.NODE_ENV !== "production") {
+      // Dev-only manual-test log. Narrow 5-field extract only — never the raw
+      // body (can include owner names / PII per AC13).
+      console.log(
+        "[attom-client]",
+        JSON.stringify({
+          at: new Date().toISOString(),
+          httpStatus: res.status,
+          noMatch: profile === null,
+          profile,
+        }),
+      );
+    }
+    return profile;
   };
 
   return retryOnce(attempt);
