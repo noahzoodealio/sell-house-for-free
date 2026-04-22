@@ -38,5 +38,8 @@ export async function submitSellerForm(
     });
   }
 
-  redirect(`/get-started/thanks?ref=${encodeURIComponent(draft.submissionId)}`);
+  // Post-submit: go straight to the portal-loading screen, which seeds the
+  // portal localStorage fixture and then redirects to /portal. The old
+  // /get-started/thanks page is kept as a no-op fallback for stale links.
+  redirect(`/portal/setup?ref=${encodeURIComponent(draft.submissionId)}`);
 }

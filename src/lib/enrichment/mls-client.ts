@@ -120,7 +120,7 @@ function parseUserStreet1(
 function pickBestMatch(
   items: ListingSearchItem[],
   addr: AddressFields,
-): ListingSearchItem | null {
+): { best: ListingSearchItem; history: ListingSearchItem[] } | null {
   if (items.length === 0) return null;
   const want = parseUserStreet1(addr.street1);
   if (!want) return null;
@@ -149,7 +149,8 @@ function pickBestMatch(
     if (bBad) return -1;
     return b.ts - a.ts;
   });
-  return sortable[0].it;
+  const history = sortable.map((s) => s.it);
+  return { best: history[0], history };
 }
 
 function getBaseUrl(endpoint: MlsEndpoint): string {
@@ -245,6 +246,12 @@ function formatAddress(addr: AddressFields): string {
 export type SearchByAddressResult = {
   match: PropertySearchResultDto;
   inlineImages?: string[];
+  /**
+   * Full lifecycle for the matched address (same houseNumber/streetName/zip)
+   * sorted newest-first. Drives the MLS-step activity timeline + previous-
+   * price derivation. `match` is always history[0].
+   */
+  history: PropertySearchResultDto[];
 };
 
 export async function searchByAddress(
@@ -258,7 +265,7 @@ export async function searchByAddress(
   )}&pageSize=10`;
 
   const attempt = async (): Promise<{
-    matchedItem: ListingSearchItem | null;
+    matched: { best: ListingSearchItem; history: ListingSearchItem[] } | null;
     httpStatus: number;
     itemsCount: number;
     rawItems: ListingSearchItem[];
@@ -281,9 +288,9 @@ export async function searchByAddress(
       throw new MlsError({ code: "parse", endpoint: "search" });
     }
     const items = (body as { items: ListingSearchItem[] }).items;
-    const matchedItem = pickBestMatch(items, addr);
+    const matched = pickBestMatch(items, addr);
     return {
-      matchedItem,
+      matched,
       httpStatus: res.status,
       itemsCount: items.length,
       rawItems: items,
@@ -292,10 +299,11 @@ export async function searchByAddress(
 
   const startedAt = Date.now();
   try {
-    const { matchedItem, httpStatus, itemsCount, rawItems } = await retryOnce(
+    const { matched, httpStatus, itemsCount, rawItems } = await retryOnce(
       attempt,
       "search",
     );
+    const matchedItem = matched?.best ?? null;
     const match = matchedItem?.details ?? null;
     logMlsCall({
       endpoint: "search",
@@ -332,8 +340,12 @@ export async function searchByAddress(
             }))
           : undefined,
     });
-    if (!matchedItem || !match) return null;
-    return { match, inlineImages: matchedItem.images };
+    if (!matched || !match) return null;
+    return {
+      match,
+      inlineImages: matchedItem?.images,
+      history: matched.history.map((it) => it.details),
+    };
   } catch (err) {
     logMlsCall({
       endpoint: "search",

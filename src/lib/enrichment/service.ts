@@ -136,11 +136,13 @@ async function runEnrichment(input: EnrichInput): Promise<RunResult> {
   // MLS search outcome
   let search: PropertySearchResultDto | null = null;
   let inlineImages: string[] | undefined;
+  let history: PropertySearchResultDto[] | null = null;
   let mlsError: MlsError | undefined;
   if (searchSettled.status === "fulfilled") {
     if (searchSettled.value) {
       search = searchSettled.value.match;
       inlineImages = searchSettled.value.inlineImages;
+      history = searchSettled.value.history;
     }
   } else if (searchSettled.reason instanceof MlsError) {
     mlsError = searchSettled.reason;
@@ -238,6 +240,7 @@ async function runEnrichment(input: EnrichInput): Promise<RunResult> {
 
   const slot = mergeToEnrichmentSlot({
     search,
+    history,
     detailsSettled,
     imagesSettled,
     attomProfileSettled: attomSettled,

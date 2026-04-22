@@ -139,7 +139,7 @@ function mapPhotos(
     const bo = b.displayOrder ?? Number.MAX_SAFE_INTEGER;
     return ao - bo;
   });
-  return sorted.slice(0, 3).map(({ url, caption }) => ({ url, caption }));
+  return sorted.map(({ url, caption }) => ({ url, caption }));
 }
 
 type SettledDetails = PromiseSettledResult<PropertyDetailsDto>;
@@ -148,6 +148,7 @@ type SettledAttom = PromiseSettledResult<AttomProfileDto | null>;
 
 export type MergeSlotInput = {
   search: PropertySearchResultDto | null;
+  history?: PropertySearchResultDto[] | null;
   detailsSettled: SettledDetails | null;
   imagesSettled: SettledImages | null;
   attomProfileSettled: SettledAttom;
@@ -167,6 +168,7 @@ export type MergeSlotInput = {
 export function mergeToEnrichmentSlot(input: MergeSlotInput): EnrichmentSlot {
   const {
     search,
+    history,
     detailsSettled,
     imagesSettled,
     attomProfileSettled,
@@ -218,6 +220,29 @@ export function mergeToEnrichmentSlot(input: MergeSlotInput): EnrichmentSlot {
     ? Number.parseInt(search.daysOnMarket, 10)
     : undefined;
 
+  // Lifecycle timeline — keep the full array newest-first for the activity
+  // component, and derive previousListPrice by walking history until we
+  // find a price that differs from the current latestListingPrice.
+  const historyEntries = (history ?? [])
+    .map((h) => ({
+      status: h.listingStatus ?? "",
+      statusChangeDate: h.statusChangeDate,
+      listPrice: h.latestListingPrice,
+    }))
+    .filter((h) => h.status);
+
+  let previousListPrice: number | undefined;
+  const current = search?.latestListingPrice;
+  if (current !== undefined && historyEntries.length > 1) {
+    for (let i = 1; i < historyEntries.length; i++) {
+      const p = historyEntries[i].listPrice;
+      if (p !== undefined && p !== current) {
+        previousListPrice = p;
+        break;
+      }
+    }
+  }
+
   return {
     status: slotStatus,
     attomId: search?.attomId,
@@ -230,9 +255,11 @@ export function mergeToEnrichmentSlot(input: MergeSlotInput): EnrichmentSlot {
       ? displayListingStatus(search.listingStatus)
       : undefined,
     listPrice: search?.latestListingPrice,
+    previousListPrice,
     daysOnMarket: Number.isFinite(dom) ? dom : undefined,
     listedAt: search?.listingDate,
     photosCount: search?.photosCount,
+    history: historyEntries.length > 0 ? historyEntries : undefined,
     details: hasAnyDetail ? slotDetails : undefined,
     photos: mapPhotos(images),
     sources: sources.length > 0 ? sources : undefined,

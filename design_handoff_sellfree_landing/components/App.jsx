@@ -90,15 +90,18 @@ function useReveal() {
   }, []);
 }
 
-function App() {
-  useReveal();
-  const [flowOpen, setFlowOpen] = useState(false);
-  const [flowAddr, setFlowAddr] = useState(null);
+function useHashRouteRoot() {
+  const [hash, setHash] = useState(window.location.hash || "");
   useEffect(() => {
-    const onOpen = (e) => { setFlowAddr(e.detail); setFlowOpen(true); };
-    window.addEventListener("sf:open-flow", onOpen);
-    return () => window.removeEventListener("sf:open-flow", onOpen);
+    const on = () => setHash(window.location.hash || "");
+    window.addEventListener("hashchange", on);
+    return () => window.removeEventListener("hashchange", on);
   }, []);
+  return hash;
+}
+
+function Landing() {
+  useReveal();
   return (
     <>
       <Nav/>
@@ -116,9 +119,15 @@ function App() {
       <FinalCTA/>
       <Footer/>
       <FloatCTA/>
-      <SubmissionFlow open={flowOpen} onClose={() => setFlowOpen(false)} seedAddress={flowAddr}/>
     </>
   );
+}
+
+function App() {
+  const hash = useHashRouteRoot();
+  if (hash.startsWith("#/portal")) return <PortalRouter/>;
+  if (hash.startsWith("#/submit/")) return <FlowRouter/>;
+  return <Landing/>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);

@@ -75,8 +75,11 @@ export const conditionStepSchema = z.object({
 });
 
 export const contactStepSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required").max(60),
-  lastName: z.string().trim().min(1, "Last name is required").max(60),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Please enter your full name")
+    .max(120),
   email: z.email("Enter a valid email address").max(254),
   phone: z
     .string()
@@ -84,6 +87,10 @@ export const contactStepSchema = z.object({
     .regex(/^\+?[\d\s().-]{10,20}$/, "Enter a valid phone number"),
 });
 
+// Consent is now implicit via the "By continuing you agree to…" footnote on
+// the contact step — the checkbox block was removed. The schema keeps the
+// fields so existing drafts/server code doesn't break, but they're all
+// optional and the form never collects them from the UI.
 const consentAgreementSchema = z.object({
   version: z.string().min(1),
   acceptedAt: z.string().datetime(),
@@ -91,9 +98,9 @@ const consentAgreementSchema = z.object({
 });
 
 export const consentStepSchema = z.object({
-  tcpa: consentAgreementSchema,
-  terms: consentAgreementSchema,
-  privacy: consentAgreementSchema,
+  tcpa: consentAgreementSchema.optional(),
+  terms: consentAgreementSchema.optional(),
+  privacy: consentAgreementSchema.optional(),
 });
 
 export const attributionSchema = z.object({
@@ -133,9 +140,21 @@ export const enrichmentSlotSchema = z.object({
   // Listing-level MLS metadata surfaced on the "we found your listing" card.
   // Optional — only populated when MLS returned a currently-listed match.
   listPrice: z.number().optional(),
+  previousListPrice: z.number().optional(),
   daysOnMarket: z.number().optional(),
   listedAt: z.string().optional(),
   photosCount: z.number().optional(),
+  // Full lifecycle history (newest first) — drives the activity timeline.
+  // Each entry is a prior-state snapshot from the MLS search response.
+  history: z
+    .array(
+      z.object({
+        status: z.string(),
+        statusChangeDate: z.string().optional(),
+        listPrice: z.number().optional(),
+      }),
+    )
+    .optional(),
   details: z
     .object({
       bedrooms: z.number().optional(),

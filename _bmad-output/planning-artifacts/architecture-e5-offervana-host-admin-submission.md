@@ -8,6 +8,84 @@
 - **Companion change:** `Offervana_SaaS` — two `CustomerLeadSource` enum values added; **no schema migration**
 - **Author:** Noah (Architect) · 2026-04-17
 - **Status:** draft — ready for PM decomposition
+- **Amended:** 2026-04-22 — see §0 below; sections 1–7 that describe the host-admin path are superseded where they conflict with §0.
+
+---
+
+## 0. Amendment (2026-04-22) — Pivot to Enterprise OuterApi + Offers Fetch
+
+This epic no longer targets the host-admin `CreateHostAdminCustomer` endpoint. We will stand up a dedicated **Offervana enterprise tenant** and submit through the existing **OuterApi** (`openapi/*`) surface. The enterprise tenant is configured so platform-originated email/SMS is off for these customers by default.
+
+Where this section conflicts with §1–§7 below, §0 wins. Treat §1–§7 as historical context for the auth/idempotency/dead-letter/`after()` shape — that shape survives, only the endpoint, auth, and companion-PR lines change.
+
+### 0.1 What changes
+
+**Submit path (end of the seller form):**
+- Endpoint: `POST {OFFERVANA_BASE_URL}/openapi/Customers?pullPropertyData=true`
+- Auth: `apiKey: <OFFERVANA_API_KEY>` header (resolves tenant via `OuterApiKeyFilter`) — replaces `[AllowAnonymous]`
+- Request: `CreateCustomerDto` (Name, Email, Phone, Address, ImageUrls) with the OuterApi **suppress-notifications flag** set so no email / SMS goes to the seller from Offervana. Enterprise tenant is also configured with platform email/SMS templates disabled as a belt-and-suspenders default; the API flag is the authoritative gate per-submission.
+- Response: `GetCustomersDto` — capture `customerId` and `propertyId` alongside our own `ReferralCode`; persist to the idempotency row.
+- Mapper: `SellerFormDraft → CreateCustomerDto` (replaces the `SellerFormDraft → NewClientDto` mapper in §3.1.4). Pure function, same shape, different target DTO.
+
+**Offers fetch (after `/get-started/thanks` loads):**
+- Endpoint: `GET {OFFERVANA_BASE_URL}/openapi/OffersV2?propertyId={propertyId}&includeHistory=false`
+- Trigger: on mount of the `/get-started/thanks` page, client issues a fetch against a thin server-only BFF route (e.g. `GET /api/offers?ref=<referralCode>`) that reads `propertyId` from the idempotency row and proxies the OuterApi call with the server-only `OFFERVANA_API_KEY`. The API key never reaches the browser.
+- Cadence: single fetch on load per user flow spec ("after the load from end of submission flow we send get request"). Offers can be surfaced progressively in `/portal` (see `src/app/portal/` and `src/components/portal/portal-app.tsx` — the "Cash offers" nav section already exists). Any longer-horizon polling/backfill belongs on the portal, not on `/thanks`.
+- Response mapping: `List<GetPropertyOfferV2Dto>` → trimmed offer DTO the client + portal consume. Zero offers is a valid, common state — `/thanks` must degrade gracefully with "we'll let you know when offers come in" copy, not a spinner lock.
+
+### 0.2 What drops from the original plan
+
+- **Offervana_SaaS companion PR is removed.** No `CustomerLeadSource` enum additions (13/14), no `CustomerAppServiceV2.CreateHostAdminCustomer` switch arms, no `CommerceAttribution` ternary edits. The OuterApi path already exists; enterprise tenancy means we don't need new enum values to distinguish this flow. `sellYourHouseFreePath` transitional flag is not needed.
+- **Story S7** ("Offervana companion PR") is deleted from the decomposition.
+- The "Path A / Path B" enum-routing framing in §1 / §5 / §7 is obsolete under enterprise OuterApi — routing is tenant-based.
+
+### 0.3 What survives from §1–§7 unchanged
+
+- BFF-owned idempotency keyed on `SellerFormDraft.submissionId` with the Supabase `offervana_idempotency` table (now also storing `propertyId` so the `/offers` BFF route can look it up by `ReferralCode`).
+- `offervana_submission_failures` dead-letter table.
+- Node runtime + `maxDuration=15` on the Server Action.
+- `after()` for post-response PM handoff + audit log.
+- Native `fetch` + manual retry loop + `cache: 'no-store'`.
+- `server-only` guard on the Offervana client and Supabase server client modules.
+- Pure mapper; email-conflict handled as a non-failure branch (treat as success with `referralCode='pending'`).
+
+### 0.4 New / changed env vars
+
+| Var | Scope | Purpose |
+|---|---|---|
+| `OFFERVANA_BASE_URL` | server | unchanged — now points at the OuterApi host |
+| `OFFERVANA_API_KEY` | server | **new** — OuterApi key for the enterprise tenant; set in the outgoing `apiKey` header |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | server | unchanged |
+
+### 0.5 Story decomposition delta
+
+| Story | Status | Notes |
+|---|---|---|
+| S1 — Supabase scaffolding (idempotency + dead-letter tables) | **unchanged** | Add `property_id` column to `offervana_idempotency` so the offers BFF route can resolve it |
+| S2 — Offervana client (fetch, retry, classify, timeout) | **retarget** | Point at `POST /openapi/Customers`; inject `apiKey` header; drop `[AllowAnonymous]` assumption |
+| S3 — Pure mapper `SellerFormDraft → CreateCustomerDto` | **retarget** | Different DTO shape (OuterApi `CreateCustomerDto`, not `NewClientDto`); set the suppress-notifications flag |
+| S4 — Idempotency lookup/store + redirect | **unchanged** | Persist `propertyId` in addition to `customerId`/`userId`/`referralCode` |
+| S5 — Dead-letter recorder + `after()` wiring | **unchanged** | — |
+| S6 — Server Action body rewrite + error surfaces | **unchanged** | — |
+| S7 — ~~Offervana companion PR~~ | **deleted** | Enterprise OuterApi removes the need |
+| S8 — E2E smoke (full form → redirect → thanks) | **extended** | Add the offers-fetch path to the E2E (see S9) |
+| **S9 — Offers BFF route + `/thanks` fetch** | **new** | `GET /api/offers?ref=<referralCode>` → `OuterApi OffersV2`; client fetch on `/thanks` mount; surface offers into `/portal` "Cash offers" section (portal wire-up itself may be a separate story) |
+
+Net story count: 8 → 8 (one deleted, one added).
+
+### 0.6 Non-functional requirement — no platform notifications to the seller
+
+For every submission in this flow, the seller must not receive any email or SMS originating from the Offervana platform. This is enforced at two layers:
+
+1. **Per-request:** the `CreateCustomerDto` suppress-notifications flag is set on every POST. (The exact flag name lives in the Offervana `CreateCustomerDto` — confirm when wiring S3.)
+2. **Per-tenant:** the enterprise tenant is provisioned with platform email/SMS templates disabled / unconfigured. This is tenant setup, not code.
+
+Validation gate (added to DoD): a live smoke-test submission against the enterprise tenant produces a customer record with no platform-originated email/SMS delivered to the test inbox/phone within 15 minutes post-create.
+
+### 0.7 Open question tracker
+
+- **Suppress-notifications flag name on `CreateCustomerDto`:** confirm the exact field during S3. If it doesn't exist on the current DTO, a tiny Offervana_SaaS PR adding it re-introduces (scoped down) the companion-PR dependency — but `_bmad/memory/zoo-core/services/offervana-saas/api-catalog.md` does not currently enumerate every `CreateCustomerDto` field, so this is verify-don't-assume.
+- **Offers display target:** `/thanks` (minimal "here are N offers so far") vs. `/portal` (full "Cash offers" section). Current direction: fetch on `/thanks` load to warm caches / surface a count, full display lives in `/portal`. Confirm during S9.
 
 ---
 
