@@ -1,11 +1,6 @@
 "use client";
 
-import { useId, type Ref } from "react";
-import { Field } from "@/components/ui/field";
-import { Fieldset } from "@/components/ui/fieldset";
-import { Radio } from "@/components/ui/radio";
-import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import type { Ref } from "react";
 import {
   CONDITION_VALUES,
   TIMELINE_VALUES,
@@ -19,39 +14,33 @@ type ConditionStepProps = {
   headingRef: Ref<HTMLHeadingElement>;
 };
 
-const CONDITION_OPTIONS: Array<{
+const CONDITION_CHIPS: ReadonlyArray<{
   value: (typeof CONDITION_VALUES)[number];
   label: string;
-  description: string;
 }> = [
-  {
-    value: "move-in",
-    label: "Move-in ready",
-    description: "No significant repairs needed.",
-  },
-  {
-    value: "needs-work",
-    label: "Needs some work",
-    description: "Visible cosmetic or minor structural issues.",
-  },
-  {
-    value: "major-reno",
-    label: "Major renovation",
-    description: "Significant repairs or partial rebuild.",
-  },
+  { value: "move-in", label: "Move-in ready" },
+  { value: "needs-work", label: "Needs some work" },
+  { value: "major-reno", label: "Major renovation" },
 ];
 
-const TIMELINE_OPTIONS: Array<{
+const TIMELINE_CHIPS: ReadonlyArray<{
   value: (typeof TIMELINE_VALUES)[number];
   label: string;
 }> = [
-  { value: "0-3mo", label: "Within 3 months" },
+  { value: "0-3mo", label: "ASAP · within 3 months" },
   { value: "3-6mo", label: "3–6 months" },
   { value: "6-12mo", label: "6–12 months" },
-  { value: "exploring", label: "Just exploring right now" },
+  { value: "exploring", label: "Just exploring" },
 ];
 
-const MAX_MOTIVATION = 500;
+const REASON_CHIPS: ReadonlyArray<string> = [
+  "Upsizing",
+  "Downsizing",
+  "Relocating",
+  "Investment",
+  "Life change",
+  "Other",
+];
 
 function firstError(
   errors: Record<string, string[]> | undefined,
@@ -66,108 +55,97 @@ export function ConditionStep({
   onChange,
   headingRef,
 }: ConditionStepProps) {
-  const radioGroupId = useId();
-  const motivationValue = data.motivation ?? "";
-  const motivationOver = motivationValue.length > MAX_MOTIVATION - 50;
   const conditionError = firstError(errors, "currentCondition");
   const timelineError = firstError(errors, "timeline");
-  const motivationError = firstError(errors, "motivation");
 
   return (
-    <div className="flex flex-col gap-6">
-      <h2
-        ref={headingRef}
-        tabIndex={-1}
-        className="text-[24px] leading-[32px] font-semibold font-[var(--font-inter)] text-ink-title outline-none"
-      >
-        Step 3 of 4: Condition &amp; timeline
+    <div>
+      <span className="eyebrow" style={{ marginBottom: 12 }}>
+        Step 4 · A few more details
+      </span>
+      <h2 ref={headingRef} tabIndex={-1} style={{ outline: "none" }}>
+        Tell us about the home and timing.
       </h2>
+      <p className="lede">
+        Helps us recommend the right plan and pricing strategy.
+      </p>
 
-      <Fieldset legend="What's your home's current condition?">
-        <ul className="flex flex-col gap-2" role="radiogroup">
-          {CONDITION_OPTIONS.map((opt) => {
-            const radioId = `${radioGroupId}-${opt.value}`;
-            const checked = data.currentCondition === opt.value;
+      <div className="field">
+        <label>Overall condition</label>
+        <div
+          className="chip-group"
+          role="radiogroup"
+          aria-label="Home condition"
+          aria-invalid={conditionError ? true : undefined}
+        >
+          {CONDITION_CHIPS.map((chip) => {
+            const selected = data.currentCondition === chip.value;
             return (
-              <li key={opt.value}>
-                <label
-                  htmlFor={radioId}
-                  className="flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 hover:bg-surface-tint"
-                >
-                  <Radio
-                    id={radioId}
-                    name="currentCondition"
-                    value={opt.value}
-                    checked={checked}
-                    onChange={() => onChange({ currentCondition: opt.value })}
-                    aria-invalid={conditionError ? true : undefined}
-                    className="mt-1"
-                  />
-                  <span className="flex flex-col gap-0.5">
-                    <span className="text-[16px] leading-[24px] font-semibold text-ink-title">
-                      {opt.label}
-                    </span>
-                    <span className="text-[14px] leading-[20px] text-ink-muted">
-                      {opt.description}
-                    </span>
-                  </span>
-                </label>
-              </li>
+              <button
+                key={chip.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={"chip" + (selected ? " selected" : "")}
+                onClick={() => onChange({ currentCondition: chip.value })}
+              >
+                {chip.label}
+              </button>
             );
           })}
-        </ul>
-        {conditionError && (
-          <p className="text-[14px] leading-[20px] text-[var(--color-error)]">
-            {conditionError}
-          </p>
-        )}
-      </Fieldset>
+        </div>
+        {conditionError && <p className="field-error">{conditionError}</p>}
+      </div>
 
-      <Field label="Target timeline" errorText={timelineError}>
-        <Select
-          name="timeline"
-          value={data.timeline ?? ""}
-          onChange={(e) =>
-            onChange({
-              timeline: (e.target.value ||
-                undefined) as ConditionFields["timeline"],
-            })
-          }
+      <div className="field">
+        <label>When do you want to sell?</label>
+        <div
+          className="chip-group"
+          role="radiogroup"
+          aria-label="Target timeline"
+          aria-invalid={timelineError ? true : undefined}
         >
-          <option value="" disabled>
-            Select your target timeline
-          </option>
-          {TIMELINE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
+          {TIMELINE_CHIPS.map((chip) => {
+            const selected = data.timeline === chip.value;
+            return (
+              <button
+                key={chip.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={"chip" + (selected ? " selected" : "")}
+                onClick={() => onChange({ timeline: chip.value })}
+              >
+                {chip.label}
+              </button>
+            );
+          })}
+        </div>
+        {timelineError && <p className="field-error">{timelineError}</p>}
+      </div>
 
-      <Field
-        label="Anything we should know? (optional)"
-        helpText="Moving for work, relocating, inherited property — any context helps your PM."
-        errorText={motivationError}
-      >
-        <Textarea
-          name="motivation"
-          value={motivationValue}
-          onChange={(e) => onChange({ motivation: e.target.value })}
-          maxLength={MAX_MOTIVATION}
-          rows={4}
-        />
-      </Field>
-      <p
-        aria-live="polite"
-        className={
-          motivationOver
-            ? "text-right text-[13px] leading-[18px] text-[var(--color-error)]"
-            : "text-right text-[13px] leading-[18px] text-ink-muted"
-        }
-      >
-        {motivationValue.length} / {MAX_MOTIVATION}
-      </p>
+      <div className="field">
+        <label>Reason for selling (optional)</label>
+        <div className="chip-group" role="radiogroup" aria-label="Reason">
+          {REASON_CHIPS.map((reason) => {
+            const selected = data.motivation === reason;
+            return (
+              <button
+                key={reason}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={"chip" + (selected ? " selected" : "")}
+                onClick={() =>
+                  onChange({ motivation: selected ? undefined : reason })
+                }
+              >
+                {reason}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,18 +1,16 @@
 "use client";
 
 import type { Ref } from "react";
-import { Field } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import type { EnrichmentHookStatus } from "@/lib/enrichment/use-address-enrichment";
 import type { AddressFields } from "@/lib/seller-form/types";
-import { AddressField } from "../address-field";
 
 type AddressStepProps = {
   data: Partial<AddressFields>;
   errors?: Record<string, string[]>;
   onChange: (partial: Partial<AddressFields>) => void;
-  onAddressComplete?: (addr: AddressFields) => void;
   headingRef: Ref<HTMLHeadingElement>;
+  enrichmentStatus: EnrichmentHookStatus;
+  isMultiUnit: boolean;
 };
 
 function firstError(
@@ -22,105 +20,166 @@ function firstError(
   return errors?.[field]?.[0];
 }
 
+function enrichmentCopy(status: EnrichmentHookStatus): string | undefined {
+  switch (status) {
+    case "loading":
+      return "Scanning county records for your property…";
+    case "ok":
+      return "Matched in county records — property facts prefilled on the next step.";
+    case "no-match":
+      return "No public-records match — you’ll enter facts yourself on the next step.";
+    case "out-of-area":
+      return "We currently serve Arizona only.";
+    case "timeout":
+      return "Records lookup is slow — we’ll keep trying in the background.";
+    case "error":
+      return "Records lookup failed — you’ll enter facts yourself on the next step.";
+    default:
+      return undefined;
+  }
+}
+
 export function AddressStep({
   data,
   errors,
   onChange,
-  onAddressComplete,
   headingRef,
+  enrichmentStatus,
+  isMultiUnit,
 }: AddressStepProps) {
+  const unitLabel = isMultiUnit
+    ? "Apt, suite, unit #"
+    : "Apt, suite, etc. (optional)";
+  const unitHint = isMultiUnit
+    ? "This address is part of a multi-unit building — please enter your unit number."
+    : undefined;
+
+  const statusLine = enrichmentCopy(enrichmentStatus);
+
   return (
-    <div className="flex flex-col gap-5">
-      <h2
-        ref={headingRef}
-        tabIndex={-1}
-        className="text-[24px] leading-[32px] font-semibold font-[var(--font-inter)] text-ink-title outline-none"
-      >
-        Step 1 of 4: Your property address
+    <div>
+      <span className="eyebrow" style={{ marginBottom: 12 }}>
+        Step 1 · Address
+      </span>
+      <h2 ref={headingRef} tabIndex={-1} style={{ outline: "none" }}>
+        Where’s the property?
       </h2>
+      <p className="lede">
+        Enter the address you want to sell. We’ll pull public-records and MLS
+        data in the background so you don’t have to re-type it.
+      </p>
 
-      <Field label="Street address" errorText={firstError(errors, "street1")}>
-        <AddressField
-          value={data.street1 ?? ""}
-          onChange={(street1) => onChange({ street1 })}
-          onAddressComplete={onAddressComplete}
-          currentAddress={data}
+      <div className="field">
+        <label htmlFor="street1">Street address</label>
+        <input
+          id="street1"
+          name="street1"
+          type="text"
           autoComplete="street-address"
-          placeholder="123 Main St"
           maxLength={120}
+          placeholder="123 Main St"
+          value={data.street1 ?? ""}
+          onChange={(e) => onChange({ street1: e.target.value })}
+          onBlur={(e) => {
+            const trimmed = e.target.value.trim();
+            if (trimmed !== e.target.value) onChange({ street1: trimmed });
+          }}
+          aria-invalid={firstError(errors, "street1") ? true : undefined}
         />
-      </Field>
+        {firstError(errors, "street1") && (
+          <p className="field-error">{firstError(errors, "street1")}</p>
+        )}
+      </div>
 
-      <Field
-        label="Apt, suite, etc. (optional)"
-        errorText={firstError(errors, "street2")}
-      >
-        <Input
+      <div className="field">
+        <label htmlFor="street2">{unitLabel}</label>
+        <input
+          id="street2"
           name="street2"
+          type="text"
+          autoComplete="address-line2"
+          maxLength={60}
+          placeholder="e.g. 4B"
           value={data.street2 ?? ""}
           onChange={(e) => onChange({ street2: e.target.value })}
           onBlur={(e) => {
             const trimmed = e.target.value.trim();
             if (trimmed !== e.target.value) onChange({ street2: trimmed });
           }}
-          autoComplete="address-line2"
-          maxLength={60}
+          aria-invalid={
+            firstError(errors, "street2") || (isMultiUnit && !data.street2?.trim())
+              ? true
+              : undefined
+          }
         />
-      </Field>
+        {unitHint && <p className="field-help">{unitHint}</p>}
+        {firstError(errors, "street2") && (
+          <p className="field-error">{firstError(errors, "street2")}</p>
+        )}
+      </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-[2fr_1fr_1fr]">
-        <Field label="City" errorText={firstError(errors, "city")}>
-          <Input
+      <div className="field-row-3">
+        <div className="field">
+          <label htmlFor="city">City</label>
+          <input
+            id="city"
             name="city"
+            type="text"
+            autoComplete="address-level2"
+            maxLength={60}
             value={data.city ?? ""}
             onChange={(e) => onChange({ city: e.target.value })}
             onBlur={(e) => {
               const trimmed = e.target.value.trim();
               if (trimmed !== e.target.value) onChange({ city: trimmed });
             }}
-            autoComplete="address-level2"
-            maxLength={60}
+            aria-invalid={firstError(errors, "city") ? true : undefined}
           />
-        </Field>
-
-        <Field label="State" errorText={firstError(errors, "state")}>
-          <Select
+          {firstError(errors, "city") && (
+            <p className="field-error">{firstError(errors, "city")}</p>
+          )}
+        </div>
+        <div className="field">
+          <label htmlFor="state">State</label>
+          <select
+            id="state"
             name="state"
             value="AZ"
             disabled
             aria-disabled="true"
-            autoComplete="address-level1"
             onChange={() => {
-              // AZ-only for MVP; disabled.
+              /* AZ-only for MVP */
             }}
           >
             <option value="AZ">AZ</option>
-          </Select>
-        </Field>
-
-        <Field label="ZIP code" errorText={firstError(errors, "zip")}>
-          <Input
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="zip">ZIP</label>
+          <input
+            id="zip"
             name="zip"
-            value={data.zip ?? ""}
-            onChange={(e) => {
-              const cleaned = e.target.value.replace(/\D/g, "").slice(0, 5);
-              onChange({ zip: cleaned });
-            }}
+            type="text"
             inputMode="numeric"
             pattern="[0-9]{5}"
             maxLength={5}
             autoComplete="postal-code"
             placeholder="85001"
+            value={data.zip ?? ""}
+            onChange={(e) => {
+              const cleaned = e.target.value.replace(/\D/g, "").slice(0, 5);
+              onChange({ zip: cleaned });
+            }}
+            aria-invalid={firstError(errors, "zip") ? true : undefined}
           />
-        </Field>
+          {firstError(errors, "zip") && (
+            <p className="field-error">{firstError(errors, "zip")}</p>
+          )}
+        </div>
       </div>
 
-      <p className="text-[13px] leading-[18px] text-ink-muted">
-        We currently serve Arizona only.
-      </p>
-
-      {/* Guarantee `state` ships in FormData even though the select is disabled. */}
-      <input type="hidden" name="state" value="AZ" readOnly />
+      {statusLine && <p className="field-help">{statusLine}</p>}
+      <p className="field-help">We currently serve Arizona only.</p>
     </div>
   );
 }

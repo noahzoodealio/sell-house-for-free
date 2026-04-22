@@ -47,6 +47,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Design handoff is reference-only JSX, not part of the app build.
+    "design_handoff_sellfree_landing/**",
   ]),
 ]);
 

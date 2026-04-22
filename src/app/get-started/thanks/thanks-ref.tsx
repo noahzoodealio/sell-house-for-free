@@ -9,5 +9,17 @@ export function ThanksRef() {
   const raw = params.get("ref");
   const ref = raw && REF_PATTERN.test(raw) ? raw : null;
   if (!ref) return null;
-  return <p className="text-ink-muted text-[13px]">Ref: {ref}</p>;
+  return (
+    <p
+      style={{
+        fontFamily: "var(--sf-font-mono)",
+        fontSize: 11,
+        letterSpacing: "0.04em",
+        color: "var(--muted)",
+        marginTop: 24,
+      }}
+    >
+      Ref: {ref}
+    </p>
+  );
 }
