@@ -104,19 +104,44 @@ export type InvalidInputResponse = {
 // `Zoodealio.MLS` schema has ~168 fields — every field we pin here is a
 // field we have to maintain when MLS shifts. Leave the rest as `unknown`.
 
+// Wire shape returned by `GET /api/Listings/search`. Field names mirror the
+// C# DTO after ASP.NET Core MVC's default camelCase serialization — see
+// Zoodealio.MLS.Application/Properties/Models/PropertySearchResultDto.cs.
 export type PropertySearchResultDto = {
   attomId?: string;
   mlsRecordId?: string;
+  mlsListingId?: number;
+  statusChangeDate?: string; // ISO — lifecycle event timestamp
+  propertyAddressFull?: string;
+  propertyAddressHouseNumber?: string;
+  propertyAddressStreetDirection?: string;
+  propertyAddressStreetName?: string;
+  propertyAddressStreetSuffix?: string;
+  propertyAddressCity?: string;
+  propertyAddressState?: string;
+  propertyAddressZip?: string;
   listingStatus?: string;
+  currentStatus?: string;
   latestListingPrice?: number;
-  daysOnMarket?: number;
-  bedrooms?: number;
-  bathrooms?: number;
-  squareFootage?: number;
+  bedroomsTotal?: number;
+  bathroomsFull?: number;
+  bathroomsHalf?: number;
+  livingAreaSquareFeet?: number;
+  lotSizeAcres?: number;
   yearBuilt?: number;
-  photoCount?: number;
-  city?: string;
-  zip?: string;
+  daysOnMarket?: string;
+  listingDate?: string;
+  photosCount?: number;
+  photoUrlPrefix?: string;
+  photoKey?: string;
+};
+
+// Wire shape of a single `items[]` entry: DTO wrapped under `details`, with
+// the listing's image URLs inlined. We unwrap `details` at the client edge
+// so the rest of the system only sees the flat DTO.
+export type ListingSearchItem = {
+  details: PropertySearchResultDto;
+  images?: string[];
 };
 
 export type PropertyDetailsDto = {

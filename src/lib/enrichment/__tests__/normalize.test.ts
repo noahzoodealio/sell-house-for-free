@@ -198,9 +198,10 @@ describe("mergeToEnrichmentSlot", () => {
     attomId: "a1",
     mlsRecordId: "m1",
     listingStatus: "Closed",
-    bedrooms: 3,
-    bathrooms: 2,
-    squareFootage: 1600,
+    bedroomsTotal: 3,
+    bathroomsFull: 2,
+    bathroomsHalf: 0,
+    livingAreaSquareFeet: 1600,
     yearBuilt: 1990,
   };
 

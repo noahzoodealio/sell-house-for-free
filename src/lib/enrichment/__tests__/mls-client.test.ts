@@ -17,6 +17,10 @@ const ADDR = {
   zip: "85004",
 };
 
+function detailsOnly(details: Record<string, unknown>) {
+  return { details, images: [] };
+}
+
 function mockFetchOnce(bodies: Array<{ status?: number; body?: unknown; throw?: "abort" | "fetch" }>): MockInstance {
   const mock = vi.fn();
   for (const b of bodies) {
@@ -58,31 +62,61 @@ describe("mls-client", () => {
   });
 
   describe("searchByAddress", () => {
-    it("returns the first item matching city + zip", async () => {
+    it("picks the lifecycle record with the most recent statusChangeDate for a matching home", async () => {
       mockFetchOnce([
         {
           body: {
             items: [
-              {
-                attomId: "a1",
-                mlsRecordId: "m1",
-                city: "Phoenix",
-                zip: "85004",
-                bedrooms: 3,
-              },
-              { city: "Tempe", zip: "85281" },
+              detailsOnly({
+                attomId: "aOld",
+                mlsRecordId: "mOld",
+                propertyAddressHouseNumber: "123",
+                propertyAddressStreetName: "MAIN",
+                propertyAddressZip: "85004",
+                statusChangeDate: "2019-06-01T00:00:00Z",
+                listingStatus: "Closed",
+              }),
+              detailsOnly({
+                attomId: "aNewest",
+                mlsRecordId: "mNewest",
+                propertyAddressHouseNumber: "123",
+                propertyAddressStreetName: "MAIN",
+                propertyAddressZip: "85004",
+                statusChangeDate: "2024-11-12T00:00:00Z",
+                listingStatus: "Active",
+                bedroomsTotal: 3,
+              }),
+              // Sibling house number on a different street — must be
+              // rejected even though zip + house# match.
+              detailsOnly({
+                attomId: "aSibling",
+                propertyAddressHouseNumber: "123",
+                propertyAddressStreetName: "ELM",
+                propertyAddressZip: "85004",
+                statusChangeDate: "2026-01-01T00:00:00Z",
+              }),
             ],
           },
         },
       ]);
       const { searchByAddress } = await import("../mls-client");
       const result = await searchByAddress(ADDR);
-      expect(result?.attomId).toBe("a1");
+      expect(result?.match.attomId).toBe("aNewest");
     });
 
-    it("returns null when no item matches city + zip", async () => {
+    it("returns null when no item shares the caller's zip + house + street", async () => {
       mockFetchOnce([
-        { body: { items: [{ city: "Tempe", zip: "85281" }] } },
+        {
+          body: {
+            items: [
+              detailsOnly({
+                propertyAddressHouseNumber: "999",
+                propertyAddressStreetName: "MAIN",
+                propertyAddressZip: "85004",
+              }),
+            ],
+          },
+        },
       ]);
       const { searchByAddress } = await import("../mls-client");
       expect(await searchByAddress(ADDR)).toBeNull();
@@ -91,11 +125,22 @@ describe("mls-client", () => {
     it("retries once on 500 then returns data on 200", async () => {
       const mock = mockFetchOnce([
         { status: 500 },
-        { body: { items: [{ city: "Phoenix", zip: "85004", attomId: "a1" }] } },
+        {
+          body: {
+            items: [
+              detailsOnly({
+                attomId: "a1",
+                propertyAddressHouseNumber: "123",
+                propertyAddressStreetName: "MAIN",
+                propertyAddressZip: "85004",
+              }),
+            ],
+          },
+        },
       ]);
       const { searchByAddress } = await import("../mls-client");
       const result = await searchByAddress(ADDR);
-      expect(result?.attomId).toBe("a1");
+      expect(result?.match.attomId).toBe("a1");
       expect(mock).toHaveBeenCalledTimes(2);
     });
 

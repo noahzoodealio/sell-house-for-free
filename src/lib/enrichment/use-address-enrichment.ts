@@ -188,6 +188,21 @@ export function useAddressEnrichment(
   useEffect(() => {
     let cancelled = false;
 
+    if (process.env.NODE_ENV !== "production") {
+      // Dev-only diagnostic — mirrors the server-side [mls-client] / [api/enrich]
+      // trail so we can see when the client decides to fire vs short-circuit.
+      console.log(
+        "[use-address-enrichment]",
+        JSON.stringify({
+          at: new Date().toISOString(),
+          address,
+          submissionId: submissionId ?? null,
+          prevComplete: prevCompleteRef.current,
+          lastAddress: lastAddressRef.current,
+        }),
+      );
+    }
+
     // Idle: null address → clear any in-flight + reset.
     if (address === null) {
       if (debounceRef.current) {

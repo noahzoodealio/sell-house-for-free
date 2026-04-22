@@ -186,11 +186,21 @@ export function mergeToEnrichmentSlot(input: MergeSlotInput): EnrichmentSlot {
       ? attomProfileSettled.value ?? undefined
       : undefined;
 
+  // MLS search DTO uses `bedroomsTotal` + split `bathroomsFull`/`bathroomsHalf`
+  // + `livingAreaSquareFeet`. `PropertyDetailsDto` is typed loosely, so we
+  // also try its PascalCase-flattened equivalents before falling back to ATTOM.
+  const searchBedrooms = search?.bedroomsTotal;
+  const searchBathrooms =
+    search?.bathroomsFull !== undefined || search?.bathroomsHalf !== undefined
+      ? (search.bathroomsFull ?? 0) + (search.bathroomsHalf ?? 0) * 0.5
+      : undefined;
+  const searchSquareFootage = search?.livingAreaSquareFeet;
+
   const slotDetails: NonNullable<EnrichmentSlot["details"]> = {
-    bedrooms: details?.bedrooms ?? search?.bedrooms ?? attom?.bedrooms,
-    bathrooms: details?.bathrooms ?? search?.bathrooms ?? attom?.bathrooms,
+    bedrooms: details?.bedrooms ?? searchBedrooms ?? attom?.bedrooms,
+    bathrooms: details?.bathrooms ?? searchBathrooms ?? attom?.bathrooms,
     squareFootage:
-      details?.squareFootage ?? search?.squareFootage ?? attom?.squareFootage,
+      details?.squareFootage ?? searchSquareFootage ?? attom?.squareFootage,
     yearBuilt: details?.yearBuilt ?? search?.yearBuilt ?? attom?.yearBuilt,
     lotSize: details?.lotSize ?? attom?.lotSize,
   };
@@ -203,6 +213,11 @@ export function mergeToEnrichmentSlot(input: MergeSlotInput): EnrichmentSlot {
     ? isMultiUnitPropType(attom.propType, attom.propClass)
     : false;
 
+  // MLS search DTO carries `daysOnMarket` as a string ("18"); coerce for UI.
+  const dom = search?.daysOnMarket
+    ? Number.parseInt(search.daysOnMarket, 10)
+    : undefined;
+
   return {
     status: slotStatus,
     attomId: search?.attomId,
@@ -214,6 +229,10 @@ export function mergeToEnrichmentSlot(input: MergeSlotInput): EnrichmentSlot {
     listingStatusDisplay: search
       ? displayListingStatus(search.listingStatus)
       : undefined,
+    listPrice: search?.latestListingPrice,
+    daysOnMarket: Number.isFinite(dom) ? dom : undefined,
+    listedAt: search?.listingDate,
+    photosCount: search?.photosCount,
     details: hasAnyDetail ? slotDetails : undefined,
     photos: mapPhotos(images),
     sources: sources.length > 0 ? sources : undefined,

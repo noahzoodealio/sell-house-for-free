@@ -74,11 +74,13 @@ describe("getEnrichment", () => {
   it("both-ok path → status 'ok', sources ['mls','attom']", async () => {
     vi.doMock("../mls-client", () => ({
       searchByAddress: vi.fn().mockResolvedValueOnce({
-        attomId: "a1",
-        mlsRecordId: "m1",
-        listingStatus: "Closed",
-        bedrooms: 3,
-        bathrooms: 2,
+        match: {
+          attomId: "a1",
+          mlsRecordId: "m1",
+          listingStatus: "Closed",
+          bedroomsTotal: 3,
+          bathroomsFull: 2,
+        },
       }),
       getAttomDetails: vi.fn().mockResolvedValueOnce({
         bedrooms: 4,
@@ -113,9 +115,11 @@ describe("getEnrichment", () => {
     const { AttomError } = await import("../types");
     vi.doMock("../mls-client", () => ({
       searchByAddress: vi.fn().mockResolvedValueOnce({
-        attomId: "a1",
-        listingStatus: "Closed",
-        bedrooms: 3,
+        match: {
+          attomId: "a1",
+          listingStatus: "Closed",
+          bedroomsTotal: 3,
+        },
       }),
       getAttomDetails: vi.fn().mockResolvedValueOnce({ bedrooms: 3 }),
       getImages: vi.fn(),
@@ -202,9 +206,11 @@ describe("getEnrichment", () => {
     ]);
     vi.doMock("../mls-client", () => ({
       searchByAddress: vi.fn().mockResolvedValueOnce({
-        attomId: "a1",
-        mlsRecordId: "m1",
-        listingStatus: "Active",
+        match: {
+          attomId: "a1",
+          mlsRecordId: "m1",
+          listingStatus: "Active",
+        },
       }),
       getAttomDetails: vi.fn().mockResolvedValueOnce({ bedrooms: 3 }),
       getImages,
@@ -230,9 +236,11 @@ describe("getEnrichment", () => {
     const getAttomProfile = vi.fn();
     vi.doMock("../mls-client", () => ({
       searchByAddress: vi.fn().mockResolvedValueOnce({
-        attomId: "a1",
-        listingStatus: "Closed",
-        bedrooms: 3,
+        match: {
+          attomId: "a1",
+          listingStatus: "Closed",
+          bedroomsTotal: 3,
+        },
       }),
       getAttomDetails: vi.fn().mockResolvedValueOnce({ bedrooms: 3 }),
       getImages: vi.fn(),
@@ -256,9 +264,11 @@ describe("getEnrichment", () => {
 
   it("marks cacheHit true on second call with identical address", async () => {
     const searchByAddress = vi.fn().mockResolvedValue({
-      attomId: "a1",
-      listingStatus: "Closed",
-      bedrooms: 3,
+      match: {
+        attomId: "a1",
+        listingStatus: "Closed",
+        bedroomsTotal: 3,
+      },
     });
     const getAttomProfile = vi.fn().mockResolvedValue({ bedrooms: 3 });
     vi.doMock("../mls-client", () => ({
@@ -286,10 +296,12 @@ describe("getEnrichment", () => {
     const { MlsError } = await import("../types");
     vi.doMock("../mls-client", () => ({
       searchByAddress: vi.fn().mockResolvedValueOnce({
-        attomId: "a1",
-        listingStatus: "Closed",
-        bedrooms: 3,
-        bathrooms: 2,
+        match: {
+          attomId: "a1",
+          listingStatus: "Closed",
+          bedroomsTotal: 3,
+          bathroomsFull: 2,
+        },
       }),
       getAttomDetails: vi
         .fn()

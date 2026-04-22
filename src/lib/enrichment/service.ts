@@ -5,6 +5,7 @@ import {
   getAttomDetails,
   getImages,
   searchByAddress,
+  type SearchByAddressResult,
 } from "./mls-client";
 import {
   ENRICHMENT_TTL_NO_MATCH_SECONDS,
@@ -52,6 +53,34 @@ type RunResult = {
 
 const DEFAULT_SOURCES: EnrichmentSource[] = ["mls", "attom"];
 
+const AZURE_BLOB_MLS_HOST = "zoodealiomls.blob.core.windows.net";
+
+function isAzureBlobMlsImage(url: string): boolean {
+  if (!url.startsWith("https://")) return false;
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.hostname === AZURE_BLOB_MLS_HOST &&
+      parsed.pathname.startsWith("/mlsimages/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Prefer Azure Blob-hosted MLS photos over HomeJunction. MLS is migrating
+ * photo hosting to `zoodealiomls.blob.core.windows.net/mlsimages/…`; once
+ * the migration completes the inline `images[]` array will be entirely
+ * Azure Blob, and this filter becomes a no-op. During the transition:
+ *   - If *any* URL is Azure Blob, return only the Azure Blob subset.
+ *   - Otherwise return the HomeJunction list as-is.
+ */
+function preferAzureBlobMlsImages(urls: string[]): string[] {
+  const azureBlob = urls.filter(isAzureBlobMlsImage);
+  return azureBlob.length > 0 ? azureBlob : urls;
+}
+
 /**
  * Parse the `ENRICHMENT_SOURCES` env toggle. Comma-separated allow-list;
  * unknown / empty values fall back to the default. Used as a kill-switch
@@ -91,12 +120,12 @@ async function runEnrichment(input: EnrichInput): Promise<RunResult> {
   const [searchSettled, attomSettled] = (await Promise.allSettled([
     mlsEnabled
       ? searchByAddress(address)
-      : Promise.resolve<PropertySearchResultDto | null>(null),
+      : Promise.resolve<SearchByAddressResult | null>(null),
     attomEnabled
       ? getAttomProfile(address)
       : Promise.resolve<AttomProfileDto | null>(null),
   ])) as [
-    PromiseSettledResult<PropertySearchResultDto | null>,
+    PromiseSettledResult<SearchByAddressResult | null>,
     PromiseSettledResult<AttomProfileDto | null>,
   ];
   const attomLatencyMs =
@@ -106,9 +135,13 @@ async function runEnrichment(input: EnrichInput): Promise<RunResult> {
 
   // MLS search outcome
   let search: PropertySearchResultDto | null = null;
+  let inlineImages: string[] | undefined;
   let mlsError: MlsError | undefined;
   if (searchSettled.status === "fulfilled") {
-    search = searchSettled.value;
+    if (searchSettled.value) {
+      search = searchSettled.value.match;
+      inlineImages = searchSettled.value.inlineImages;
+    }
   } else if (searchSettled.reason instanceof MlsError) {
     mlsError = searchSettled.reason;
   } else {
@@ -156,6 +189,17 @@ async function runEnrichment(input: EnrichInput): Promise<RunResult> {
     const shouldFetchImages =
       listingStatus === "currently-listed" && Boolean(search.mlsRecordId);
 
+    // Inline images ride along on the search response — skip the extra
+    // `/images` round trip when the matched record already has them.
+    // Prefer Azure Blob-hosted URLs over HomeJunction when both are
+    // present, since MLS is in the middle of migrating photo hosting to
+    // `zoodealiomls.blob.core.windows.net/mlsimages/…`.
+    const preferredInline = inlineImages
+      ? preferAzureBlobMlsImages(inlineImages)
+      : undefined;
+    const haveInlineImages =
+      Array.isArray(preferredInline) && preferredInline.length > 0;
+
     [detailsSettled, imagesSettled] = await Promise.allSettled([
       search.attomId
         ? getAttomDetails(search.attomId)
@@ -166,9 +210,13 @@ async function runEnrichment(input: EnrichInput): Promise<RunResult> {
               message: "no attomId on search result",
             }),
           ),
-      shouldFetchImages
+      shouldFetchImages && !haveInlineImages
         ? getImages(search.mlsRecordId as string)
-        : Promise.resolve<ListingImageDto[] | undefined>(undefined),
+        : Promise.resolve<ListingImageDto[] | undefined>(
+            haveInlineImages
+              ? (preferredInline as string[]).map((url) => ({ url }))
+              : undefined,
+          ),
     ] satisfies [
       Promise<PropertyDetailsDto>,
       Promise<ListingImageDto[] | undefined>,
@@ -284,11 +332,11 @@ export async function suggest(input: SuggestInput): Promise<SuggestEnvelope> {
     const results: SuggestedAddress[] = hit
       ? [
           {
-            street1: hit.city ?? input.query,
-            city: hit.city ?? input.query,
+            street1: hit.match.propertyAddressFull ?? input.query,
+            city: hit.match.propertyAddressCity ?? input.query,
             state: "AZ",
-            zip: hit.zip ?? "85004",
-            mlsRecordId: hit.mlsRecordId,
+            zip: hit.match.propertyAddressZip ?? "85004",
+            mlsRecordId: hit.match.mlsRecordId,
           },
         ]
       : [];

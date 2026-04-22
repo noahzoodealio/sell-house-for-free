@@ -130,6 +130,12 @@ export const enrichmentSlotSchema = z.object({
     .optional(),
   rawListingStatus: z.string().optional(),
   listingStatusDisplay: z.string().optional(),
+  // Listing-level MLS metadata surfaced on the "we found your listing" card.
+  // Optional — only populated when MLS returned a currently-listed match.
+  listPrice: z.number().optional(),
+  daysOnMarket: z.number().optional(),
+  listedAt: z.string().optional(),
+  photosCount: z.number().optional(),
   details: z
     .object({
       bedrooms: z.number().optional(),
@@ -177,9 +183,16 @@ export const fullSellerFormSchema = z
     path: ["address", "state"],
   });
 
+// `mls` is a UI-only interstitial after property details — it carries no form
+// fields of its own (hasAgent / currentListingStatus are session state
+// forwarded via hidden fields). An empty passthrough schema keeps validateStep
+// type-safe without introducing a second code path for stepless advancement.
+const mlsStepSchema = z.object({}).passthrough();
+
 export const STEP_SCHEMAS = {
   address: addressStepSchema,
   property: propertyStepSchema,
+  mls: mlsStepSchema,
   condition: conditionStepSchema,
   contact: contactStepSchema,
 } as const;
