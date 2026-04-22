@@ -49,8 +49,6 @@ const INITIAL_TYPED: TypedFlags = {
   lotSize: false,
 };
 
-const PREFILL_HINT = "Filled from public records — edit if wrong";
-
 function firstError(
   errors: Record<string, string[]> | undefined,
   field: string,
@@ -137,7 +135,6 @@ export function PropertyStep({
         <Field
           label="Bedrooms"
           errorText={firstError(errors, "bedrooms")}
-          helpText={isPrefilled("bedrooms") ? PREFILL_HINT : undefined}
         >
           <Input
             name="bedrooms"
@@ -163,7 +160,6 @@ export function PropertyStep({
         <Field
           label="Bathrooms"
           errorText={firstError(errors, "bathrooms")}
-          helpText={isPrefilled("bathrooms") ? PREFILL_HINT : undefined}
         >
           <Input
             name="bathrooms"
@@ -189,7 +185,6 @@ export function PropertyStep({
         <Field
           label="Square footage"
           errorText={firstError(errors, "squareFootage")}
-          helpText={isPrefilled("squareFootage") ? PREFILL_HINT : undefined}
         >
           <Input
             name="squareFootage"
@@ -215,7 +210,6 @@ export function PropertyStep({
         <Field
           label="Year built"
           errorText={firstError(errors, "yearBuilt")}
-          helpText={isPrefilled("yearBuilt") ? PREFILL_HINT : undefined}
         >
           <Input
             name="yearBuilt"
@@ -241,7 +235,6 @@ export function PropertyStep({
         <Field
           label="Lot size (sq ft)"
           errorText={firstError(errors, "lotSize")}
-          helpText={isPrefilled("lotSize") ? PREFILL_HINT : undefined}
         >
           <Input
             name="lotSize"
