@@ -24,6 +24,7 @@ type AddressStepProps = {
   mlsRecordId: string | undefined;
   rawListingStatus: string | undefined;
   listingStatusDisplay: string | undefined;
+  isMultiUnit: boolean;
   listedReason: ListedReason | undefined;
   onListedReasonChange: (reason: ListedReason) => void;
   hasAgent: HasAgent | undefined;
@@ -47,11 +48,18 @@ export function AddressStep({
   mlsRecordId,
   rawListingStatus,
   listingStatusDisplay,
+  isMultiUnit,
   listedReason,
   onListedReasonChange,
   hasAgent,
   onHasAgentChange,
 }: AddressStepProps) {
+  const unitLabel = isMultiUnit
+    ? "Apt, suite, etc."
+    : "Apt, suite, etc. (optional)";
+  const unitHint = isMultiUnit
+    ? "This address is part of a multi-unit building — please enter your unit number."
+    : undefined;
   return (
     <div className="flex flex-col gap-5">
       <h2
@@ -75,7 +83,8 @@ export function AddressStep({
       </Field>
 
       <Field
-        label="Apt, suite, etc. (optional)"
+        label={unitLabel}
+        helpText={unitHint}
         errorText={firstError(errors, "street2")}
       >
         <Input
@@ -88,6 +97,7 @@ export function AddressStep({
           }}
           autoComplete="address-line2"
           maxLength={60}
+          aria-invalid={isMultiUnit && !data.street2?.trim() ? true : undefined}
         />
       </Field>
 

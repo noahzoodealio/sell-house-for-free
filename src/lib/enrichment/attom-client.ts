@@ -114,7 +114,11 @@ type AttomProperty = {
       bldgSize?: number;
     };
   };
-  summary?: { yearBuilt?: number };
+  summary?: {
+    yearBuilt?: number;
+    propType?: string;
+    propClass?: string;
+  };
   lot?: { lotSize2?: number };
 };
 
@@ -135,6 +139,8 @@ function extractProfile(body: unknown): AttomProfileDto | null {
       first.building?.size?.bldgSize,
     yearBuilt: first.summary?.yearBuilt,
     lotSize: first.lot?.lotSize2,
+    propType: first.summary?.propType,
+    propClass: first.summary?.propClass,
   };
 }
 

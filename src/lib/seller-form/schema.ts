@@ -143,6 +143,10 @@ export const enrichmentSlotSchema = z.object({
     .array(z.object({ url: z.url(), caption: z.string().optional() }))
     .optional(),
   sources: z.array(z.enum(["mls", "attom"])).optional(),
+  // True when ATTOM propType indicates the address is part of a multi-unit
+  // building (condo, apartment, duplex, etc.) — the form uses this to force
+  // the seller to fill in the Apt/Unit field before advancing.
+  isMultiUnit: z.boolean().optional(),
   fetchedAt: z.string().datetime().optional(),
 });
 

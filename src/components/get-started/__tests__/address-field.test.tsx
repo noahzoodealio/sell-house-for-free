@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
-import type { SuggestedAddress } from "@/lib/enrichment/types";
 import {
   AddressField,
   formatSuggestionLabel,
-  formatSuggestionSubLabel,
 } from "../address-field";
 
 describe("formatSuggestionLabel", () => {
@@ -29,25 +27,6 @@ describe("formatSuggestionLabel", () => {
         zip: "85004",
       }),
     ).toBe("123 Main St Apt 4");
-  });
-});
-
-describe("formatSuggestionSubLabel", () => {
-  const base: SuggestedAddress = {
-    street1: "123 Main St",
-    city: "Phoenix",
-    state: "AZ",
-    zip: "85004",
-  };
-
-  it("renders city + AZ + zip", () => {
-    expect(formatSuggestionSubLabel(base, false)).toBe("Phoenix, AZ 85004");
-  });
-
-  it("appends listed marker when currently listed", () => {
-    expect(formatSuggestionSubLabel(base, true)).toBe(
-      "Phoenix, AZ 85004 · Listed",
-    );
   });
 });
 

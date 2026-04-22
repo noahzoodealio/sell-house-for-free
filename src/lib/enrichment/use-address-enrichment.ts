@@ -178,6 +178,12 @@ export function useAddressEnrichment(
   const latestControllerRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAddressRef = useRef<AddressFields | null>(null);
+  // Tracks the previously-completed address across renders. When this is
+  // null and we transition to a complete address, that's a "first time
+  // complete" event — dropdown-selection or manual-final-keystroke — so
+  // we fire immediately instead of debouncing. Debounce still applies
+  // when the user edits an already-complete address (valid → valid).
+  const prevCompleteRef = useRef<AddressFields | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,9 +197,13 @@ export function useAddressEnrichment(
       latestControllerRef.current?.abort();
       latestControllerRef.current = null;
       lastAddressRef.current = null;
+      prevCompleteRef.current = null;
       setResult(IDLE);
       return;
     }
+
+    const isFirstTimeComplete = prevCompleteRef.current === null;
+    prevCompleteRef.current = address;
 
     // Re-run guard: same address across renders should not re-fire.
     if (
@@ -241,14 +251,19 @@ export function useAddressEnrichment(
         return;
       }
 
-      // Cache miss: set loading, debounce the network call.
+      // Cache miss: set loading. Fire immediately on first-time completion
+      // (dropdown pick or manual final keystroke); debounce subsequent edits.
       setResult(LOADING);
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        debounceRef.current = null;
-        if (cancelled) return;
+      if (isFirstTimeComplete) {
         void dispatchFetch(address, cacheKey);
-      }, DEBOUNCE_MS);
+      } else {
+        debounceRef.current = setTimeout(() => {
+          debounceRef.current = null;
+          if (cancelled) return;
+          void dispatchFetch(address, cacheKey);
+        }, DEBOUNCE_MS);
+      }
     })();
 
     async function dispatchFetch(addr: AddressFields, cacheKey: string) {

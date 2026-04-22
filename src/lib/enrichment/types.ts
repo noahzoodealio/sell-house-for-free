@@ -174,6 +174,8 @@ export type AttomProfileDto = {
   squareFootage?: number;
   yearBuilt?: number;
   lotSize?: number;
+  propType?: string;
+  propClass?: string;
   [k: string]: unknown;
 };
 

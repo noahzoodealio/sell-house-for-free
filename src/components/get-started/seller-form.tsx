@@ -236,6 +236,7 @@ export function SellerForm({
   const enrichment = useAddressEnrichment(completeAddress, submissionId);
   const enrichmentSlot =
     enrichment.status === "ok" ? enrichment.slot : undefined;
+  const isMultiUnit = enrichmentSlot?.isMultiUnit === true;
 
   const liveMessage = useMemo(() => {
     if (formState.ok === false) {
@@ -443,6 +444,29 @@ export function SellerForm({
       }
       return;
     }
+    // Multi-unit address guard: ATTOM says this is a condo/apartment/duplex/
+    // etc., so we can't let the seller advance without an apt/suite number.
+    // The street2 field is schema-optional (the schema is source-agnostic),
+    // but the form layer enforces it conditionally.
+    if (currentStep === "address" && isMultiUnit) {
+      const street2 = stepData.address.street2?.trim() ?? "";
+      if (street2.length === 0) {
+        setClientErrors((prev) => ({
+          ...prev,
+          address: {
+            ...(prev.address ?? {}),
+            street2: [
+              "Please enter your apt/unit number — this address is part of a multi-unit building.",
+            ],
+          },
+        }));
+        const input = document.querySelector<HTMLInputElement>(
+          `[name="street2"]`,
+        );
+        input?.focus();
+        return;
+      }
+    }
     // On the contact step, we additionally require all three consents.
     if (currentStep === "contact") {
       const consentErrors: Record<string, string[]> = {};
@@ -462,7 +486,7 @@ export function SellerForm({
     }
 
     navigateToStep(STEP_SLUGS[idx + 1]);
-  }, [currentStep, stepData, consent, navigateToStep]);
+  }, [currentStep, stepData, consent, navigateToStep, isMultiUnit]);
 
   const currentErrors = useMemo(() => {
     const server = formState.ok === false ? formState.errors : undefined;
@@ -529,6 +553,7 @@ export function SellerForm({
         onConsentChange={updateConsent}
         enrichmentStatus={enrichment.status}
         enrichmentSlot={enrichmentSlot}
+        isMultiUnit={isMultiUnit}
         listedReason={listedReason}
         onListedReasonChange={setListedReason}
         hasAgent={hasAgent}
@@ -581,6 +606,7 @@ type StepDispatchProps = {
   onConsentChange: (partial: Partial<ConsentFields>) => void;
   enrichmentStatus: ReturnType<typeof useAddressEnrichment>["status"];
   enrichmentSlot: import("@/lib/seller-form/types").EnrichmentSlot | undefined;
+  isMultiUnit: boolean;
   listedReason: ListedReason | undefined;
   onListedReasonChange: (reason: ListedReason) => void;
   hasAgent: HasAgent | undefined;
@@ -601,6 +627,7 @@ function StepDispatch({
   onConsentChange,
   enrichmentStatus,
   enrichmentSlot,
+  isMultiUnit,
   listedReason,
   onListedReasonChange,
   hasAgent,
@@ -622,6 +649,7 @@ function StepDispatch({
           mlsRecordId={mlsRecordId}
           rawListingStatus={rawListingStatus}
           listingStatusDisplay={listingStatusDisplay}
+          isMultiUnit={isMultiUnit}
           listedReason={listedReason}
           onListedReasonChange={onListedReasonChange}
           hasAgent={hasAgent}

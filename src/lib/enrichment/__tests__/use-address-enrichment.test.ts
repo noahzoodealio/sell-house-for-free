@@ -233,20 +233,46 @@ describe("useAddressEnrichment — debounce + abort", () => {
     expect(signal?.aborted).toBe(true);
   });
 
-  it("debounce coalesces rapid address changes", async () => {
+  it("first-time address completion fires immediately (no debounce)", async () => {
+    mockFetchOnce(OK_ENVELOPE);
+    const { rerender } = renderHook(
+      ({ address }: { address: AddressFields | null }) =>
+        useAddressEnrichment(address),
+      { initialProps: { address: null as AddressFields | null } },
+    );
+
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+
+    // Flip null → complete. Should dispatch the fetch well under the old
+    // 400ms debounce window.
+    rerender({ address: AZ_ADDRESS });
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(
+      (globalThis.fetch as MockedFunction<typeof fetch>).mock.calls.length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  it("debounce coalesces rapid edits once an address is already complete", async () => {
     mockFetchOnce(OK_ENVELOPE);
     const addr1: AddressFields = { ...AZ_ADDRESS, street1: "100 First St" };
     const addr2: AddressFields = { ...AZ_ADDRESS, street1: "200 Second St" };
     const addr3: AddressFields = { ...AZ_ADDRESS, street1: "300 Third St" };
 
-    const { rerender } = renderHook(
+    // First-time completion fires immediately — wait for it to settle so
+    // subsequent changes exercise the debounced (valid → valid) path.
+    const { result, rerender } = renderHook(
       ({ address }: { address: AddressFields }) =>
         useAddressEnrichment(address),
       { initialProps: { address: addr1 } },
     );
+    await waitFor(() => expect(result.current.status).toBe("ok"), {
+      timeout: 2000,
+    });
 
-    // Change rapidly — each within the 400ms debounce window.
-    await new Promise((r) => setTimeout(r, 50));
+    mockFetchOnce(OK_ENVELOPE);
+
+    // Now a rapid valid → valid → valid sequence within the debounce window.
     rerender({ address: addr2 });
     await new Promise((r) => setTimeout(r, 50));
     rerender({ address: addr3 });
@@ -255,8 +281,8 @@ describe("useAddressEnrichment — debounce + abort", () => {
     await new Promise((r) => setTimeout(r, 800));
 
     const fetchMock = globalThis.fetch as MockedFunction<typeof fetch>;
-    // Only the last address should have produced a fetch.
-    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(1);
+    // 1 fetch for addr1 (immediate) + 1 coalesced fetch for addr3.
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
   });
 });
 

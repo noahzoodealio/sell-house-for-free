@@ -107,6 +107,29 @@ export function displayListingStatus(
   return DISPLAY_LISTING_STATUS[key];
 }
 
+// ATTOM propType / propClass keywords that signal a unit number is required.
+// Intentionally excludes TOWNHOUSE (typically has its own street address) even
+// when ATTOM bundles it into propClass like "Single Family Residence /
+// Townhouse". Errs toward asking for a unit when propType is ambiguous enough
+// to contain CONDO / APARTMENT / DUPLEX / TRIPLEX / QUADRUPLEX / MULTI.
+const MULTI_UNIT_KEYWORDS = [
+  "CONDO",
+  "APARTMENT",
+  "DUPLEX",
+  "TRIPLEX",
+  "QUADRUPLEX",
+  "MULTI",
+] as const;
+
+export function isMultiUnitPropType(
+  propType: string | null | undefined,
+  propClass: string | null | undefined,
+): boolean {
+  const haystack = `${propType ?? ""} ${propClass ?? ""}`.toUpperCase();
+  if (!haystack.trim()) return false;
+  return MULTI_UNIT_KEYWORDS.some((kw) => haystack.includes(kw));
+}
+
 function mapPhotos(
   images: ListingImageDto[] | undefined,
 ): EnrichmentSlot["photos"] {
@@ -176,6 +199,10 @@ export function mergeToEnrichmentSlot(input: MergeSlotInput): EnrichmentSlot {
     (v) => v !== undefined && v !== null,
   );
 
+  const multiUnit = attom
+    ? isMultiUnitPropType(attom.propType, attom.propClass)
+    : false;
+
   return {
     status: slotStatus,
     attomId: search?.attomId,
@@ -190,6 +217,7 @@ export function mergeToEnrichmentSlot(input: MergeSlotInput): EnrichmentSlot {
     details: hasAnyDetail ? slotDetails : undefined,
     photos: mapPhotos(images),
     sources: sources.length > 0 ? sources : undefined,
+    isMultiUnit: multiUnit || undefined,
     fetchedAt,
   };
 }

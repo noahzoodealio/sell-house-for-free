@@ -62,14 +62,6 @@ export function formatSuggestionLabel(s: SuggestedAddress): string {
   return s.street2 ? `${s.street1} ${s.street2}` : s.street1;
 }
 
-export function formatSuggestionSubLabel(
-  s: SuggestedAddress,
-  isListed: boolean,
-): string {
-  const base = `${s.city}, AZ ${s.zip}`;
-  return isListed ? `${base} · Listed` : base;
-}
-
 const inputClasses =
   "block w-full h-12 md:h-[52px] px-4 rounded-md border " +
   "bg-surface text-ink-body placeholder:text-ink-muted " +
@@ -231,9 +223,6 @@ export function AddressField({
                         Listed
                       </span>
                     )}
-                  </span>
-                  <span className="text-[13px] text-ink-muted">
-                    {formatSuggestionSubLabel(s, isListed)}
                   </span>
                 </ComboboxOption>
               );

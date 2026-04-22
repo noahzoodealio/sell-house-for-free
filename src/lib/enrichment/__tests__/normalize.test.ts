@@ -4,6 +4,7 @@ import {
   canonicalizeStatus,
   displayListingStatus,
   isAzZip,
+  isMultiUnitPropType,
   mergeToEnrichmentSlot,
   normalizeAddress,
   normalizeListingStatus,
@@ -169,6 +170,26 @@ describe("displayListingStatus", () => {
   it("null / undefined → undefined", () => {
     expect(displayListingStatus(null)).toBeUndefined();
     expect(displayListingStatus(undefined)).toBeUndefined();
+  });
+});
+
+describe("isMultiUnitPropType", () => {
+  it.each([
+    ["CONDOMINIUM", undefined, true],
+    ["APARTMENT", undefined, true],
+    ["DUPLEX", undefined, true],
+    ["TRIPLEX", undefined, true],
+    ["QUADRUPLEX", undefined, true],
+    ["MULTI-FAMILY DWELLING", undefined, true],
+    ["SFR", "Single Family Residence / Townhouse", false],
+    ["SFR", undefined, false],
+    ["TOWNHOUSE", undefined, false],
+    ["MOBILE HOME", undefined, false],
+    [undefined, "Condominium", true],
+    [undefined, undefined, false],
+    ["", "", false],
+  ])("propType=%s propClass=%s → %s", (pt, pc, expected) => {
+    expect(isMultiUnitPropType(pt, pc)).toBe(expected);
   });
 });
 
@@ -374,5 +395,37 @@ describe("mergeToEnrichmentSlot", () => {
     expect(slot.details?.bedrooms).toBe(4);
     expect(slot.details?.lotSize).toBe(6500);
     expect(slot.sources).toEqual(["attom"]);
+  });
+
+  it("sets isMultiUnit when ATTOM propType matches a multi-unit keyword", () => {
+    const slot = mergeToEnrichmentSlot({
+      search,
+      detailsSettled: { status: "fulfilled", value: { bedrooms: 3 } },
+      imagesSettled: { status: "fulfilled", value: undefined },
+      attomProfileSettled: {
+        status: "fulfilled",
+        value: { propType: "CONDOMINIUM" },
+      },
+      sources: ["mls", "attom"],
+      slotStatus: "ok",
+      fetchedAt: "2026-04-22T00:00:00.000Z",
+    });
+    expect(slot.isMultiUnit).toBe(true);
+  });
+
+  it("leaves isMultiUnit undefined for single-family ATTOM matches", () => {
+    const slot = mergeToEnrichmentSlot({
+      search,
+      detailsSettled: { status: "fulfilled", value: { bedrooms: 3 } },
+      imagesSettled: { status: "fulfilled", value: undefined },
+      attomProfileSettled: {
+        status: "fulfilled",
+        value: { propType: "SFR", propClass: "Single Family Residence" },
+      },
+      sources: ["mls", "attom"],
+      slotStatus: "ok",
+      fetchedAt: "2026-04-22T00:00:00.000Z",
+    });
+    expect(slot.isMultiUnit).toBeUndefined();
   });
 });
