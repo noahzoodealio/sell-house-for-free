@@ -183,16 +183,30 @@ describe("mergeToEnrichmentSlot", () => {
     yearBuilt: 1990,
   };
 
+  const ATTOM_ABSENT = {
+    status: "fulfilled",
+    value: null,
+  } as const;
+
   it("uses details when fulfilled (more authoritative than search)", () => {
-    const slot = mergeToEnrichmentSlot(
+    const slot = mergeToEnrichmentSlot({
       search,
-      {
+      detailsSettled: {
         status: "fulfilled",
-        value: { bedrooms: 4, bathrooms: 2.5, squareFootage: 2100, yearBuilt: 2000, lotSize: 7200 },
+        value: {
+          bedrooms: 4,
+          bathrooms: 2.5,
+          squareFootage: 2100,
+          yearBuilt: 2000,
+          lotSize: 7200,
+        },
       },
-      { status: "fulfilled", value: undefined },
-      "2026-01-01T00:00:00.000Z",
-    );
+      imagesSettled: { status: "fulfilled", value: undefined },
+      attomProfileSettled: ATTOM_ABSENT,
+      sources: ["mls"],
+      slotStatus: "ok-partial",
+      fetchedAt: "2026-01-01T00:00:00.000Z",
+    });
     expect(slot.details).toEqual({
       bedrooms: 4,
       bathrooms: 2.5,
@@ -205,12 +219,15 @@ describe("mergeToEnrichmentSlot", () => {
   });
 
   it("falls back to search fields when details reject", () => {
-    const slot = mergeToEnrichmentSlot(
+    const slot = mergeToEnrichmentSlot({
       search,
-      { status: "rejected", reason: new Error("boom") },
-      { status: "fulfilled", value: undefined },
-      "2026-01-01T00:00:00.000Z",
-    );
+      detailsSettled: { status: "rejected", reason: new Error("boom") },
+      imagesSettled: { status: "fulfilled", value: undefined },
+      attomProfileSettled: ATTOM_ABSENT,
+      sources: ["mls"],
+      slotStatus: "ok-partial",
+      fetchedAt: "2026-01-01T00:00:00.000Z",
+    });
     expect(slot.details).toEqual({
       bedrooms: 3,
       bathrooms: 2,
@@ -221,20 +238,23 @@ describe("mergeToEnrichmentSlot", () => {
   });
 
   it("drops photos when images leg rejects", () => {
-    const slot = mergeToEnrichmentSlot(
+    const slot = mergeToEnrichmentSlot({
       search,
-      { status: "fulfilled", value: { bedrooms: 3 } },
-      { status: "rejected", reason: new Error("boom") },
-      "2026-01-01T00:00:00.000Z",
-    );
+      detailsSettled: { status: "fulfilled", value: { bedrooms: 3 } },
+      imagesSettled: { status: "rejected", reason: new Error("boom") },
+      attomProfileSettled: ATTOM_ABSENT,
+      sources: ["mls"],
+      slotStatus: "ok-partial",
+      fetchedAt: "2026-01-01T00:00:00.000Z",
+    });
     expect(slot.photos).toBeUndefined();
   });
 
   it("returns first 3 photos sorted by displayOrder", () => {
-    const slot = mergeToEnrichmentSlot(
+    const slot = mergeToEnrichmentSlot({
       search,
-      { status: "fulfilled", value: { bedrooms: 3 } },
-      {
+      detailsSettled: { status: "fulfilled", value: { bedrooms: 3 } },
+      imagesSettled: {
         status: "fulfilled",
         value: [
           { url: "x/3.jpg", displayOrder: 3 },
@@ -243,53 +263,116 @@ describe("mergeToEnrichmentSlot", () => {
           { url: "x/4.jpg", displayOrder: 4 },
         ],
       },
-      "2026-01-01T00:00:00.000Z",
-    );
+      attomProfileSettled: ATTOM_ABSENT,
+      sources: ["mls"],
+      slotStatus: "ok-partial",
+      fetchedAt: "2026-01-01T00:00:00.000Z",
+    });
     expect(slot.photos).toHaveLength(3);
     expect(slot.photos?.[0].url).toBe("x/1.jpg");
     expect(slot.photos?.[2].url).toBe("x/3.jpg");
   });
 
   it("always sets fetchedAt", () => {
-    const slot = mergeToEnrichmentSlot(
+    const slot = mergeToEnrichmentSlot({
       search,
-      { status: "fulfilled", value: { bedrooms: 3 } },
-      { status: "fulfilled", value: undefined },
-      "2026-04-21T00:00:00.000Z",
-    );
+      detailsSettled: { status: "fulfilled", value: { bedrooms: 3 } },
+      imagesSettled: { status: "fulfilled", value: undefined },
+      attomProfileSettled: ATTOM_ABSENT,
+      sources: ["mls"],
+      slotStatus: "ok-partial",
+      fetchedAt: "2026-04-21T00:00:00.000Z",
+    });
     expect(slot.fetchedAt).toBe("2026-04-21T00:00:00.000Z");
   });
 
   it("passes raw listingStatus through + populates display for active", () => {
-    const slot = mergeToEnrichmentSlot(
-      { ...search, listingStatus: "Active" },
-      { status: "fulfilled", value: { bedrooms: 3 } },
-      { status: "fulfilled", value: undefined },
-      "2026-04-21T00:00:00.000Z",
-    );
+    const slot = mergeToEnrichmentSlot({
+      search: { ...search, listingStatus: "Active" },
+      detailsSettled: { status: "fulfilled", value: { bedrooms: 3 } },
+      imagesSettled: { status: "fulfilled", value: undefined },
+      attomProfileSettled: ATTOM_ABSENT,
+      sources: ["mls"],
+      slotStatus: "ok-partial",
+      fetchedAt: "2026-04-21T00:00:00.000Z",
+    });
     expect(slot.rawListingStatus).toBe("Active");
     expect(slot.listingStatusDisplay).toBe("currently listed");
   });
 
   it("sets listingStatusDisplay undefined for out-of-gate raw statuses", () => {
-    const slot = mergeToEnrichmentSlot(
-      { ...search, listingStatus: "Closed" },
-      { status: "fulfilled", value: { bedrooms: 3 } },
-      { status: "fulfilled", value: undefined },
-      "2026-04-21T00:00:00.000Z",
-    );
+    const slot = mergeToEnrichmentSlot({
+      search: { ...search, listingStatus: "Closed" },
+      detailsSettled: { status: "fulfilled", value: { bedrooms: 3 } },
+      imagesSettled: { status: "fulfilled", value: undefined },
+      attomProfileSettled: ATTOM_ABSENT,
+      sources: ["mls"],
+      slotStatus: "ok-partial",
+      fetchedAt: "2026-04-21T00:00:00.000Z",
+    });
     expect(slot.rawListingStatus).toBe("Closed");
     expect(slot.listingStatusDisplay).toBeUndefined();
   });
 
   it("leaves rawListingStatus undefined when search has no listingStatus", () => {
-    const slot = mergeToEnrichmentSlot(
-      { ...search, listingStatus: undefined },
-      { status: "fulfilled", value: { bedrooms: 3 } },
-      { status: "fulfilled", value: undefined },
-      "2026-04-21T00:00:00.000Z",
-    );
+    const slot = mergeToEnrichmentSlot({
+      search: { ...search, listingStatus: undefined },
+      detailsSettled: { status: "fulfilled", value: { bedrooms: 3 } },
+      imagesSettled: { status: "fulfilled", value: undefined },
+      attomProfileSettled: ATTOM_ABSENT,
+      sources: ["mls"],
+      slotStatus: "ok-partial",
+      fetchedAt: "2026-04-21T00:00:00.000Z",
+    });
     expect(slot.rawListingStatus).toBeUndefined();
     expect(slot.listingStatusDisplay).toBeUndefined();
+  });
+
+  it("ATTOM fills fields not provided by MLS (mls+attom sources)", () => {
+    const slot = mergeToEnrichmentSlot({
+      search: { ...search, yearBuilt: undefined },
+      detailsSettled: { status: "fulfilled", value: { bedrooms: 3 } },
+      imagesSettled: { status: "fulfilled", value: undefined },
+      attomProfileSettled: {
+        status: "fulfilled",
+        value: { yearBuilt: 1995, lotSize: 5500 },
+      },
+      sources: ["mls", "attom"],
+      slotStatus: "ok",
+      fetchedAt: "2026-04-22T00:00:00.000Z",
+    });
+    expect(slot.status).toBe("ok");
+    expect(slot.details?.yearBuilt).toBe(1995);
+    expect(slot.details?.lotSize).toBe(5500);
+    expect(slot.sources).toEqual(["mls", "attom"]);
+  });
+
+  it("ATTOM-only slot when search is null (no mls ids or listingStatus)", () => {
+    const slot = mergeToEnrichmentSlot({
+      search: null,
+      detailsSettled: null,
+      imagesSettled: null,
+      attomProfileSettled: {
+        status: "fulfilled",
+        value: {
+          bedrooms: 4,
+          bathrooms: 2,
+          squareFootage: 2100,
+          yearBuilt: 1995,
+          lotSize: 6500,
+        },
+      },
+      sources: ["attom"],
+      slotStatus: "ok-partial",
+      fetchedAt: "2026-04-22T00:00:00.000Z",
+    });
+    expect(slot.status).toBe("ok-partial");
+    expect(slot.attomId).toBeUndefined();
+    expect(slot.mlsRecordId).toBeUndefined();
+    expect(slot.listingStatus).toBeUndefined();
+    expect(slot.rawListingStatus).toBeUndefined();
+    expect(slot.details?.bedrooms).toBe(4);
+    expect(slot.details?.lotSize).toBe(6500);
+    expect(slot.sources).toEqual(["attom"]);
   });
 });
