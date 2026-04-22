@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   addressCacheKey,
+  canonicalizeStatus,
+  displayListingStatus,
   isAzZip,
   mergeToEnrichmentSlot,
   normalizeAddress,
@@ -112,6 +114,62 @@ describe("normalizeListingStatus", () => {
     expect(normalizeListingStatus("active")).toBe("currently-listed");
     expect(normalizeListingStatus("CLOSED")).toBe("previously-listed");
   });
+
+  it("Sold → previously-listed", () => {
+    expect(normalizeListingStatus("Sold")).toBe("previously-listed");
+  });
+});
+
+describe("canonicalizeStatus", () => {
+  it("lowercases + strips whitespace/underscore/dash", () => {
+    expect(canonicalizeStatus("ActiveUnderContract")).toBe("activeundercontract");
+    expect(canonicalizeStatus("active under contract")).toBe("activeundercontract");
+    expect(canonicalizeStatus("active_under_contract")).toBe("activeundercontract");
+    expect(canonicalizeStatus("active-under-contract")).toBe("activeundercontract");
+    expect(canonicalizeStatus(" Active ")).toBe("active");
+  });
+
+  it("returns empty string for nullish / empty input", () => {
+    expect(canonicalizeStatus(null)).toBe("");
+    expect(canonicalizeStatus(undefined)).toBe("");
+    expect(canonicalizeStatus("")).toBe("");
+  });
+});
+
+describe("displayListingStatus", () => {
+  it.each([
+    ["Active", "currently listed"],
+    ["active", "currently listed"],
+    [" Active ", "currently listed"],
+    ["ActiveUnderContract", "listed, currently under contract"],
+    ["active_under_contract", "listed, currently under contract"],
+    ["active-under-contract", "listed, currently under contract"],
+    ["ACTIVE UNDER CONTRACT", "listed, currently under contract"],
+    ["ComingSoon", "coming soon"],
+    ["coming soon", "coming soon"],
+    ["coming_soon", "coming soon"],
+    ["Pending", "listed, currently under contract"],
+    ["PENDING", "listed, currently under contract"],
+  ])("%s → %s", (input, expected) => {
+    expect(displayListingStatus(input)).toBe(expected);
+  });
+
+  it.each([
+    ["Closed"],
+    ["Sold"],
+    ["Expired"],
+    ["Withdrawn"],
+    ["Cancelled"],
+    ["WeirdStatus"],
+    [""],
+  ])("%s → undefined", (input) => {
+    expect(displayListingStatus(input)).toBeUndefined();
+  });
+
+  it("null / undefined → undefined", () => {
+    expect(displayListingStatus(null)).toBeUndefined();
+    expect(displayListingStatus(undefined)).toBeUndefined();
+  });
 });
 
 describe("mergeToEnrichmentSlot", () => {
@@ -200,5 +258,38 @@ describe("mergeToEnrichmentSlot", () => {
       "2026-04-21T00:00:00.000Z",
     );
     expect(slot.fetchedAt).toBe("2026-04-21T00:00:00.000Z");
+  });
+
+  it("passes raw listingStatus through + populates display for active", () => {
+    const slot = mergeToEnrichmentSlot(
+      { ...search, listingStatus: "Active" },
+      { status: "fulfilled", value: { bedrooms: 3 } },
+      { status: "fulfilled", value: undefined },
+      "2026-04-21T00:00:00.000Z",
+    );
+    expect(slot.rawListingStatus).toBe("Active");
+    expect(slot.listingStatusDisplay).toBe("currently listed");
+  });
+
+  it("sets listingStatusDisplay undefined for out-of-gate raw statuses", () => {
+    const slot = mergeToEnrichmentSlot(
+      { ...search, listingStatus: "Closed" },
+      { status: "fulfilled", value: { bedrooms: 3 } },
+      { status: "fulfilled", value: undefined },
+      "2026-04-21T00:00:00.000Z",
+    );
+    expect(slot.rawListingStatus).toBe("Closed");
+    expect(slot.listingStatusDisplay).toBeUndefined();
+  });
+
+  it("leaves rawListingStatus undefined when search has no listingStatus", () => {
+    const slot = mergeToEnrichmentSlot(
+      { ...search, listingStatus: undefined },
+      { status: "fulfilled", value: { bedrooms: 3 } },
+      { status: "fulfilled", value: undefined },
+      "2026-04-21T00:00:00.000Z",
+    );
+    expect(slot.rawListingStatus).toBeUndefined();
+    expect(slot.listingStatusDisplay).toBeUndefined();
   });
 });

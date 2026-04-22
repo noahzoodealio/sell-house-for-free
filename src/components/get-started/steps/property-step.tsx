@@ -8,7 +8,7 @@ import {
   EnrichmentConfirm,
   type EnrichmentPhoto,
 } from "../enrichment-confirm";
-import { ListedNotice, type ListedReason } from "../listed-notice";
+import { MlsStatusNotice, type ListedReason } from "../mls-status-notice";
 
 type EnrichmentDetails = NonNullable<EnrichmentSlot["details"]>;
 
@@ -19,7 +19,9 @@ type PropertyStepProps = {
   headingRef: Ref<HTMLHeadingElement>;
   enrichmentDetails: EnrichmentDetails | undefined;
   photos: EnrichmentPhoto[] | undefined;
-  listingStatus: EnrichmentSlot["listingStatus"];
+  mlsRecordId: string | undefined;
+  rawListingStatus: string | undefined;
+  listingStatusDisplay: string | undefined;
   listedReason: ListedReason | undefined;
   onListedReasonChange: (reason: ListedReason) => void;
 };
@@ -79,7 +81,9 @@ export function PropertyStep({
   headingRef,
   enrichmentDetails,
   photos,
-  listingStatus,
+  mlsRecordId,
+  rawListingStatus,
+  listingStatusDisplay,
   listedReason,
   onListedReasonChange,
 }: PropertyStepProps) {
@@ -111,8 +115,10 @@ export function PropertyStep({
         All fields optional — if you know them, enter now.
       </p>
 
-      <ListedNotice
-        listingStatus={listingStatus}
+      <MlsStatusNotice
+        mlsRecordId={mlsRecordId}
+        rawListingStatus={rawListingStatus}
+        listingStatusDisplay={listingStatusDisplay}
         value={listedReason}
         onChange={onListedReasonChange}
       />

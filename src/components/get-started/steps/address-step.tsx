@@ -5,10 +5,10 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { EnrichmentHookStatus } from "@/lib/enrichment/use-address-enrichment";
-import type { AddressFields, EnrichmentSlot } from "@/lib/seller-form/types";
+import type { AddressFields } from "@/lib/seller-form/types";
 import { AddressField } from "../address-field";
 import { EnrichmentBadge } from "../enrichment-badge";
-import { ListedNotice, type ListedReason } from "../listed-notice";
+import { MlsStatusNotice, type ListedReason } from "../mls-status-notice";
 
 type AddressStepProps = {
   data: Partial<AddressFields>;
@@ -17,7 +17,9 @@ type AddressStepProps = {
   onAddressComplete?: (addr: AddressFields) => void;
   headingRef: Ref<HTMLHeadingElement>;
   enrichmentStatus: EnrichmentHookStatus;
-  listingStatus: EnrichmentSlot["listingStatus"];
+  mlsRecordId: string | undefined;
+  rawListingStatus: string | undefined;
+  listingStatusDisplay: string | undefined;
   listedReason: ListedReason | undefined;
   onListedReasonChange: (reason: ListedReason) => void;
 };
@@ -36,7 +38,9 @@ export function AddressStep({
   onAddressComplete,
   headingRef,
   enrichmentStatus,
-  listingStatus,
+  mlsRecordId,
+  rawListingStatus,
+  listingStatusDisplay,
   listedReason,
   onListedReasonChange,
 }: AddressStepProps) {
@@ -132,8 +136,10 @@ export function AddressStep({
 
       <EnrichmentBadge status={enrichmentStatus} />
 
-      <ListedNotice
-        listingStatus={listingStatus}
+      <MlsStatusNotice
+        mlsRecordId={mlsRecordId}
+        rawListingStatus={rawListingStatus}
+        listingStatusDisplay={listingStatusDisplay}
         value={listedReason}
         onChange={onListedReasonChange}
       />

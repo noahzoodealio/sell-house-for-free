@@ -37,7 +37,7 @@ import type {
 } from "@/lib/seller-form/types";
 import { STEP_SLUGS } from "@/lib/seller-form/types";
 import { DraftRecoveryBanner } from "./draft-recovery-banner";
-import type { ListedReason } from "./listed-notice";
+import type { ListedReason } from "./mls-status-notice";
 import { Progress } from "./progress";
 import { StepNav } from "./step-nav";
 import { AddressStep } from "./steps/address-step";
@@ -599,7 +599,9 @@ function StepDispatch({
   onListedReasonChange,
   showCashOffersPrenudge,
 }: StepDispatchProps) {
-  const listingStatus = enrichmentSlot?.listingStatus;
+  const mlsRecordId = enrichmentSlot?.mlsRecordId;
+  const rawListingStatus = enrichmentSlot?.rawListingStatus;
+  const listingStatusDisplay = enrichmentSlot?.listingStatusDisplay;
   switch (step) {
     case "address":
       return (
@@ -609,7 +611,9 @@ function StepDispatch({
           onChange={onAddressChange}
           headingRef={headingRef}
           enrichmentStatus={enrichmentStatus}
-          listingStatus={listingStatus}
+          mlsRecordId={mlsRecordId}
+          rawListingStatus={rawListingStatus}
+          listingStatusDisplay={listingStatusDisplay}
           listedReason={listedReason}
           onListedReasonChange={onListedReasonChange}
         />
@@ -623,7 +627,9 @@ function StepDispatch({
           headingRef={headingRef}
           enrichmentDetails={enrichmentSlot?.details}
           photos={enrichmentSlot?.photos}
-          listingStatus={listingStatus}
+          mlsRecordId={mlsRecordId}
+          rawListingStatus={rawListingStatus}
+          listingStatusDisplay={listingStatusDisplay}
           listedReason={listedReason}
           onListedReasonChange={onListedReasonChange}
         />

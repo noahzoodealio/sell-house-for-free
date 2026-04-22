@@ -62,7 +62,7 @@ export function isAzZip(zip: string | number): boolean {
   return n >= AZ_ZIP_MIN && n <= AZ_ZIP_MAX;
 }
 
-const CURRENTLY_LISTED = new Set([
+export const ACTIVE_STATUS_RAW_KEYS = new Set([
   "active",
   "activeundercontract",
   "pending",
@@ -70,19 +70,39 @@ const CURRENTLY_LISTED = new Set([
 ]);
 const PREVIOUSLY_LISTED = new Set([
   "closed",
+  "sold",
   "expired",
   "withdrawn",
   "cancelled",
 ]);
 
+export function canonicalizeStatus(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return raw.toLowerCase().replace(/[\s_-]/g, "");
+}
+
 export function normalizeListingStatus(
   raw: string | null | undefined,
 ): EnrichmentSlot["listingStatus"] {
-  if (!raw) return "not-listed";
-  const key = raw.toLowerCase().replace(/[\s_-]/g, "");
-  if (CURRENTLY_LISTED.has(key)) return "currently-listed";
+  const key = canonicalizeStatus(raw);
+  if (!key) return "not-listed";
+  if (ACTIVE_STATUS_RAW_KEYS.has(key)) return "currently-listed";
   if (PREVIOUSLY_LISTED.has(key)) return "previously-listed";
   return "not-listed";
+}
+
+const DISPLAY_LISTING_STATUS: Record<string, string> = {
+  active: "currently listed",
+  activeundercontract: "listed, currently under contract",
+  pending: "listed, currently under contract",
+  comingsoon: "coming soon",
+};
+
+export function displayListingStatus(
+  raw: string | null | undefined,
+): string | undefined {
+  const key = canonicalizeStatus(raw);
+  return DISPLAY_LISTING_STATUS[key];
 }
 
 function mapPhotos(
@@ -129,6 +149,8 @@ export function mergeToEnrichmentSlot(
     attomId: search.attomId,
     mlsRecordId: search.mlsRecordId,
     listingStatus: normalizeListingStatus(search.listingStatus),
+    rawListingStatus: search.listingStatus,
+    listingStatusDisplay: displayListingStatus(search.listingStatus),
     details: hasAnyDetail ? slotDetails : undefined,
     photos: mapPhotos(images),
     fetchedAt,

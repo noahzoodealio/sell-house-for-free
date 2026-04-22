@@ -124,6 +124,8 @@ export const enrichmentSlotSchema = z.object({
   listingStatus: z
     .enum(["not-listed", "currently-listed", "previously-listed"])
     .optional(),
+  rawListingStatus: z.string().optional(),
+  listingStatusDisplay: z.string().optional(),
   details: z
     .object({
       bedrooms: z.number().optional(),

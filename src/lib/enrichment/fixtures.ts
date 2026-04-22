@@ -45,6 +45,8 @@ export function devMockEnrich(input: EnrichInput): EnrichmentEnvelope {
         attomId: "attom-dev-listed-001",
         mlsRecordId: "mls-dev-listed-001",
         listingStatus: "currently-listed",
+        rawListingStatus: "Active",
+        listingStatusDisplay: "currently listed",
         details: {
           bedrooms: 4,
           bathrooms: 2.5,

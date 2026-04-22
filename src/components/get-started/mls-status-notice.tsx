@@ -3,10 +3,14 @@
 import { useId, useRef } from "react";
 import { cn } from "@/lib/cn";
 import {
+  ACTIVE_STATUS_RAW_KEYS,
+  canonicalizeStatus,
+  normalizeListingStatus,
+} from "@/lib/enrichment/normalize";
+import {
   CURRENT_LISTING_STATUS_VALUES,
   type CurrentListingStatus,
 } from "@/lib/seller-form/schema";
-import type { EnrichmentSlot } from "@/lib/seller-form/types";
 
 export const LISTED_REASON_VALUES = CURRENT_LISTING_STATUS_VALUES;
 
@@ -20,27 +24,36 @@ const CHIPS: readonly ChipCopy[] = [
   { value: "just-exploring", label: "Just exploring" },
 ];
 
-export type ListedNoticeProps = {
-  listingStatus: EnrichmentSlot["listingStatus"];
+export type MlsStatusNoticeProps = {
+  mlsRecordId: string | undefined;
+  rawListingStatus: string | undefined;
+  listingStatusDisplay: string | undefined;
   value: ListedReason | undefined;
   onChange: (reason: ListedReason) => void;
   className?: string;
 };
 
-export function ListedNotice({
-  listingStatus,
+export function MlsStatusNotice({
+  mlsRecordId,
+  rawListingStatus,
+  listingStatusDisplay,
   value,
   onChange,
   className,
-}: ListedNoticeProps) {
+}: MlsStatusNoticeProps) {
   const groupId = useId();
   const chipRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
-  if (listingStatus !== "currently-listed") return null;
+  if (!mlsRecordId) return null;
+  const canonical = canonicalizeStatus(rawListingStatus);
+  if (!ACTIVE_STATUS_RAW_KEYS.has(canonical)) return null;
+  if (!listingStatusDisplay) return null;
+
+  const showChips =
+    normalizeListingStatus(rawListingStatus) === "currently-listed" &&
+    (canonical === "active" || canonical === "activeundercontract");
 
   const selectedIdx = CHIPS.findIndex((c) => c.value === value);
-  // When nothing is selected, focus lands on the first chip — per ARIA
-  // radiogroup pattern (roving tabindex on a single chip).
   const focusIdx = selectedIdx === -1 ? 0 : selectedIdx;
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -54,17 +67,26 @@ export function ListedNotice({
     chipRefs.current[next]?.focus();
   };
 
+  const wrapperClass = cn(
+    "flex flex-col gap-3 rounded-md border border-border bg-surface p-4",
+    className,
+  );
+
+  if (!showChips) {
+    return (
+      <section className={wrapperClass}>
+        <h3 className="text-[16px] leading-[22px] font-semibold text-ink-title">
+          We see your home is {listingStatusDisplay}.
+        </h3>
+      </section>
+    );
+  }
+
   return (
-    <fieldset
-      aria-labelledby={`${groupId}-legend`}
-      className={cn(
-        "flex flex-col gap-3 rounded-md border border-border bg-surface p-4",
-        className,
-      )}
-    >
+    <fieldset aria-labelledby={`${groupId}-legend`} className={wrapperClass}>
       <legend id={`${groupId}-legend`} className="contents">
         <h3 className="text-[16px] leading-[22px] font-semibold text-ink-title">
-          We see your home is currently listed.
+          We see your home is {listingStatusDisplay}.
         </h3>
         <p className="text-[14px] leading-[20px] text-ink-body">
           We can still help &mdash; are you exploring a second opinion, or
