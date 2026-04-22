@@ -37,6 +37,9 @@ type LogLine = {
   status: EnrichmentEnvelope["status"] | SuggestEnvelope["status"];
   durationMs: number;
   mlsHits: { search: boolean; details: boolean; images: boolean };
+  attomOk?: boolean;
+  attomLatencyMs?: number;
+  sources?: ("mls" | "attom")[];
   cacheHit: boolean;
   kind: EnrichmentInput["kind"];
 };
@@ -126,14 +129,36 @@ async function handleEnrich(
   }
 
   let body: EnrichmentEnvelope;
+  let attomOk = false;
+  let attomLatencyMs: number | undefined;
+  let sources: ("mls" | "attom")[] = [];
+  let mlsSearchHit = false;
+  let mlsDetailsHit = false;
+  let mlsImagesHit = false;
+
   try {
-    body = isDevMockEnabled() ? devMockEnrich(input) : await getEnrichment(input);
+    if (isDevMockEnabled()) {
+      body = devMockEnrich(input);
+    } else {
+      const result = await getEnrichment(input);
+      body = result.envelope;
+      attomOk = result.telemetry.attomOk;
+      attomLatencyMs = result.telemetry.attomLatencyMs;
+      sources = result.telemetry.sources;
+      mlsSearchHit = result.telemetry.mlsSearchOk;
+      mlsDetailsHit = result.telemetry.mlsDetailsOk;
+      mlsImagesHit = result.telemetry.mlsImagesOk;
+    }
   } catch {
     body = { status: "error", code: "unhandled" };
   }
 
   const cacheHit =
-    body.status === "ok" || body.status === "no-match" ? body.cacheHit : false;
+    body.status === "ok" ||
+    body.status === "ok-partial" ||
+    body.status === "no-match"
+      ? body.cacheHit
+      : false;
 
   logOne({
     at: new Date().toISOString(),
@@ -142,13 +167,13 @@ async function handleEnrich(
     status: body.status,
     durationMs: Math.round(performance.now() - startedAt),
     mlsHits: {
-      search: !isDevMockEnabled() && body.status !== "out-of-area",
-      details: body.status === "ok",
-      images:
-        body.status === "ok" &&
-        body.slot.listingStatus === "currently-listed" &&
-        (body.slot.photos?.length ?? 0) > 0,
+      search: mlsSearchHit,
+      details: mlsDetailsHit,
+      images: mlsImagesHit,
     },
+    attomOk,
+    attomLatencyMs,
+    sources,
     cacheHit,
     kind: "enrich",
   });

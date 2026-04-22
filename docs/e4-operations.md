@@ -11,19 +11,34 @@ Arizona address. Route calls `Zoodealio.MLS` read-only, normalizes the
 response, and returns a bounded `EnrichmentSlot`. Failures return a
 shaped envelope (never a 500) so the form always submits.
 
-## MLS endpoints called
+## Endpoints called
 
-`getEnrichment()` in `src/lib/enrichment/service.ts` may hit three MLS
-endpoints per call, in order:
+`getEnrichment()` in `src/lib/enrichment/service.ts` runs two rounds of
+parallel fetches (S11+):
 
-| Endpoint | Purpose | Required for happy path |
+**Round 1** — `Promise.allSettled`:
+
+| Service | Endpoint | Purpose |
 |---|---|---|
-| `POST /properties/search` | Resolve address → ATTOM ID + MLS record ID | ✅ |
-| `GET /properties/attom/{attomId}` | Property facts (bedrooms/bathrooms/sqft/year/lot) | ✅ (on match) |
-| `GET /properties/{mlsRecordId}/images` | Listing photos (only when `listingStatus === currently-listed`) | Conditional |
+| MLS | `GET /properties/search?address=…` | Resolve address → ATTOM ID + MLS record ID |
+| ATTOM | `GET /property/expandedprofile?address1=…&address2=…` | Public-record gap-fill (bedrooms/bathrooms/sqft/year/lot) |
+
+**Round 2** (only when MLS matched) — `Promise.allSettled`:
+
+| Endpoint | Purpose | Gate |
+|---|---|---|
+| `GET /properties/attom/{attomId}` | MLS-side property facts (more authoritative than search) | MLS match |
+| `GET /properties/{mlsRecordId}/images` | Listing photos | `listingStatus === currently-listed` |
 
 Each call is wrapped in `AbortSignal.timeout(ENRICHMENT_TIMEOUT_MS)`
-(default 4000ms). First failure short-circuits to an envelope.
+(default 4000ms). MLS and ATTOM clients both retry once on 5xx / abort
+/ network failures with 250ms backoff. The ATTOM kill-switch is
+`ENRICHMENT_SOURCES=mls` (skip ATTOM calls cheaply in preview or during
+an ATTOM outage).
+
+Merge precedence: MLS details → MLS search → ATTOM profile (first
+non-undefined wins). MLS-only fields (mlsRecordId, attomId,
+listingStatus, photos) stay empty on ATTOM-only matches.
 
 ## Structured log shape
 
@@ -37,10 +52,17 @@ Every `/api/enrich` call emits one JSON line to stdout. Grep-friendly:
   "status": "ok",
   "durationMs": 412,
   "mlsHits": {"search": true, "details": true, "images": true},
+  "attomOk": true,
+  "attomLatencyMs": 287,
+  "sources": ["mls", "attom"],
   "cacheHit": false,
   "kind": "enrich"
 }
 ```
+
+`mlsHits.{search,details,images}` are flags for "this leg returned
+usable data" (not just "the call was made"). `status:"ok-partial"`
+means exactly one of MLS / ATTOM had data for the address.
 
 **No raw address**, **no street number** — only the SHA-256 `addressKey`.
 If you see a `Street St` substring in the log line, that's a bug — file
