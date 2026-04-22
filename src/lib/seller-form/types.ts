@@ -10,6 +10,8 @@ import type {
   propertyStepSchema,
 } from "./schema";
 
+export type { CurrentListingStatus, HasAgent } from "./schema";
+
 export type AddressFields = z.infer<typeof addressStepSchema>;
 export type PropertyFields = z.infer<typeof propertyStepSchema>;
 export type ConditionFields = z.infer<typeof conditionStepSchema>;

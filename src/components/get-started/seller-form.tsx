@@ -37,7 +37,7 @@ import type {
 } from "@/lib/seller-form/types";
 import { STEP_SLUGS } from "@/lib/seller-form/types";
 import { DraftRecoveryBanner } from "./draft-recovery-banner";
-import type { ListedReason } from "./mls-status-notice";
+import type { HasAgent, ListedReason } from "./mls-status-notice";
 import { Progress } from "./progress";
 import { StepNav } from "./step-nav";
 import { AddressStep } from "./steps/address-step";
@@ -218,6 +218,7 @@ export function SellerForm({
   const [listedReason, setListedReason] = useState<ListedReason | undefined>(
     undefined,
   );
+  const [hasAgent, setHasAgent] = useState<HasAgent | undefined>(undefined);
 
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const prevStepRef = useRef<StepSlug>(currentStep);
@@ -348,12 +349,12 @@ export function SellerForm({
 
   useEffect(() => {
     if (formState.ok && formState.submissionId) {
-      trackFormSubmitted(formState.submissionId);
+      trackFormSubmitted(formState.submissionId, hasAgent);
       // The Server Action `redirect()` normally fires first; this is a
       // back-cache / blocked-navigation safety net.
       clearDraft();
     }
-  }, [formState]);
+  }, [formState, hasAgent]);
 
   const navigateToStep = useCallback(
     (next: StepSlug) => {
@@ -530,6 +531,8 @@ export function SellerForm({
         enrichmentSlot={enrichmentSlot}
         listedReason={listedReason}
         onListedReasonChange={setListedReason}
+        hasAgent={hasAgent}
+        onHasAgentChange={setHasAgent}
         showCashOffersPrenudge={
           initialHints?.pillar === "cash-offers" &&
           enrichmentSlot?.listingStatus === "currently-listed" &&
@@ -546,6 +549,7 @@ export function SellerForm({
       {listedReason && (
         <HiddenField name="currentListingStatus" value={listedReason} />
       )}
+      {hasAgent && <HiddenField name="hasAgent" value={hasAgent} />}
       {initialHints?.pillar && (
         <HiddenField name="pillarHint" value={initialHints.pillar} />
       )}
@@ -579,6 +583,8 @@ type StepDispatchProps = {
   enrichmentSlot: import("@/lib/seller-form/types").EnrichmentSlot | undefined;
   listedReason: ListedReason | undefined;
   onListedReasonChange: (reason: ListedReason) => void;
+  hasAgent: HasAgent | undefined;
+  onHasAgentChange: (value: HasAgent) => void;
   showCashOffersPrenudge: boolean;
 };
 
@@ -597,6 +603,8 @@ function StepDispatch({
   enrichmentSlot,
   listedReason,
   onListedReasonChange,
+  hasAgent,
+  onHasAgentChange,
   showCashOffersPrenudge,
 }: StepDispatchProps) {
   const mlsRecordId = enrichmentSlot?.mlsRecordId;
@@ -616,6 +624,8 @@ function StepDispatch({
           listingStatusDisplay={listingStatusDisplay}
           listedReason={listedReason}
           onListedReasonChange={onListedReasonChange}
+          hasAgent={hasAgent}
+          onHasAgentChange={onHasAgentChange}
         />
       );
     case "property":
@@ -632,6 +642,8 @@ function StepDispatch({
           listingStatusDisplay={listingStatusDisplay}
           listedReason={listedReason}
           onListedReasonChange={onListedReasonChange}
+          hasAgent={hasAgent}
+          onHasAgentChange={onHasAgentChange}
         />
       );
     case "condition":

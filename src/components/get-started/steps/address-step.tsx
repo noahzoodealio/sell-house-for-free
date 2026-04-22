@@ -8,7 +8,11 @@ import type { EnrichmentHookStatus } from "@/lib/enrichment/use-address-enrichme
 import type { AddressFields } from "@/lib/seller-form/types";
 import { AddressField } from "../address-field";
 import { EnrichmentBadge } from "../enrichment-badge";
-import { MlsStatusNotice, type ListedReason } from "../mls-status-notice";
+import {
+  MlsStatusNotice,
+  type HasAgent,
+  type ListedReason,
+} from "../mls-status-notice";
 
 type AddressStepProps = {
   data: Partial<AddressFields>;
@@ -22,6 +26,8 @@ type AddressStepProps = {
   listingStatusDisplay: string | undefined;
   listedReason: ListedReason | undefined;
   onListedReasonChange: (reason: ListedReason) => void;
+  hasAgent: HasAgent | undefined;
+  onHasAgentChange: (value: HasAgent) => void;
 };
 
 function firstError(
@@ -43,6 +49,8 @@ export function AddressStep({
   listingStatusDisplay,
   listedReason,
   onListedReasonChange,
+  hasAgent,
+  onHasAgentChange,
 }: AddressStepProps) {
   return (
     <div className="flex flex-col gap-5">
@@ -142,6 +150,8 @@ export function AddressStep({
         listingStatusDisplay={listingStatusDisplay}
         value={listedReason}
         onChange={onListedReasonChange}
+        hasAgent={hasAgent}
+        onHasAgentChange={onHasAgentChange}
       />
 
       {/* Guarantee `state` ships in FormData even though the select is disabled. */}

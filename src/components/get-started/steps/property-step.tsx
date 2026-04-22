@@ -8,7 +8,11 @@ import {
   EnrichmentConfirm,
   type EnrichmentPhoto,
 } from "../enrichment-confirm";
-import { MlsStatusNotice, type ListedReason } from "../mls-status-notice";
+import {
+  MlsStatusNotice,
+  type HasAgent,
+  type ListedReason,
+} from "../mls-status-notice";
 
 type EnrichmentDetails = NonNullable<EnrichmentSlot["details"]>;
 
@@ -24,6 +28,8 @@ type PropertyStepProps = {
   listingStatusDisplay: string | undefined;
   listedReason: ListedReason | undefined;
   onListedReasonChange: (reason: ListedReason) => void;
+  hasAgent: HasAgent | undefined;
+  onHasAgentChange: (value: HasAgent) => void;
 };
 
 type PrefilledField =
@@ -86,6 +92,8 @@ export function PropertyStep({
   listingStatusDisplay,
   listedReason,
   onListedReasonChange,
+  hasAgent,
+  onHasAgentChange,
 }: PropertyStepProps) {
   const currentYear = new Date().getFullYear();
   const [typed, setTyped] = useState<TypedFlags>(INITIAL_TYPED);
@@ -121,6 +129,8 @@ export function PropertyStep({
         listingStatusDisplay={listingStatusDisplay}
         value={listedReason}
         onChange={onListedReasonChange}
+        hasAgent={hasAgent}
+        onHasAgentChange={onHasAgentChange}
       />
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">

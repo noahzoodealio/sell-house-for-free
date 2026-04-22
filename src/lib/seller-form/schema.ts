@@ -53,6 +53,9 @@ export const CURRENT_LISTING_STATUS_VALUES = [
 ] as const;
 export type CurrentListingStatus = (typeof CURRENT_LISTING_STATUS_VALUES)[number];
 
+export const HAS_AGENT_VALUES = ["yes", "no", "not-sure"] as const;
+export type HasAgent = (typeof HAS_AGENT_VALUES)[number];
+
 export const CONDITION_VALUES = ["move-in", "needs-work", "major-reno"] as const;
 export const TIMELINE_VALUES = [
   "0-3mo",
@@ -157,6 +160,9 @@ export const fullSellerFormSchema = z
     attribution: attributionSchema,
     currentListingStatus: z
       .enum(CURRENT_LISTING_STATUS_VALUES)
+      .optional(),
+    hasAgent: z
+      .enum(HAS_AGENT_VALUES, { error: "Invalid agent-involvement value." })
       .optional(),
     enrichment: enrichmentSlotSchema.optional(),
   })

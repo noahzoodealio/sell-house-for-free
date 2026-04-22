@@ -12,7 +12,7 @@ import {
 } from "./support/seller-form";
 
 test.describe("E4 enrichment — currently listed", () => {
-  test("listed notice + photo strip render; currentListingStatus flows into the payload", async ({
+  test("listed notice + agent question + photo strip render; currentListingStatus + hasAgent flow into the payload", async ({
     page,
   }) => {
     await gotoGetStarted(page);
@@ -24,19 +24,30 @@ test.describe("E4 enrichment — currently listed", () => {
 
     await expectEnrichmentStatus(page, "ok");
 
-    // Listed notice with three chips.
-    const chips = page.getByRole("radio");
-    await expect(chips).toHaveCount(3);
+    // Chip radiogroup — three reason chips.
+    const chipGroup = page.getByRole("radiogroup", { name: /second opinion/i });
+    await expect(chipGroup.getByRole("radio")).toHaveCount(3);
 
-    const readyToSwitch = page.getByRole("radio", { name: /ready to switch/i });
+    const readyToSwitch = chipGroup.getByRole("radio", { name: /ready to switch/i });
     await readyToSwitch.click();
     await expect(readyToSwitch).toHaveAttribute("aria-checked", "true");
 
-    // Hidden currentListingStatus field must reflect the selection before
-    // submit. This is what E3-S8 Server Action consumes.
+    // Hidden currentListingStatus field reflects the chip selection.
     await expect(
       page.locator('input[name="currentListingStatus"]'),
     ).toHaveValue("ready-to-switch");
+
+    // Agent radiogroup — Yes / No / Not sure. Always renders for gated statuses.
+    const agentGroup = page.getByRole("radiogroup", { name: /agent on this sale/i });
+    await expect(agentGroup).toBeVisible();
+    await expect(agentGroup.getByRole("radio")).toHaveCount(3);
+
+    const yes = agentGroup.getByRole("radio", { name: /^yes$/i });
+    await yes.click();
+    await expect(yes).toHaveAttribute("aria-checked", "true");
+
+    // Hidden hasAgent field is written only after selection.
+    await expect(page.locator('input[name="hasAgent"]')).toHaveValue("yes");
 
     await clickNext(page);
 
