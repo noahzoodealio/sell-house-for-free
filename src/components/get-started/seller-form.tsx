@@ -10,6 +10,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import Link from "next/link";
+import { useFormStatus } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AzCitySlug } from "@/lib/routes";
 import { submitSellerForm } from "@/app/get-started/actions";
@@ -22,13 +24,16 @@ import {
 import { captureAttribution } from "@/lib/seller-form/attribution";
 import { clearDraft, readDraft, writeDraft } from "@/lib/seller-form/draft";
 import { useIdempotencyKey } from "@/lib/seller-form/idempotency";
-import { validateStep } from "@/lib/seller-form/schema";
+import { addressStepSchema, validateStep } from "@/lib/seller-form/schema";
+import { useAddressEnrichment } from "@/lib/enrichment/use-address-enrichment";
 import type {
   AddressFields,
   AttributionFields,
   ConditionFields,
   ConsentFields,
   ContactFields,
+  CurrentListingStatus,
+  HasAgent,
   PillarSlug,
   PropertyFields,
   StepSlug,
@@ -36,12 +41,15 @@ import type {
 } from "@/lib/seller-form/types";
 import { STEP_SLUGS } from "@/lib/seller-form/types";
 import { DraftRecoveryBanner } from "./draft-recovery-banner";
-import { Progress } from "./progress";
-import { StepNav } from "./step-nav";
 import { AddressStep } from "./steps/address-step";
+import { PropertyStep } from "./steps/property-step";
+import { MlsStep } from "./steps/mls-step";
 import { ConditionStep } from "./steps/condition-step";
 import { ContactStep } from "./steps/contact-step";
-import { PropertyStep } from "./steps/property-step";
+import {
+  ACTIVE_STATUS_RAW_KEYS,
+  canonicalizeStatus,
+} from "@/lib/enrichment/normalize";
 
 export { PILLAR_SLUGS, STEP_SLUGS } from "@/lib/seller-form/types";
 export type { PillarSlug, StepSlug } from "@/lib/seller-form/types";
@@ -52,12 +60,13 @@ export type SellerFormProps = {
   onStepChange?: (from: StepSlug, to: StepSlug) => void;
 };
 
-const STEP_LABELS = [
-  "Address",
-  "Property facts",
-  "Condition & timeline",
-  "Contact & consent",
-] as const;
+const STEP_LABEL_BY_SLUG: Record<StepSlug, string> = {
+  address: "Address",
+  property: "Property facts",
+  mls: "MLS check",
+  condition: "Condition & timeline",
+  contact: "Contact & consent",
+};
 
 const INITIAL_SUBMIT_STATE: SubmitState = { ok: true, submissionId: "" };
 
@@ -81,8 +90,13 @@ const EMPTY_DRAFT: DraftState = {
   consent: {},
 };
 
-function stepIndex(slug: StepSlug): number {
-  return STEP_SLUGS.indexOf(slug);
+function visibleSlugs(hasActiveMlsMatch: boolean): readonly StepSlug[] {
+  // The MLS step only makes sense when we actually have a listing to show.
+  // When there's no active MLS match the flow collapses to 4 steps:
+  // address → property → condition → contact.
+  return hasActiveMlsMatch
+    ? STEP_SLUGS
+    : (STEP_SLUGS.filter((s) => s !== "mls") as readonly StepSlug[]);
 }
 
 function stepBySlug(slug: string | null | undefined): StepSlug {
@@ -110,7 +124,6 @@ function readAddressFromUrl(): Partial<AddressFields> {
   if (Object.keys(structured).length > 0) return structured;
 
   // Fallback: parse formatted-address from `?address=` (typed entries, no Places).
-  // Expected shape: "123 Main St, City, ST 12345[, USA]" — best-effort only.
   const formatted = params.get("address")?.trim();
   if (!formatted) return {};
   const match = formatted.match(
@@ -118,7 +131,11 @@ function readAddressFromUrl(): Partial<AddressFields> {
   );
   if (!match) return {};
   const [, s1, parsedCity, parsedState, parsedZip] = match;
-  const out: Partial<AddressFields> = { street1: s1.trim(), city: parsedCity.trim(), zip: parsedZip };
+  const out: Partial<AddressFields> = {
+    street1: s1.trim(),
+    city: parsedCity.trim(),
+    zip: parsedZip,
+  };
   if (parsedState === "AZ") out.state = parsedState;
   return out;
 }
@@ -132,16 +149,12 @@ function readInitialDraft(): DraftState {
   }
   return {
     submissionId: persisted.submissionId,
-    // URL params win over a stale persisted draft when both are present — the
-    // user just re-submitted from the landing bar, so their latest address is
-    // in the URL.
     address:
       Object.keys(urlAddress).length > 0
         ? urlAddress
         : (persisted.address as Partial<AddressFields>) ?? {},
     property: (persisted.property as Partial<PropertyFields>) ?? {},
     condition: (persisted.condition as Partial<ConditionFields>) ?? {},
-    // contact & consent are PII-stripped by draft.ts on write; always empty on read.
     contact: {},
     consent: {},
   };
@@ -196,9 +209,6 @@ export function SellerForm({
   const submissionId = useSubmissionId();
   const attribution = useCapturedAttribution();
 
-  // First render must match the server output (empty state) to avoid hydration
-  // mismatches — localStorage and window.location.search are client-only. The
-  // draft is hydrated in the mount effect below.
   const [stepData, setStepData] = useState<StepDataMap>(() => ({
     address: {},
     property: {},
@@ -210,10 +220,38 @@ export function SellerForm({
   const [clientErrors, setClientErrors] = useState<
     Partial<Record<StepSlug, Record<string, string[]>>>
   >({});
+  const [listedReason, setListedReason] = useState<CurrentListingStatus | undefined>(
+    undefined,
+  );
+  const [hasAgent, setHasAgent] = useState<HasAgent | undefined>(undefined);
 
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const prevStepRef = useRef<StepSlug>(currentStep);
   const liveRegionId = useId();
+  const [pendingAutoAdvance, setPendingAutoAdvance] = useState<boolean>(false);
+
+  const completeAddress = useMemo(() => {
+    const parsed = addressStepSchema.safeParse(stepData.address);
+    return parsed.success ? parsed.data : null;
+  }, [stepData.address]);
+
+  const enrichment = useAddressEnrichment(completeAddress, submissionId);
+  const enrichmentSlot =
+    enrichment.status === "ok" ? enrichment.slot : undefined;
+  const isMultiUnit = enrichmentSlot?.isMultiUnit === true;
+
+  const hasActiveMlsMatch = useMemo(() => {
+    if (!enrichmentSlot?.mlsRecordId) return false;
+    const canonical = canonicalizeStatus(enrichmentSlot.rawListingStatus);
+    return ACTIVE_STATUS_RAW_KEYS.has(canonical);
+  }, [enrichmentSlot]);
+
+  const visible = useMemo(
+    () => visibleSlugs(hasActiveMlsMatch),
+    [hasActiveMlsMatch],
+  );
+
+  const visibleIdx = visible.indexOf(currentStep);
 
   const liveMessage = useMemo(() => {
     if (formState.ok === false) {
@@ -222,20 +260,17 @@ export function SellerForm({
         count === 1 ? "" : "s"
       } marked below.`;
     }
-    const idx = stepIndex(currentStep);
-    return `Step ${idx + 1} of ${STEP_SLUGS.length}: ${STEP_LABELS[idx]}`;
-  }, [currentStep, formState]);
+    const idx = Math.max(visibleIdx, 0);
+    const label = STEP_LABEL_BY_SLUG[currentStep];
+    return `Step ${idx + 1} of ${visible.length}: ${label}`;
+  }, [currentStep, formState, visible.length, visibleIdx]);
 
   useEffect(() => {
-    // Fire step_entered on first mount for the initial step.
     trackStepEntered(currentStep);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    // Client-only hydration: reads localStorage draft + ?address=… URL seed.
-    // Kept out of the useState initializer so SSR and first client render
-    // agree (both start empty), which is why this has to run post-mount.
     const d = readInitialDraft();
     const hadDraft =
       Object.keys(d.address).length > 0 ||
@@ -248,8 +283,6 @@ export function SellerForm({
       contact: d.contact,
     });
     setConsent(d.consent);
-    // Only show the "welcome back" banner for pre-existing drafts, never for
-    // an address freshly seeded from the landing bar on this page load.
     const urlAddress = readAddressFromUrl();
     const seededFromUrl = Object.keys(urlAddress).length > 0;
     setShowDraftBanner(hadDraft && !seededFromUrl);
@@ -265,7 +298,7 @@ export function SellerForm({
 
     const complete = validateStep("address", urlAddress).success;
     if (complete && currentStep === "address") {
-      params.set("step", "property");
+      setPendingAutoAdvance(true);
     }
 
     const qs = params.toString();
@@ -289,13 +322,10 @@ export function SellerForm({
   }, [currentStep, onStepChange]);
 
   useEffect(() => {
-    // Abandonment: fire once on pagehide / tab-hidden, via sendBeacon so it
-    // survives navigation teardown (plain track() doesn't guarantee delivery
-    // from these lifecycle events).
     let fired = false;
     const onTeardown = () => {
       if (fired) return;
-      if (formState.ok && formState.submissionId) return; // submitted, not abandoned
+      if (formState.ok && formState.submissionId) return;
       fired = true;
       const stepNow = prevStepRef.current;
       trackFormAbandoned(stepNow);
@@ -327,12 +357,10 @@ export function SellerForm({
 
   useEffect(() => {
     if (formState.ok && formState.submissionId) {
-      trackFormSubmitted(formState.submissionId);
-      // The Server Action `redirect()` normally fires first; this is a
-      // back-cache / blocked-navigation safety net.
+      trackFormSubmitted(formState.submissionId, hasAgent);
       clearDraft();
     }
-  }, [formState]);
+  }, [formState, hasAgent]);
 
   const navigateToStep = useCallback(
     (next: StepSlug) => {
@@ -342,6 +370,35 @@ export function SellerForm({
     },
     [router, searchParams],
   );
+
+  useEffect(() => {
+    // Guard against landing on ?step=mls when there's no active MLS match
+    // (direct URL, back-nav after enrichment re-ran with a different result).
+    // Send the seller forward to condition so they don't see a blank MLS step
+    // that has nothing to render.
+    if (currentStep === "mls" && !hasActiveMlsMatch) {
+      navigateToStep("condition");
+    }
+  }, [currentStep, hasActiveMlsMatch, navigateToStep]);
+
+  useEffect(() => {
+    // Auto-advance for URL-seeded entries (landing-bar submit). Always jumps to
+    // property — MLS check is deferred until after the seller eyeballs the
+    // ATTOM-autofilled facts.
+    if (!pendingAutoAdvance) return;
+    const settled =
+      enrichment.status !== "idle" && enrichment.status !== "loading";
+    if (settled) {
+      navigateToStep("property");
+      setPendingAutoAdvance(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      navigateToStep("property");
+      setPendingAutoAdvance(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [pendingAutoAdvance, enrichment.status, navigateToStep]);
 
   const makeStepUpdater = useCallback(
     <K extends keyof StepDataMap>(step: K) =>
@@ -382,65 +439,60 @@ export function SellerForm({
   const updateCondition = useMemo(() => makeStepUpdater("condition"), [makeStepUpdater]);
   const updateContact = useMemo(() => makeStepUpdater("contact"), [makeStepUpdater]);
 
-  const updateConsent = useCallback((partial: Partial<ConsentFields>) => {
-    setConsent((prev) => ({ ...prev, ...partial }));
-    // Consent is deliberately NOT persisted to draft (PII-strip rule).
-    setClientErrors((prev) => {
-      const current = prev.contact ?? {};
-      const next = { ...current };
-      let changed = false;
-      for (const key of Object.keys(partial)) {
-        if (next[key]) {
-          delete next[key];
-          changed = true;
-        }
-      }
-      return changed ? { ...prev, contact: next } : prev;
-    });
-  }, []);
-
   const onBack = useCallback(() => {
-    const idx = stepIndex(currentStep);
-    if (idx <= 0) return;
-    navigateToStep(STEP_SLUGS[idx - 1]);
-  }, [currentStep, navigateToStep]);
+    if (visibleIdx <= 0) return;
+    navigateToStep(visible[visibleIdx - 1]);
+  }, [navigateToStep, visible, visibleIdx]);
 
   const onNext = useCallback(() => {
-    const idx = stepIndex(currentStep);
-    if (idx >= STEP_SLUGS.length - 1) return;
+    if (visibleIdx < 0 || visibleIdx >= visible.length - 1) return;
 
-    const result = validateStep(currentStep, stepData[currentStep]);
-    if (!result.success) {
-      setClientErrors((prev) => ({ ...prev, [currentStep]: result.errors }));
-      const firstField = Object.keys(result.errors)[0];
-      if (firstField) {
-        const input = document.querySelector<HTMLInputElement>(
-          `[name="${firstField}"]`,
-        );
-        input?.focus();
-      }
-      return;
-    }
-    // On the contact step, we additionally require all three consents.
-    if (currentStep === "contact") {
-      const consentErrors: Record<string, string[]> = {};
-      const keys: Array<keyof ConsentFields> = ["tcpa", "terms", "privacy"];
-      for (const k of keys) {
-        if (!consent[k]?.acceptedAt) {
-          consentErrors[k] = ["You must check this box to continue"];
+    if (currentStep !== "mls") {
+      const result = validateStep(
+        currentStep,
+        stepData[currentStep as keyof StepDataMap],
+      );
+      if (!result.success) {
+        setClientErrors((prev) => ({ ...prev, [currentStep]: result.errors }));
+        const firstField = Object.keys(result.errors)[0];
+        if (firstField) {
+          const input = document.querySelector<HTMLInputElement>(
+            `[name="${firstField}"]`,
+          );
+          input?.focus();
         }
+        return;
       }
-      if (Object.keys(consentErrors).length > 0) {
+    }
+    if (currentStep === "address" && isMultiUnit) {
+      const street2 = stepData.address.street2?.trim() ?? "";
+      if (street2.length === 0) {
         setClientErrors((prev) => ({
           ...prev,
-          contact: { ...(prev.contact ?? {}), ...consentErrors },
+          address: {
+            ...(prev.address ?? {}),
+            street2: [
+              "Please enter your apt/unit number — this address is part of a multi-unit building.",
+            ],
+          },
         }));
+        const input = document.querySelector<HTMLInputElement>(
+          `[name="street2"]`,
+        );
+        input?.focus();
         return;
       }
     }
 
-    navigateToStep(STEP_SLUGS[idx + 1]);
-  }, [currentStep, stepData, consent, navigateToStep]);
+    navigateToStep(visible[visibleIdx + 1]);
+  }, [
+    currentStep,
+    stepData,
+    navigateToStep,
+    isMultiUnit,
+    visible,
+    visibleIdx,
+  ]);
 
   const currentErrors = useMemo(() => {
     const server = formState.ok === false ? formState.errors : undefined;
@@ -460,74 +512,170 @@ export function SellerForm({
     setShowDraftBanner(false);
   }, []);
 
+  const progressPct = Math.round(
+    ((Math.max(visibleIdx, 0) + 1) / visible.length) * 100,
+  );
+  const isFinalStep = visibleIdx === visible.length - 1;
+
   return (
-    <form action={formAction} className="flex flex-col gap-6 py-6" noValidate>
-      {showDraftBanner && (
-        <DraftRecoveryBanner
-          onDismiss={() => setShowDraftBanner(false)}
-          onDiscard={handleDiscardDraft}
-        />
-      )}
+    <form action={formAction} className="sellfree-flow" noValidate>
+      <div className="flow-page">
+        <header className="flow-page-nav">
+          <Link href="/" className="wordmark" aria-label="sellfree.ai — home">
+            <span className="dot">sellfree</span>
+            <span className="ai">.ai</span>
+          </Link>
+          <div
+            className="flow-progress-wrap"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
+              flex: 1,
+              maxWidth: 420,
+              margin: "0 32px",
+            }}
+          >
+            <span className="flow-step-n">
+              Step {Math.max(visibleIdx, 0) + 1} of {visible.length}
+            </span>
+            <div
+              className="flow-progress"
+              style={{ flex: 1 }}
+              aria-hidden="true"
+            >
+              <div
+                className="flow-progress-fill"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+          <Link
+            href="/"
+            className="flow-exit"
+            aria-label="Save and exit — return home"
+          >
+            Save &amp; exit ×
+          </Link>
+        </header>
 
-      <Progress
-        current={stepIndex(currentStep) + 1}
-        total={STEP_SLUGS.length}
-        labels={STEP_LABELS}
-      />
+        <main className="flow-page-body">
+          <div className="flow-page-content">
+            <div
+              id={liveRegionId}
+              role="status"
+              aria-live="polite"
+              className="sr-only"
+            >
+              {liveMessage}
+            </div>
 
-      <div
-        id={liveRegionId}
-        role="status"
-        aria-live="polite"
-        className="sr-only"
-      >
-        {liveMessage}
+            {showDraftBanner && (
+              <DraftRecoveryBanner
+                onDismiss={() => setShowDraftBanner(false)}
+                onDiscard={handleDiscardDraft}
+              />
+            )}
+
+            {hasErrors && (
+              <div role="alert" className="error-banner">
+                We couldn&apos;t submit your form — please correct the fields
+                marked below.
+              </div>
+            )}
+
+            <StepDispatch
+              step={currentStep}
+              headingRef={headingRef}
+              data={stepData}
+              errors={currentErrors}
+              onAddressChange={updateAddress}
+              onPropertyChange={updateProperty}
+              onConditionChange={updateCondition}
+              onContactChange={updateContact}
+              enrichmentStatus={enrichment.status}
+              enrichmentSlot={enrichmentSlot}
+              isMultiUnit={isMultiUnit}
+              listedReason={listedReason}
+              onListedReasonChange={setListedReason}
+              hasAgent={hasAgent}
+              onHasAgentChange={setHasAgent}
+            />
+
+            <HiddenField name="step" value={currentStep} />
+            <HiddenField name="submissionId" value={submissionId} />
+            <HiddenField name="idempotencyKey" value={idempotencyKey ?? ""} />
+            <HiddenField name="attribution" value={JSON.stringify(attribution)} />
+            <HiddenField name="draftJson" value={JSON.stringify(stepData)} />
+            <HiddenField name="consentJson" value={JSON.stringify(consent)} />
+            {listedReason && (
+              <HiddenField name="currentListingStatus" value={listedReason} />
+            )}
+            {hasAgent && <HiddenField name="hasAgent" value={hasAgent} />}
+            {initialHints?.pillar && (
+              <HiddenField name="pillarHint" value={initialHints.pillar} />
+            )}
+            {initialHints?.city && (
+              <HiddenField name="cityHint" value={initialHints.city} />
+            )}
+          </div>
+        </main>
+
+        <footer className="flow-page-foot">
+          <div className="flow-page-foot-inner">
+            <button
+              type="button"
+              className={"flow-back" + (visibleIdx === 0 ? " hidden" : "")}
+              onClick={onBack}
+              disabled={visibleIdx === 0}
+            >
+              ← Back
+            </button>
+            {isFinalStep ? (
+              <SubmitButton />
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary btn-lg"
+                onClick={onNext}
+              >
+                Continue
+                <ArrowRightIcon />
+              </button>
+            )}
+          </div>
+        </footer>
       </div>
-
-      {hasErrors && (
-        <div
-          role="alert"
-          className="rounded-md border border-[var(--color-error)] bg-[color:color-mix(in_srgb,var(--color-error)_5%,transparent)] px-4 py-3 text-[14px] leading-[20px] text-[var(--color-error)]"
-        >
-          We couldn&apos;t submit your form — please correct the fields marked
-          below.
-        </div>
-      )}
-
-      <StepDispatch
-        step={currentStep}
-        headingRef={headingRef}
-        data={stepData}
-        errors={currentErrors}
-        consent={consent}
-        onAddressChange={updateAddress}
-        onPropertyChange={updateProperty}
-        onConditionChange={updateCondition}
-        onContactChange={updateContact}
-        onConsentChange={updateConsent}
-      />
-
-      <HiddenField name="step" value={currentStep} />
-      <HiddenField name="submissionId" value={submissionId} />
-      <HiddenField name="idempotencyKey" value={idempotencyKey ?? ""} />
-      <HiddenField name="attribution" value={JSON.stringify(attribution)} />
-      <HiddenField name="draftJson" value={JSON.stringify(stepData)} />
-      <HiddenField name="consentJson" value={JSON.stringify(consent)} />
-      {initialHints?.pillar && (
-        <HiddenField name="pillarHint" value={initialHints.pillar} />
-      )}
-      {initialHints?.city && (
-        <HiddenField name="cityHint" value={initialHints.city} />
-      )}
-
-      <StepNav
-        onBack={onBack}
-        onNext={onNext}
-        canAdvance={true}
-        step={stepIndex(currentStep) + 1}
-        total={STEP_SLUGS.length}
-      />
     </form>
+  );
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      className="btn btn-primary"
+      disabled={pending}
+      aria-disabled={pending}
+    >
+      {pending ? "Submitting…" : "Submit"}
+      <ArrowRightIcon />
+    </button>
+  );
+}
+
+function ArrowRightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M5 12h14m-6-6 6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -535,26 +683,36 @@ type StepDispatchProps = {
   step: StepSlug;
   headingRef: React.Ref<HTMLHeadingElement>;
   data: StepDataMap;
-  consent: Partial<ConsentFields>;
   errors?: Record<string, string[]>;
   onAddressChange: (partial: Partial<AddressFields>) => void;
   onPropertyChange: (partial: Partial<PropertyFields>) => void;
   onConditionChange: (partial: Partial<ConditionFields>) => void;
   onContactChange: (partial: Partial<ContactFields>) => void;
-  onConsentChange: (partial: Partial<ConsentFields>) => void;
+  enrichmentStatus: ReturnType<typeof useAddressEnrichment>["status"];
+  enrichmentSlot: import("@/lib/seller-form/types").EnrichmentSlot | undefined;
+  isMultiUnit: boolean;
+  listedReason: CurrentListingStatus | undefined;
+  onListedReasonChange: (reason: CurrentListingStatus) => void;
+  hasAgent: HasAgent | undefined;
+  onHasAgentChange: (value: HasAgent) => void;
 };
 
 function StepDispatch({
   step,
   headingRef,
   data,
-  consent,
   errors,
   onAddressChange,
   onPropertyChange,
   onConditionChange,
   onContactChange,
-  onConsentChange,
+  enrichmentStatus,
+  enrichmentSlot,
+  isMultiUnit,
+  listedReason,
+  onListedReasonChange,
+  hasAgent,
+  onHasAgentChange,
 }: StepDispatchProps) {
   switch (step) {
     case "address":
@@ -564,6 +722,8 @@ function StepDispatch({
           errors={errors}
           onChange={onAddressChange}
           headingRef={headingRef}
+          enrichmentStatus={enrichmentStatus}
+          isMultiUnit={isMultiUnit}
         />
       );
     case "property":
@@ -573,6 +733,22 @@ function StepDispatch({
           errors={errors}
           onChange={onPropertyChange}
           headingRef={headingRef}
+          enrichmentSlot={enrichmentSlot}
+          address={data.address}
+        />
+      );
+    case "mls":
+      return (
+        <MlsStep
+          headingRef={headingRef}
+          enrichmentStatus={enrichmentStatus}
+          enrichmentSlot={enrichmentSlot}
+          address={data.address}
+          property={data.property}
+          listedReason={listedReason}
+          onListedReasonChange={onListedReasonChange}
+          hasAgent={hasAgent}
+          onHasAgentChange={onHasAgentChange}
         />
       );
     case "condition":
@@ -588,11 +764,10 @@ function StepDispatch({
       return (
         <ContactStep
           data={data.contact}
-          consent={consent}
           errors={errors}
           onChange={onContactChange}
-          onConsentChange={onConsentChange}
           headingRef={headingRef}
+          enrichmentSlot={enrichmentSlot}
         />
       );
     default: {

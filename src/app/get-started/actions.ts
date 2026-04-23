@@ -12,60 +12,9 @@ import {
 import { mapDraftToNewClientDto } from "@/lib/offervana/mapper";
 import type { SubmitResult } from "@/lib/offervana/types";
 import { validateAll } from "@/lib/seller-form/schema";
-import type {
-  AttributionFields,
-  SellerFormDraft,
-  SubmitState,
-} from "@/lib/seller-form/types";
+import type { SellerFormDraft, SubmitState } from "@/lib/seller-form/types";
 
-function safeJsonParse<T>(raw: FormDataEntryValue | null, fallback: T): T {
-  if (typeof raw !== "string" || !raw) return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function strOrUndefined(raw: FormDataEntryValue | null): string | undefined {
-  if (typeof raw !== "string") return undefined;
-  const trimmed = raw.trim();
-  return trimmed ? trimmed : undefined;
-}
-
-function parseFormData(formData: FormData): unknown {
-  const draft = safeJsonParse<Record<string, unknown>>(
-    formData.get("draftJson"),
-    {},
-  );
-  const consent = safeJsonParse<Record<string, unknown>>(
-    formData.get("consentJson"),
-    {},
-  );
-  const attribution = safeJsonParse<AttributionFields>(
-    formData.get("attribution"),
-    {},
-  );
-
-  const submissionId = strOrUndefined(formData.get("submissionId"));
-  const pillarHint = strOrUndefined(formData.get("pillarHint"));
-  const cityHint = strOrUndefined(formData.get("cityHint"));
-
-  const candidate: Record<string, unknown> = {
-    submissionId,
-    schemaVersion: 1,
-    address: draft.address,
-    property: draft.property,
-    condition: draft.condition,
-    contact: draft.contact,
-    consent,
-    attribution,
-  };
-  if (pillarHint) candidate.pillarHint = pillarHint;
-  if (cityHint) candidate.cityHint = cityHint;
-
-  return candidate;
-}
+import { parseFormData } from "./parse";
 
 function logAudit(event: string, payload: Record<string, unknown>): void {
   console.log(
@@ -104,9 +53,7 @@ export async function submitSellerForm(
       submissionId,
       referralCode: cached.referralCode,
     });
-    redirect(
-      `/get-started/thanks?ref=${encodeURIComponent(cached.referralCode)}`,
-    );
+    redirect(buildPortalRedirect(cached.referralCode));
   }
 
   const dto = mapDraftToNewClientDto(draft);
@@ -120,7 +67,11 @@ export async function submitSellerForm(
     await dispatchAfter(draft, dto, submitResult, referralCode);
   });
 
-  redirect(`/get-started/thanks?ref=${encodeURIComponent(referralCode)}`);
+  redirect(buildPortalRedirect(referralCode));
+}
+
+function buildPortalRedirect(referralCode: string): string {
+  return `/portal/setup?ref=${encodeURIComponent(referralCode)}`;
 }
 
 function resolveReferralCode(result: SubmitResult): string {

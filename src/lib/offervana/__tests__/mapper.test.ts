@@ -29,8 +29,7 @@ function baseDraft(overrides: Partial<SellerFormDraft> = {}): SellerFormDraft {
       timeline: "0-3mo",
     },
     contact: {
-      firstName: "Jane",
-      lastName: "Doe",
+      name: "Jane Doe",
       email: "jane@example.com",
       phone: "+16025551234",
     },
@@ -88,7 +87,7 @@ describe("mapDraftToNewClientDto", () => {
     ).toBe(CUSTOMER_LEAD_SOURCE_SELL_YOUR_HOUSE_FREE);
   });
 
-  it("emits contact fields via signUpData (firstName/lastName/email/phone)", () => {
+  it("splits contact.name into firstName/lastName for signUpData", () => {
     const dto = mapDraftToNewClientDto(baseDraft());
     expect(dto.signUpData).toEqual({
       firstName: "Jane",
@@ -96,6 +95,34 @@ describe("mapDraftToNewClientDto", () => {
       email: "jane@example.com",
       phone: "+16025551234",
     });
+  });
+
+  it("handles multi-word last names (everything after the first token)", () => {
+    const dto = mapDraftToNewClientDto(
+      baseDraft({
+        contact: {
+          name: "Jane Van Der Doe",
+          email: "jane@example.com",
+          phone: "+16025551234",
+        },
+      }),
+    );
+    expect(dto.signUpData.firstName).toBe("Jane");
+    expect(dto.signUpData.lastName).toBe("Van Der Doe");
+  });
+
+  it("handles single-name input with empty lastName", () => {
+    const dto = mapDraftToNewClientDto(
+      baseDraft({
+        contact: {
+          name: "Cher",
+          email: "cher@example.com",
+          phone: "+16025551234",
+        },
+      }),
+    );
+    expect(dto.signUpData.firstName).toBe("Cher");
+    expect(dto.signUpData.lastName).toBe("");
   });
 
   it("emits address to propData with stateCd + zipCode + country=US + customerId=0", () => {

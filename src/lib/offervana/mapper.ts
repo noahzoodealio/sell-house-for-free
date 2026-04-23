@@ -40,9 +40,10 @@ function buildPropData(draft: SellerFormDraft): AddPropInput {
 }
 
 function buildSignUpData(draft: SellerFormDraft): SignUpData {
+  const [firstName, ...rest] = draft.contact.name.trim().split(/\s+/);
   return {
-    firstName: draft.contact.firstName,
-    lastName: draft.contact.lastName,
+    firstName: firstName ?? "",
+    lastName: rest.join(" "),
     email: draft.contact.email,
     phone: draft.contact.phone,
   };
@@ -79,10 +80,10 @@ function buildSurveyData(draft: SellerFormDraft): string {
     attomId: draft.enrichment?.attomId ?? null,
     mlsRecordId: draft.enrichment?.mlsRecordId ?? null,
     consent: {
-      tcpa: draft.consent.tcpa.version,
-      terms: draft.consent.terms.version,
-      privacy: draft.consent.privacy.version,
-      acceptedAt: draft.consent.tcpa.acceptedAt,
+      tcpa: draft.consent.tcpa?.version ?? null,
+      terms: draft.consent.terms?.version ?? null,
+      privacy: draft.consent.privacy?.version ?? null,
+      acceptedAt: draft.consent.tcpa?.acceptedAt ?? null,
     },
     enrichmentStatus: draft.enrichment?.status ?? "idle",
     sellYourHouseFreePath:

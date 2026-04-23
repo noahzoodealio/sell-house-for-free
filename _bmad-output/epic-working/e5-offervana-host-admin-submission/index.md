@@ -13,6 +13,30 @@ completed-at: 2026-04-17T00:00:00Z
 
 # E5 — Offervana Host-Admin Submission — Epic Working Sidecar
 
+## Amendment 2026-04-22 — Pivot to Enterprise OuterApi + Offers Fetch
+
+**Not re-enriched on ADO yet.** Architecture doc §0 (`_bmad-output/planning-artifacts/architecture-e5-offervana-host-admin-submission.md`) is the source of truth for the pivot; this note tracks what's changed since the original 2026-04-17 enrichment so future runs don't re-apply stale decisions.
+
+**Scope delta:**
+- **Submit target switched** from `POST /api/services/app/CustomerAppServiceV2/CreateHostAdminCustomer` (`[AllowAnonymous]`) to `POST /openapi/Customers?pullPropertyData=true` on a dedicated **Offervana enterprise tenant**. Auth via `apiKey` header + `OuterApiKeyFilter`. New env var `OFFERVANA_API_KEY`.
+- **New capability — offers fetch.** After the seller form Server Action redirects to `/get-started/thanks`, the thanks page issues a client fetch against a server-only BFF route (`GET /api/offers?ref=<referralCode>`) that proxies `GET /openapi/OffersV2?propertyId={propertyId}` with the server-only API key. Offers surface into `/portal` "Cash offers" section (portal already exists at `src/app/portal/`).
+- **No platform notifications to seller.** Suppression at two layers: (1) per-request flag on `CreateCustomerDto`, (2) enterprise tenant configured with email/SMS templates disabled. DoD now requires a live smoke-test showing zero platform-originated email/SMS post-create.
+- **Offervana_SaaS companion PR removed.** No enum 13/14, no `CustomerAppServiceV2` switch arms, no `CommerceAttribution` edits. Enterprise tenancy + existing OuterApi eliminates the cross-repo dependency. `sellYourHouseFreePath` transitional flag deleted.
+- **Story decomposition:** S7 (Offervana companion PR) **deleted**; **S9 (Offers BFF + `/thanks` fetch) added**. Net 8 → 8. S2 + S3 retarget to OuterApi endpoint + `CreateCustomerDto`; S1 + S4 add a `property_id` column to `offervana_idempotency` so the offers BFF can resolve it by `ReferralCode`.
+
+**What survives unchanged from the original enrichment:**
+- BFF-owned idempotency, Supabase dead-letter, Node runtime + `maxDuration=15`, `after()` post-response work, native `fetch` + manual retry, `server-only` guard, pure mapper, email-conflict as non-failure, CSRF inheritance from E3. All the non-endpoint decisions from the original 17 locked decisions still apply.
+
+**Open items carried into story work:**
+- Confirm exact suppress-notifications field name on `CreateCustomerDto` during S3 (memory catalog doesn't fully enumerate the DTO). If absent, a small Offervana_SaaS PR adding it re-introduces a scoped companion dependency.
+- Decide final offers-display split between `/thanks` (count / warm cache) and `/portal` "Cash offers" section during S9.
+
+**Not yet propagated:**
+- ADO Feature 7781 description still reflects the host-admin / companion-PR approach. Needs a rev bump (4 → 5) with the §0 amendment rolled into the description. Rename consideration: "E5 — Offervana Host-Admin Submission" → "E5 — Offervana Enterprise Submission + Offers Fetch" (title no longer accurate).
+- Child Stories not yet created; `/zoo-core-create-story e5` should consume the post-amendment architecture doc, not the 2026-04-17 state.
+
+---
+
 ## What this invocation did
 
 **Enrichment, not creation.** ADO Feature **7781** already existed (rev 3, filed 2026-04-16 at plan-project time under parent Epic **7776**) with a skeleton description (summary + DoD + payload scaffold + the Path A / Path B framing). This run replaced `System.Description` wholesale with a post-architecture body mirroring E1 (7777) / E2 (7778) / E3 (7779) / E4 (7780):

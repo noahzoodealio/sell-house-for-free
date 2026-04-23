@@ -10,6 +10,8 @@ import type {
   propertyStepSchema,
 } from "./schema";
 
+export type { CurrentListingStatus, HasAgent } from "./schema";
+
 export type AddressFields = z.infer<typeof addressStepSchema>;
 export type PropertyFields = z.infer<typeof propertyStepSchema>;
 export type ConditionFields = z.infer<typeof conditionStepSchema>;
@@ -19,7 +21,13 @@ export type AttributionFields = z.infer<typeof attributionSchema>;
 export type EnrichmentSlot = z.infer<typeof enrichmentSlotSchema>;
 export type SellerFormDraft = z.infer<typeof fullSellerFormSchema>;
 
-export const STEP_SLUGS = ["address", "property", "condition", "contact"] as const;
+export const STEP_SLUGS = [
+  "address",
+  "property",
+  "mls",
+  "condition",
+  "contact",
+] as const;
 export type StepSlug = (typeof STEP_SLUGS)[number];
 
 export const PILLAR_SLUGS = [

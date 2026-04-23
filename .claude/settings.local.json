@@ -144,7 +144,14 @@
       "Read(//c//**)",
       "Read(//c/c/Users/Noah/**)",
       "Bash(npm test *)",
-      "Bash(xargs grep *)"
+      "Bash(npx vitest *)",
+      "Bash(npm i *)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(grep -E \"^\\(C:\\\\\\\\\\\\\\\\|\\\\\\\\./\\)\")",
+      "Bash(grep -E \"\\\\\\\\.tsx?\")",
+      "Bash(xargs grep *)",
+      "WebFetch(domain:getridley.com)",
+      "WebSearch"
     ]
   }
 }

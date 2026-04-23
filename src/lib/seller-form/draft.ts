@@ -1,4 +1,4 @@
-import type { SellerFormDraft } from "./types";
+import type { EnrichmentSlot, SellerFormDraft } from "./types";
 
 export const DRAFT_STORAGE_KEY = "shf:draft:v1";
 export const IDEMPOTENCY_STORAGE_KEY = "shf:idk:v1";
@@ -18,6 +18,10 @@ function isBrowser(): boolean {
 function stripPii(partial: PartialDraft): PartialDraft {
   const copy: PartialDraft = { ...partial };
   delete copy.contact;
+  // Enrichment is recomputable + session-scoped — never persisted to
+  // localStorage. Kept in memory via the draft reducer for the current
+  // tab only; re-fetched from the BFF on a fresh session.
+  delete copy.enrichment;
   if (copy.consent) {
     copy.consent = {
       tcpa: stripAcceptedAt(partial.consent?.tcpa),
@@ -67,6 +71,19 @@ export function writeDraft(partial: PartialDraft): void {
   } catch {
     // quota exceeded or storage unavailable — silently drop.
   }
+}
+
+/**
+ * Assigns the enrichment slot onto the current draft. The `enrichment`
+ * field is deliberately excluded from the localStorage write path (see
+ * `stripPii`), so this is effectively a no-op on disk — the slot is
+ * merged, then stripped, then the other draft fields are refreshed.
+ * The hook that owns enrichment state keeps the live slot in memory +
+ * sessionStorage; this call exists so consumers that read from the
+ * draft (e.g. future server-action handoff) see a consistent shape.
+ */
+export function setEnrichment(slot: EnrichmentSlot): void {
+  writeDraft({ enrichment: slot });
 }
 
 export function clearDraft(): void {
