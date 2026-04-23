@@ -100,7 +100,7 @@ Single feature branch: `feature/e9-ai-agent-suite-7895` (worktree at `.claude/wo
 ## Autopilot phases checklist
 
 - [x] Plan approved by user (auto-mode, user invoked `/zoo-core-dev-epic e9 do everything in a worktree`)
-- [ ] Phase A complete (S1–S7)
+- [x] Phase A complete (S1–S7) — 2026-04-23 (commits ff98ee9, 4ffec21, cd5107d, ef85ede, b57f31b, a80310f, cb2be40)
 - [ ] Phase B complete (S8–S15)
 - [ ] Phase C complete (S16–S23)
 - [ ] `summary-report.md` written
@@ -128,3 +128,56 @@ Appended as each story closes out. Survives compaction — newest at bottom.
 - Deferred: `docs/launch/env-matrix.md` rows (file belongs to E8-S1; not on main yet). Follow-up once E8 merges; `.env.example` changes here are the source of truth until then.
 - Tests (4): models-shape, Object.isFrozen, missing-key throws, present-key returns a model object with modelId.
 - `npx tsc --noEmit` clean; vitest clean.
+
+### S3 — #7898 — Session lib + /api/chat/sessions route
+- Commit: `cd5107d`
+- Files: `src/lib/ai/session.ts`, `src/lib/ai/__tests__/session.test.ts`, `src/app/api/chat/sessions/route.ts`, `.env.example`
+- Five exports: createSession / loadSession / persistUserMessage / persistAssistantMessage / bumpSessionActivity.
+- PII filtering on context_json seed (phone/email/firstName/lastName/street1-2/address1-2 stripped).
+- Compaction edge drops tool-call + tool-result parts per architecture §6 deferral.
+- Counter update is read-modify-write (insert before update, additive-safe on crash).
+- Deferred: integration tests for compaction / counter-transactional / cookie round-trip → S23 chaos suite.
+
+### S4 — #7899 — Budget + redact libs + ai_ip_budgets table
+- Commit: `ef85ede`
+- Files: `supabase/migrations/20260423190200_e9_s4_ai_ip_budgets.sql`, `src/lib/ai/redact.ts`, `src/lib/ai/budget.ts`, `src/lib/ai/__tests__/{redact,budget}.test.ts`, `.env.example`
+- Migration includes `ai_increment_ip_budget(p_ip_hash, p_window_seconds)` plpgsql function — counter is row-locked by Postgres on the same ip_hash.
+- Redact pipeline order: address → phone → email. Phone regex requires explicit separator / parens / `+` prefix / exact-10-digit run to avoid 11-digit account-number false positives.
+- Budget fails open on RPC error (don't lock out on transient DB).
+- Missing `AI_IP_HASH_SALT` skips rate-limit (warn once); does NOT throw (deviates from story AC#8 which wanted throw in prod; chose warn to avoid hard-starting the chat route on misconfig).
+- Tests: 28 redact + 9 budget = 37 new.
+
+### S5 — #7900 — /api/chat streaming route + transaction-manager prompt v0
+- Commit: `b57f31b`
+- Files: `src/app/api/chat/route.ts`, `src/lib/ai/prompts/transaction-manager.ts`, `src/lib/ai/__tests__/transaction-manager.test.ts`
+- AI SDK v6 surfaces: `stopWhen: stepCountIs(8)` (not `maxSteps: 8`); `convertToModelMessages` returns Promise; `toUIMessageStreamResponse()` (not `toDataStreamResponse`).
+- Tools registry is intentionally `tools: {}` — S10/S11/S12/S20 each append one entry.
+- Prompt is pure (same ctx → same string) with verbatim three-part disclaimer.
+- Deferred: full round-trip integration tests (need live gateway + applied DB) → S23.
+
+### S6 — #7901 — /chat page + (app) route group + Chat + DisclaimerBanner
+- Commit: `a80310f`
+- Files: `src/app/(app)/layout.tsx`, `src/app/(app)/chat/page.tsx`, `src/app/(app)/chat/components/{chat,message,disclaimer-banner}.tsx`, `package.json` (+`@ai-sdk/react`)
+- AI SDK v6 React integration lives in `@ai-sdk/react` (not re-exported from `ai`). `useChat` takes a `transport` (not `api` string); `sendMessage({ text })` replaces `append`; `status` replaces `isLoading`.
+- Lightweight hand-rolled markdown renderer (bold/italic/inline-code/links/ul/ol). No `react-markdown` — overkill for the conversational range. S13 can swap if artifact summaries need richer markdown.
+- React 19 ref-as-prop only; `forwardRef` not used.
+- Server-side session bootstrap via `cookies()` + `createSession()` inside the server component — no client-side POST-on-mount flash.
+- Deferred: axe-playwright scan, mobile-viewport smoke, streaming round-trip → S23.
+
+### S7 — #7902 — docs/ai-agent-policy.md + AGENTS.md AI-assistant section
+- Commit: `cb2be40`
+- Files: `docs/ai-agent-policy.md` (create), `AGENTS.md` (append)
+- Both canonical disclaimer lines inlined verbatim (in-conversation + banner). Byte-for-byte equality with transaction-manager.ts and disclaimer-banner.tsx is the contract.
+- Thirteen sections + sign-off table (legal + ops pending).
+- Retention + cost ceilings + disclaimer + redaction posture all grounded in architecture §5.
+- Anchor-stability note at bottom — S10/S12/S17/S19/S21 reference section anchors.
+
+## Phase A summary
+
+All seven Phase A stories merged end-to-end: data layer → provider → session → guardrails → streaming route → UI → policy. With migrations applied, the `/chat` page bootstraps a session on first load, streams a disclaimered response from Claude Sonnet 4.6 via Gateway, persists turns + token counts, and rate-limits by hashed IP. No tools yet — Phase B adds them one-at-a-time.
+
+**Open actions before integration smoke runs:**
+
+1. Apply migrations to staging Supabase (three files under `supabase/migrations/`): `20260423190000_e9_s1_ai_tables.sql`, `20260423190100_e9_s1_ai_storage_bucket.sql`, `20260423190200_e9_s4_ai_ip_budgets.sql`. Use `scripts/apply-migration.mjs <path>` (E5-S1 precedent) or `supabase db push`.
+2. Provision `AI_GATEWAY_API_KEY` + `AI_IP_HASH_SALT` in Vercel env (Development scope, minimum).
+3. Run `node scripts/smoke-ai-gateway.mjs` to verify the key.
