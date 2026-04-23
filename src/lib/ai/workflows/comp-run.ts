@@ -72,28 +72,15 @@ export interface AdjustedComp extends HydratedComp {
   dropReason?: string;
 }
 
-export interface Valuation {
-  low: number;
-  mid: number;
-  high: number;
-  confidence: number;
-  methodology: {
-    deviationsUsed: Record<string, number>;
-    candidatePoolSize: number;
-    pickedCompsCount: number;
-    discardedCompsCount: number;
-  };
-  pickedComps: AdjustedComp[];
-  discardedComps: AdjustedComp[];
-  disclaimer: string;
-}
+export type { Valuation } from "@/lib/ai/schemas/valuation";
+import type { Valuation as ValuationType } from "@/lib/ai/schemas/valuation";
 
 export interface CompRunResult {
   candidates: CandidateComp[];
   hydrated: HydratedComp[];
   photoAssessments: PhotoAssessment[];
   adjusted: AdjustedComp[];
-  valuation: Valuation | null;
+  valuation: ValuationType | null;
   persistedArtifactId: string | null;
 }
 
@@ -228,16 +215,29 @@ export async function applyDeviationsStep(
 }
 
 export async function aggregateStep(
-  _input: CompRunInput,
-  _adjusted: AdjustedComp[],
-): Promise<Valuation | null> {
-  // S19 replaces this body with the Opus judge + ValuationSchema.
-  return null;
+  input: CompRunInput,
+  adjusted: AdjustedComp[],
+  photoAssessments: PhotoAssessment[] = [],
+): Promise<ValuationType | null> {
+  if (adjusted.length === 0) return null;
+  const { aggregateValuationImpl } = await import(
+    "@/lib/ai/tools/aggregate-valuation"
+  );
+  try {
+    const v = await aggregateValuationImpl({
+      subject: input,
+      adjusted,
+      photoAssessments,
+    });
+    return v as ValuationType;
+  } catch {
+    return null;
+  }
 }
 
 export async function persistStep(
   _sessionId: string,
-  _valuation: Valuation | null,
+  _valuation: ValuationType | null,
 ): Promise<string | null> {
   // S20 replaces this body with the comp_report artifact write + workflow
   // status update.
@@ -261,7 +261,11 @@ export async function runCompPipeline(
     hydrated,
     photoAssessments,
   );
-  const valuation = await aggregateStep(input, adjustedWithAssessments);
+  const valuation = await aggregateStep(
+    input,
+    adjustedWithAssessments,
+    photoAssessments,
+  );
   const persistedArtifactId = await persistStep(input.sessionId, valuation);
 
   return {
