@@ -11,6 +11,7 @@ import { gateway, models } from "@/lib/ai/gateway";
 import { enforceBudget } from "@/lib/ai/budget";
 import { redact } from "@/lib/ai/redact";
 import { transactionManagerPrompt } from "@/lib/ai/prompts/transaction-manager";
+import { analyzeOfferTool } from "@/lib/ai/tools/analyze-offer";
 import { explainTermsTool } from "@/lib/ai/tools/explain-terms";
 import { reviewPdfTool } from "@/lib/ai/tools/review-pdf";
 import {
@@ -118,6 +119,10 @@ export async function POST(request: NextRequest): Promise<Response> {
     tools: {
       review_pdf: reviewPdfTool({ id: sessionId }),
       explain_terms: explainTermsTool({ id: sessionId }),
+      analyze_offer: analyzeOfferTool({
+        id: sessionId,
+        context: session.context,
+      }),
     },
     stopWhen: stepCountIs(8),
     experimental_telemetry: {
