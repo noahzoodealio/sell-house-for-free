@@ -12,6 +12,7 @@ import {
   type PortalData,
 } from "./portal-data";
 import { PhotosSection } from "./portal-photos";
+import { ChatBootstrap } from "./chat/chat-bootstrap";
 
 const NAV_ITEMS = [
   { id: "overview", label: "Overview" },
@@ -868,39 +869,7 @@ function TeamCard({
   );
 }
 
-type ChatMsg = { role: "ai" | "user"; text: string };
-
-function AISection({ data }: { data: PortalData }) {
-  const [q, setQ] = useState("");
-  const [msgs, setMsgs] = useState<ChatMsg[]>([
-    {
-      role: "ai",
-      text: `Hi ${data.user.first} — I'm your sellfree AI. I know your property, comps, offers, and every document. Ask me anything.`,
-    },
-  ]);
-  const [busy, setBusy] = useState(false);
-
-  const ask = async (text: string) => {
-    if (!text.trim() || busy) return;
-    setMsgs((m) => [...m, { role: "user", text }]);
-    setQ("");
-    setBusy(true);
-    // Placeholder: no backend wired yet. Respond after a short delay so the
-    // typing indicator gets a chance to render.
-    setTimeout(() => {
-      setMsgs((m) => [
-        ...m,
-        {
-          role: "ai",
-          text:
-            "(Placeholder — AI backend not yet wired up. Your question was captured.) " +
-            "Once the model is connected I'll answer with specifics about your property, comps, and offers.",
-        },
-      ]);
-      setBusy(false);
-    }, 650);
-  };
-
+function AISection({ data: _data }: { data: PortalData }) {
   return (
     <div className="portal-section">
       <div className="portal-section-head">
@@ -908,71 +877,13 @@ function AISection({ data }: { data: PortalData }) {
           <div className="eyebrow">AI assistant · 24/7</div>
           <h1 className="portal-h1">Ask anything about your sale.</h1>
           <p className="portal-lede">
-            Trained on your property, your offers, market comps, and Texas
-            disclosure law. Answers in seconds — not 4 hours.
+            Friend-style advice on pricing, offers, contract terms, and
+            comps — answers in seconds, grounded in your property.
           </p>
         </div>
       </div>
 
-      <div className="ai-chat">
-        <div className="ai-messages">
-          {msgs.map((m, i) => (
-            <div key={i} className={"ai-msg " + m.role}>
-              <div className="ai-msg-avatar">
-                {m.role === "ai" ? "AI" : data.user.first[0]}
-              </div>
-              <div className="ai-msg-body">{m.text}</div>
-            </div>
-          ))}
-          {busy && (
-            <div className="ai-msg ai">
-              <div className="ai-msg-avatar">AI</div>
-              <div className="ai-msg-body">
-                <span className="ai-typing">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="ai-input-wrap">
-          <input
-            className="ai-input"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Ask about pricing, offers, disclosures..."
-            onKeyDown={(e) => {
-              if (e.key === "Enter") ask(q);
-            }}
-          />
-          <button
-            className="btn btn-primary"
-            onClick={() => ask(q)}
-            disabled={busy || !q.trim()}
-          >
-            Ask →
-          </button>
-        </div>
-      </div>
-
-      <div className="portal-card">
-        <div className="eyebrow" style={{ marginBottom: 14 }}>
-          Suggested questions
-        </div>
-        <div className="ai-suggestions">
-          {data.ai.recentQuestions.map((question, i) => (
-            <button
-              key={i}
-              className="ai-suggestion"
-              onClick={() => ask(question)}
-            >
-              {question} →
-            </button>
-          ))}
-        </div>
-      </div>
+      <ChatBootstrap />
     </div>
   );
 }

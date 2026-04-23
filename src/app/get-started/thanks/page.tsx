@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { buildMetadata } from "@/lib/seo";
-import { ThanksAiCta } from "./thanks-ai-cta";
 import { ThanksRef } from "./thanks-ref";
 
 export const metadata = buildMetadata({
@@ -12,7 +11,6 @@ export const metadata = buildMetadata({
 });
 
 export default function GetStartedThanksPage() {
-  const aiChatEnabled = process.env.AI_CHAT_ENABLED === "true";
   return (
     <div className="sellfree-flow">
       <div className="flow-page flow-page-done">
@@ -77,11 +75,6 @@ export default function GetStartedThanksPage() {
               <Link href="/" className="btn btn-primary btn-lg">
                 Back to home
               </Link>
-              {aiChatEnabled && (
-                <Suspense fallback={null}>
-                  <ThanksAiCta />
-                </Suspense>
-              )}
             </div>
             <Suspense fallback={null}>
               <ThanksRef />

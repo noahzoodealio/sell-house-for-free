@@ -1,8 +1,8 @@
 # AI Agent Policy
 
 > Authoritative charter for the Sell Your House Free AI assistant. Read this
-> before editing any file under `src/lib/ai/**`, `src/app/(app)/chat/**`, or
-> `src/app/api/chat/**`. The section anchors below are referenced from story
+> before editing any file under `src/lib/ai/**`, `src/components/portal/chat/**`,
+> or `src/app/api/chat/**`. The section anchors below are referenced from story
 > bodies (E9-S10/S12/S17/S19/S21) — **do not rename headings** without
 > auditing downstream references.
 
@@ -53,7 +53,7 @@ Enforced at three levels:
 - **Prompt level**: verbatim line in `src/lib/ai/prompts/transaction-manager.ts`.
 - **Schema level**: every artifact payload Zod schema has a required
   `disclaimer: z.string().min(1)` field (architecture §5 Decision 10).
-- **UI level**: disclaimer banner on `/chat` + footer on every artifact card.
+- **UI level**: disclaimer banner inside the `/portal` AI-assistant tab + footer on every artifact card.
 
 ## 5. PM handoff posture
 
@@ -127,7 +127,7 @@ Two canonical lines, both verbatim:
 > licensed real-estate professional and I'm not your fiduciary, so treat
 > this as input, not gospel.
 
-**Banner (UI, always visible — `src/app/(app)/chat/components/disclaimer-banner.tsx`):**
+**Banner (UI, always visible — `src/components/portal/chat/disclaimer-banner.tsx`):**
 
 > I'm Sell Your House Free's AI assistant. I'll give you real, friend-style
 > advice on pricing, offers, contracts, and negotiation — but I'm not a

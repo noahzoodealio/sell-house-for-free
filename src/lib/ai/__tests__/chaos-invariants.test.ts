@@ -11,7 +11,7 @@ import { DOC_SUMMARY_DISCLAIMER } from "../prompts/pdf-reviewer";
 import { OFFER_ANALYSIS_DISCLAIMER } from "../prompts/offer-analyzer";
 import { PHOTO_ASSESSMENT_DISCLAIMER } from "../prompts/photo-reviewer";
 import { VALUATION_DISCLAIMER } from "../prompts/comping";
-import { CHAT_DISCLAIMER } from "@/app/(app)/chat/components/disclaimer-banner";
+import { CHAT_DISCLAIMER } from "@/components/portal/chat/disclaimer-banner";
 import { TRANSACTION_MANAGER_DISCLAIMER } from "../prompts/transaction-manager";
 
 /**
