@@ -7,6 +7,7 @@ import { OfferAnalysisSchema } from "@/lib/ai/schemas/offer-analysis";
 
 import { DocSummaryCard } from "./doc-summary-card";
 import { OfferAnalysisCard } from "./offer-analysis-card";
+import { ValuationPanel } from "./valuation-panel";
 
 /**
  * Minimal markdown renderer for bold/italic/inline-code/links/bulleted-and-numbered lists.
@@ -187,6 +188,21 @@ export function Message({ message }: { message: UIMessage }) {
       if (parsed.success) {
         cards.push(
           <OfferAnalysisCard key={`offer-${i}`} analysis={parsed.data} />,
+        );
+      }
+    }
+    if (r.toolName === "start_comp_job") {
+      const result = r.result as {
+        jobId?: string;
+        pollUrl?: string;
+      } | null;
+      if (result?.jobId && result?.pollUrl) {
+        cards.push(
+          <ValuationPanel
+            key={`valuation-${i}`}
+            jobId={result.jobId}
+            pollUrl={result.pollUrl}
+          />,
         );
       }
     }
