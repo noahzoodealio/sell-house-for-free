@@ -11,6 +11,7 @@ import { gateway, models } from "@/lib/ai/gateway";
 import { enforceBudget } from "@/lib/ai/budget";
 import { redact } from "@/lib/ai/redact";
 import { transactionManagerPrompt } from "@/lib/ai/prompts/transaction-manager";
+import { reviewPdfTool } from "@/lib/ai/tools/review-pdf";
 import {
   bumpSessionActivity,
   loadSession,
@@ -113,7 +114,9 @@ export async function POST(request: NextRequest): Promise<Response> {
     model: gateway(models.orchestrator),
     system: transactionManagerPrompt(session.context),
     messages: modelMessages,
-    tools: {},
+    tools: {
+      review_pdf: reviewPdfTool({ id: sessionId }),
+    },
     stopWhen: stepCountIs(8),
     experimental_telemetry: {
       isEnabled: true,
