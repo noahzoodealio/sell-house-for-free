@@ -88,9 +88,18 @@ export function normalizeOkPayload(
     return { error: "result.referalCode missing or empty" };
   }
 
+  const propsRaw = container.properties ?? container.Properties;
+  let propertyId: number | null = null;
+  if (Array.isArray(propsRaw) && propsRaw.length > 0) {
+    const first = propsRaw[0] as Record<string, unknown> | null;
+    const pid = first?.id ?? first?.Id;
+    if (typeof pid === "number") propertyId = pid;
+  }
+
   return {
     customerId: idRaw,
     referralCode: refRaw,
+    propertyId,
   };
 }
 

@@ -25,7 +25,9 @@ export async function lookupIdempotent(
 
   const { data, error } = await client
     .from("offervana_idempotency")
-    .select("submission_id, customer_id, user_id, referral_code, created_at")
+    .select(
+      "submission_id, customer_id, user_id, referral_code, created_at, property_id",
+    )
     .eq("submission_id", submissionId)
     .gte("created_at", cutoff)
     .maybeSingle();
@@ -41,6 +43,7 @@ export async function lookupIdempotent(
   return {
     customerId: row.customer_id,
     referralCode: row.referral_code,
+    propertyId: row.property_id,
   };
 }
 
@@ -59,6 +62,7 @@ export async function storeIdempotent(
       user_id: null,
       referral_code: payload.referralCode,
       created_at: now.toISOString(),
+      property_id: payload.propertyId,
     },
     { onConflict: "submission_id", ignoreDuplicates: true },
   );
@@ -66,6 +70,29 @@ export async function storeIdempotent(
   if (error) {
     throw new Error(
       `offervana_idempotency store failed: ${error.message}`,
+    );
+  }
+}
+
+export async function storeOffersV2Payload(
+  submissionId: string,
+  offers: unknown[],
+  deps: IdempotencyDeps = {},
+): Promise<void> {
+  const client = deps.client ?? getSupabaseAdmin();
+  const now = deps.now ? deps.now() : new Date();
+
+  const { error } = await client
+    .from("offervana_idempotency")
+    .update({
+      offers_v2_payload: offers,
+      offers_v2_fetched_at: now.toISOString(),
+    })
+    .eq("submission_id", submissionId);
+
+  if (error) {
+    throw new Error(
+      `offervana_idempotency offers update failed: ${error.message}`,
     );
   }
 }

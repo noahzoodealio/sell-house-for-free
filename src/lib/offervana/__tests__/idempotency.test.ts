@@ -66,6 +66,7 @@ describe("lookupIdempotent", () => {
         user_id: 1337,
         referral_code: "REF-XYZ",
         created_at: "2026-04-23T14:00:00.000Z",
+        property_id: 9001,
       },
       error: null,
     });
@@ -79,6 +80,7 @@ describe("lookupIdempotent", () => {
     expect(result).toEqual({
       customerId: 42,
       referralCode: "REF-XYZ",
+      propertyId: 9001,
     });
     expect(captured.table).toBe("offervana_idempotency");
     expect(captured.filters["eq:submission_id"]).toBe(submissionId);
@@ -114,7 +116,7 @@ describe("lookupIdempotent", () => {
 
 describe("storeIdempotent", () => {
   const submissionId = "22222222-2222-4222-8222-222222222222";
-  const payload = { customerId: 7, referralCode: "R-7" };
+  const payload = { customerId: 7, referralCode: "R-7", propertyId: 42 };
   const now = new Date("2026-04-23T15:30:00.000Z");
 
   it("upserts with user_id=null + ignoreDuplicates for concurrent-replay safety", async () => {
@@ -134,6 +136,7 @@ describe("storeIdempotent", () => {
       user_id: null,
       referral_code: "R-7",
       created_at: now.toISOString(),
+      property_id: 42,
     });
     expect(captured.upsertOptions).toEqual({
       onConflict: "submission_id",
@@ -158,7 +161,7 @@ describe("storeIdempotent", () => {
 describe("concurrent replay semantics", () => {
   it("second submit with same submissionId still finds cached payload", async () => {
     const submissionId = "33333333-3333-4333-8333-333333333333";
-    const payload = { customerId: 1, referralCode: "R-1" };
+    const payload = { customerId: 1, referralCode: "R-1", propertyId: null };
     const firstCall = makeClient(
       { data: null, error: null },
       { error: null },
@@ -176,6 +179,7 @@ describe("concurrent replay semantics", () => {
         user_id: 2,
         referral_code: "R-1",
         created_at: new Date().toISOString(),
+        property_id: null,
       },
       error: null,
     });

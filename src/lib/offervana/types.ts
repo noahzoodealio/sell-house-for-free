@@ -66,6 +66,7 @@ export interface CreateCustomerDto {
 export interface OffervanaOkPayload {
   customerId: number;
   referralCode: string;
+  propertyId: number | null;
 }
 
 export type SubmitResult =

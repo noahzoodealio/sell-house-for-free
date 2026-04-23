@@ -87,7 +87,7 @@ describe("normalizeOkPayload", () => {
         error: null,
         __abp: true,
       }),
-    ).toEqual({ customerId: 42, referralCode: "REF-XYZ" });
+    ).toEqual({ customerId: 42, referralCode: "REF-XYZ", propertyId: null });
   });
 
   it("tolerates the corrected `referralCode` spelling if upstream fixes it", () => {
@@ -98,13 +98,26 @@ describe("normalizeOkPayload", () => {
         error: null,
         __abp: true,
       }),
-    ).toEqual({ customerId: 7, referralCode: "REF-FIXED" });
+    ).toEqual({ customerId: 7, referralCode: "REF-FIXED", propertyId: null });
   });
 
   it("accepts a bare (non-envelope) GetCustomersDto", () => {
     expect(
       normalizeOkPayload({ id: 12, referalCode: "R" }),
-    ).toEqual({ customerId: 12, referralCode: "R" });
+    ).toEqual({ customerId: 12, referralCode: "R", propertyId: null });
+  });
+
+  it("extracts propertyId from result.properties[0].id when present", () => {
+    expect(
+      normalizeOkPayload({
+        result: {
+          id: 100,
+          referalCode: "REF",
+          properties: [{ id: 774902, addressLine: "123 Main St" }],
+        },
+        success: true,
+      }),
+    ).toEqual({ customerId: 100, referralCode: "REF", propertyId: 774902 });
   });
 
   it("reports missing id", () => {

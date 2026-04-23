@@ -7,7 +7,11 @@ const OFFERVANA_BASE_URL = "https://sellfreeai.zoodealio.net";
 const CREATE_CUSTOMER_PATH = "/openapi/Customers";
 
 const MAX_ATTEMPTS = 2;
-const PER_ATTEMPT_TIMEOUT_MS = 13_000;
+// OuterAPI Customers reliably takes ~15s end-to-end (creates customer +
+// property + kicks off downstream offer work). 25s per attempt gives enough
+// headroom for the happy path without burning the whole wall-clock budget
+// on a single slow request.
+const PER_ATTEMPT_TIMEOUT_MS = 25_000;
 const BACKOFF_SCHEDULE_MS = [0, 1000];
 const JITTER_MAX_MS = 250;
 
@@ -116,4 +120,114 @@ async function readJsonSafely(response: Response): Promise<unknown> {
   } catch {
     return text;
   }
+}
+
+// ---------- OffersV2 -------------------------------------------------------
+
+const OFFERS_PATH = "/openapi/OffersV2";
+const OFFERS_PER_ATTEMPT_TIMEOUT_MS = 15_000;
+
+export type OffersV2FetchResult =
+  | { kind: "ok"; offers: unknown[]; rawCount: number; latencyMs: number }
+  | { kind: "empty"; latencyMs: number }
+  | {
+      kind: "error";
+      detail: { status: number | null; message: string; body?: unknown };
+      latencyMs: number;
+    };
+
+export interface FetchOffersV2Options {
+  fetchImpl?: typeof fetch;
+  submissionId?: string;
+}
+
+/**
+ * GET `/openapi/OffersV2?propertyId={id}&includeHistory=false` against the
+ * Offervana OuterAPI. Single attempt — the customer record already exists,
+ * so a transient failure here just means the portal starts without offers
+ * and can re-fetch later. Returns a tagged result the caller logs/persists.
+ */
+export async function fetchOffersV2(
+  propertyId: number,
+  options: FetchOffersV2Options = {},
+): Promise<OffersV2FetchResult> {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const apiKey = process.env.ZOODEALIO_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "ZOODEALIO_API_KEY is not set. Required to call sellfreeai.zoodealio.net OuterAPI.",
+    );
+  }
+
+  const url = `${OFFERVANA_BASE_URL}${OFFERS_PATH}?propertyId=${encodeURIComponent(
+    String(propertyId),
+  )}&includeHistory=false`;
+
+  const start = Date.now();
+  try {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      ApiKey: apiKey,
+    };
+    if (options.submissionId) {
+      headers["X-Client-Submission-Id"] = options.submissionId;
+    }
+    const response = await fetchImpl(url, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+      signal: AbortSignal.timeout(OFFERS_PER_ATTEMPT_TIMEOUT_MS),
+    });
+    const latencyMs = Date.now() - start;
+    const rawBody = await readJsonSafely(response);
+
+    if (response.status < 200 || response.status >= 300) {
+      return {
+        kind: "error",
+        detail: {
+          status: response.status,
+          message: `HTTP ${response.status}`,
+          body: rawBody,
+        },
+        latencyMs,
+      };
+    }
+
+    const offers = extractOffersArray(rawBody);
+    if (offers === null) {
+      return {
+        kind: "error",
+        detail: {
+          status: response.status,
+          message: "OffersV2 response not shaped as { result: [...] }",
+          body: rawBody,
+        },
+        latencyMs,
+      };
+    }
+
+    if (offers.length === 0) {
+      return { kind: "empty", latencyMs };
+    }
+    return { kind: "ok", offers, rawCount: offers.length, latencyMs };
+  } catch (err) {
+    return {
+      kind: "error",
+      detail: {
+        status: null,
+        message: err instanceof Error ? err.message : String(err),
+      },
+      latencyMs: Date.now() - start,
+    };
+  }
+}
+
+function extractOffersArray(body: unknown): unknown[] | null {
+  if (!body || typeof body !== "object") return null;
+  const envelope = body as Record<string, unknown>;
+  const result = envelope.result ?? envelope.Result;
+  if (Array.isArray(result)) return result;
+  // Some ABP endpoints return the array directly; tolerate that shape too.
+  if (Array.isArray(body)) return body;
+  return null;
 }

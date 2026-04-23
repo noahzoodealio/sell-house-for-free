@@ -82,6 +82,7 @@ describe("createOuterApiCustomer", () => {
       expect(result.payload).toEqual({
         customerId: 42,
         referralCode: "REF-1",
+        propertyId: null,
       });
       expect(result.attempts).toBe(1);
     }

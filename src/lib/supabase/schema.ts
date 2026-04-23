@@ -10,6 +10,9 @@ export interface OffervanaIdempotencyRow {
   user_id: number | null;
   referral_code: string;
   created_at: string;
+  property_id: number | null;
+  offers_v2_payload: unknown[] | null;
+  offers_v2_fetched_at: string | null;
 }
 
 export interface OffervanaSubmissionFailureRow {

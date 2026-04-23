@@ -3,11 +3,15 @@
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 
-import { createOuterApiCustomer } from "@/lib/offervana/client";
+import {
+  createOuterApiCustomer,
+  fetchOffersV2,
+} from "@/lib/offervana/client";
 import { recordDeadLetter } from "@/lib/offervana/dead-letter";
 import {
   lookupIdempotent,
   storeIdempotent,
+  storeOffersV2Payload,
 } from "@/lib/offervana/idempotency";
 import { mapDraftToCreateCustomerDto } from "@/lib/offervana/mapper";
 import type { SubmitResult } from "@/lib/offervana/types";
@@ -53,25 +57,47 @@ export async function submitSellerForm(
       submissionId,
       referralCode: cached.referralCode,
     });
-    redirect(buildPortalRedirect(cached.referralCode));
+    redirect(buildPortalRedirect(submissionId, cached.referralCode));
   }
 
   const dto = mapDraftToCreateCustomerDto(draft);
-  const submitResult: SubmitResult = await createOuterApiCustomer(dto, {
-    submissionId,
-  });
 
-  const referralCode = resolveReferralCode(submitResult);
-
+  // Fire Offervana create-customer in the background; the user is redirected
+  // to /portal/setup immediately and the setup page polls for completion.
+  // after() runs after the redirect response is flushed but still within the
+  // function's maxDuration — long enough for the 2-attempt retry budget.
   after(async () => {
+    logAudit("offervana.submit.background_start", { submissionId });
+    const submitResult: SubmitResult = await createOuterApiCustomer(dto, {
+      submissionId,
+    });
+    const referralCode = resolveReferralCode(submitResult);
     await dispatchAfter(draft, dto, submitResult, referralCode);
+
+    // Chain the OffersV2 fetch right after a successful customer create —
+    // the upstream generates initial offer estimates during /openapi/Customers
+    // so by the time that POST returns, OffersV2 has something to read.
+    if (submitResult.kind === "ok" && submitResult.payload.propertyId != null) {
+      await fetchAndLogOffers(
+        submitResult.payload.propertyId,
+        submissionId,
+        submitResult.payload.referralCode,
+      );
+    } else if (submitResult.kind === "ok") {
+      logAudit("offervana.offers.skipped_no_property_id", {
+        submissionId,
+        customerId: submitResult.payload.customerId,
+      });
+    }
   });
 
-  redirect(buildPortalRedirect(referralCode));
+  redirect(buildPortalRedirect(submissionId));
 }
 
-function buildPortalRedirect(referralCode: string): string {
-  return `/portal/setup?ref=${encodeURIComponent(referralCode)}`;
+function buildPortalRedirect(submissionId: string, referralCode?: string): string {
+  const params = new URLSearchParams({ sid: submissionId });
+  if (referralCode) params.set("ref", referralCode);
+  return `/portal/setup?${params.toString()}`;
 }
 
 function resolveReferralCode(result: SubmitResult): string {
@@ -144,4 +170,50 @@ async function dispatchAfter(
     reason,
     referralCode,
   });
+}
+
+async function fetchAndLogOffers(
+  propertyId: number,
+  submissionId: string,
+  referralCode: string,
+): Promise<void> {
+  const result = await fetchOffersV2(propertyId, { submissionId });
+
+  switch (result.kind) {
+    case "ok":
+      logAudit("offervana.offers.ok", {
+        submissionId,
+        referralCode,
+        propertyId,
+        count: result.rawCount,
+        latencyMs: result.latencyMs,
+      });
+      await storeOffersV2Payload(submissionId, result.offers).catch(
+        (err: Error) => {
+          logAudit("offervana.offers.persist_failed", {
+            submissionId,
+            error: err.message,
+          });
+        },
+      );
+      return;
+    case "empty":
+      logAudit("offervana.offers.empty", {
+        submissionId,
+        referralCode,
+        propertyId,
+        latencyMs: result.latencyMs,
+      });
+      return;
+    case "error":
+      logAudit("offervana.offers.error", {
+        submissionId,
+        referralCode,
+        propertyId,
+        latencyMs: result.latencyMs,
+        status: result.detail.status,
+        message: result.detail.message,
+      });
+      return;
+  }
 }

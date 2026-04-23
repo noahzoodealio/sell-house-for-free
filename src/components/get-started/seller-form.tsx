@@ -517,8 +517,35 @@ export function SellerForm({
   );
   const isFinalStep = visibleIdx === visible.length - 1;
 
+  const handleFormSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      // Final-step client validation: the server-side check is authoritative,
+      // but running it client-side gives the user inline per-field errors
+      // instead of the generic "couldn't submit" banner.
+      if (currentStep !== "contact") return;
+      const result = validateStep("contact", stepData.contact);
+      if (!result.success) {
+        e.preventDefault();
+        setClientErrors((prev) => ({ ...prev, contact: result.errors }));
+        const firstField = Object.keys(result.errors)[0];
+        if (firstField) {
+          const input = document.querySelector<HTMLInputElement>(
+            `[name="${firstField}"]`,
+          );
+          input?.focus();
+        }
+      }
+    },
+    [currentStep, stepData.contact],
+  );
+
   return (
-    <form action={formAction} className="sellfree-flow" noValidate>
+    <form
+      action={formAction}
+      onSubmit={handleFormSubmit}
+      className="sellfree-flow"
+      noValidate
+    >
       <div className="flow-page">
         <header className="flow-page-nav">
           <Link href="/" className="wordmark" aria-label="sellfree.ai — home">
