@@ -196,23 +196,35 @@ export async function reviewPhotosStep(
 }
 
 export async function applyDeviationsStep(
-  _input: CompRunInput,
+  input: CompRunInput,
   hydrated: HydratedComp[],
-  _assessments: PhotoAssessment[],
+  assessments: PhotoAssessment[],
 ): Promise<AdjustedComp[]> {
-  // S18 replaces this body with the deterministic math.
-  return hydrated.map((h) => ({
-    ...h,
-    adjustments: {
-      bedsDelta: 0,
-      bathsDelta: 0,
-      conditionDelta: 0,
-      sqftDelta: 0,
-      totalDelta: 0,
-    },
-    adjustedSoldPrice: h.soldPrice,
-    kept: true,
-  }));
+  const { applyDeviationsImpl } = await import("@/lib/ai/deviations");
+  const assessmentByMls = new Map(
+    assessments.map((a) => [a.mlsRecordId, a]),
+  );
+  const subject = {
+    beds: null,
+    baths: null,
+    sqft: null,
+    conditionAssumed: "good" as const,
+    zip: input.subjectAddress.zip ?? null,
+  };
+  return hydrated.map((h) =>
+    applyDeviationsImpl({
+      subject,
+      comp: h,
+      compAssessment:
+        assessmentByMls.get(h.mlsRecordId) ?? {
+          mlsRecordId: h.mlsRecordId,
+          condition: "unknown",
+          notableFeatures: [],
+          concerns: [],
+          disclaimer: "",
+        },
+    }),
+  );
 }
 
 export async function aggregateStep(
