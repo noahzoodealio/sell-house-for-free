@@ -13,11 +13,29 @@ const BACKOFF_SCHEDULE_MS = [0, 1000, 4000];
 const JITTER_MAX_MS = 250;
 
 export interface CreateHostAdminOptions {
+  submissionId?: string;
   fetchImpl?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
   random?: () => number;
 }
 
+/**
+ * POSTs a NewClientDto to Offervana's CreateHostAdminCustomer endpoint with
+ * per-attempt 5s timeout, 3-attempt retry at 0/1s/4s (+<=250ms jitter), and
+ * response classification into a tagged SubmitResult union.
+ *
+ * - Happy path returns `{ kind: 'ok', payload }` with customerId/userId/referralCode
+ *   normalized out of the C# ValueTuple `{item1,item2,item3}`.
+ * - ABP UserFriendlyException matching the email-conflict regex returns
+ *   `{ kind: 'email-conflict' }` without retry.
+ * - 4xx (non-408/429, non-email-conflict) returns `{ kind: 'permanent-failure' }`.
+ * - All transient failures after 3 attempts return `{ kind: 'transient-exhausted' }`.
+ * - 200 bodies lacking the ValueTuple shape return `{ kind: 'malformed-response' }`.
+ *
+ * Callers (S6 Server Action) pattern-match on `kind` for exhaustiveness.
+ * `submissionId` is forwarded as `X-Client-Submission-Id` for future idempotency
+ * primitives on the Offervana side.
+ */
 export async function createHostAdminCustomer(
   dto: NewClientDto,
   options: CreateHostAdminOptions = {},
@@ -47,13 +65,17 @@ export async function createHostAdminCustomer(
     }
 
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      };
+      if (options.submissionId) {
+        headers["X-Client-Submission-Id"] = options.submissionId;
+      }
       const response = await fetchImpl(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
+        headers,
         body,
         cache: "no-store",
         signal: AbortSignal.timeout(PER_ATTEMPT_TIMEOUT_MS),
