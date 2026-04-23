@@ -11,6 +11,7 @@ import { gateway, models } from "@/lib/ai/gateway";
 import { enforceBudget } from "@/lib/ai/budget";
 import { redact } from "@/lib/ai/redact";
 import { transactionManagerPrompt } from "@/lib/ai/prompts/transaction-manager";
+import { explainTermsTool } from "@/lib/ai/tools/explain-terms";
 import { reviewPdfTool } from "@/lib/ai/tools/review-pdf";
 import {
   bumpSessionActivity,
@@ -116,6 +117,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     messages: modelMessages,
     tools: {
       review_pdf: reviewPdfTool({ id: sessionId }),
+      explain_terms: explainTermsTool({ id: sessionId }),
     },
     stopWhen: stepCountIs(8),
     experimental_telemetry: {
