@@ -101,10 +101,10 @@ Single feature branch: `feature/e9-ai-agent-suite-7895` (worktree at `.claude/wo
 
 - [x] Plan approved by user (auto-mode, user invoked `/zoo-core-dev-epic e9 do everything in a worktree`)
 - [x] Phase A complete (S1–S7) — 2026-04-23 (commits ff98ee9, 4ffec21, cd5107d, ef85ede, b57f31b, a80310f, cb2be40)
-- [ ] Phase B complete (S8–S15)
-- [ ] Phase C complete (S16–S23)
-- [ ] `summary-report.md` written
-- [ ] Feature #7895 state set to Ready For Testing (per ADO state feedback memory: In Development → Code Review → Ready For Testing)
+- [x] Phase B complete (S8–S15) — 2026-04-23 (commits 2e31994, ef8b2a8, 20c4f66, 267c8e6, ba58fc4, 0f7441a, dfbbca4, 275244c, 0d16bdb)
+- [x] Phase C complete (S16–S23) — 2026-04-23 (commits 415869d, 2bd64f0, 49517b4, 773c101, 93bea59, f2c6426, 2dba98e, d591463)
+- [x] `summary-report.md` written
+- [ ] Feature #7895 state set to Ready For Testing — operator action at merge time
 
 ## Per-story completion log
 
