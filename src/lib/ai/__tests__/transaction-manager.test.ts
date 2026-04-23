@@ -46,4 +46,24 @@ describe("src/lib/ai/prompts/transaction-manager", () => {
     const prompt = transactionManagerPrompt({});
     expect(prompt).toMatch(/do not act on the homeowner's behalf/i);
   });
+
+  it("v1 heuristics: names every live tool with a calling heuristic", () => {
+    const prompt = transactionManagerPrompt({});
+    expect(prompt).toContain("review_pdf");
+    expect(prompt).toContain("explain_terms");
+    expect(prompt).toContain("analyze_offer");
+    expect(prompt).toContain("start_comp_job");
+  });
+
+  it("v1 heuristics: instructs briefer framing over card re-prose", () => {
+    const prompt = transactionManagerPrompt({});
+    expect(prompt).toMatch(/brief spoken framing/i);
+    expect(prompt).toMatch(/don't repeat the card's contents/i);
+  });
+
+  it("v1 heuristics: surfaces tool-error envelopes verbatim", () => {
+    const prompt = transactionManagerPrompt({});
+    expect(prompt).toContain("tool-error");
+    expect(prompt).toMatch(/surface the message verbatim/i);
+  });
 });
