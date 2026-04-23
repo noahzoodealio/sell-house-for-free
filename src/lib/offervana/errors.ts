@@ -22,6 +22,15 @@ export function classifyResponse(
   const message = extractMessage(body);
 
   if (status >= 200 && status < 300) {
+    // ABP wraps responses in { result, success, error }. Even 200 can carry
+    // success: false with a UserFriendlyException in error.message — treat
+    // those as non-ok using the same rules as 4xx/5xx.
+    if (isAbpEnvelope(body) && (body as AbpEnvelope).success === false) {
+      if (EMAIL_CONFLICT_PATTERN.test(message)) {
+        return { kind: "email-conflict", message };
+      }
+      return { kind: "permanent-failure", message };
+    }
     return { kind: "ok", message };
   }
 
@@ -52,10 +61,15 @@ export function normalizeOkPayload(
   if (!body || typeof body !== "object") {
     return { error: "response body is not an object" };
   }
-  const obj = body as Record<string, unknown>;
-  const item1 = obj.item1 ?? obj.Item1;
-  const item2 = obj.item2 ?? obj.Item2;
-  const item3 = obj.item3 ?? obj.Item3;
+  // ABP returns { result: { item1, item2, item3 }, success, error }.
+  const envelope = body as Record<string, unknown>;
+  const container =
+    envelope.result && typeof envelope.result === "object"
+      ? (envelope.result as Record<string, unknown>)
+      : envelope;
+  const item1 = container.item1 ?? container.Item1;
+  const item2 = container.item2 ?? container.Item2;
+  const item3 = container.item3 ?? container.Item3;
 
   if (typeof item1 !== "number") {
     return { error: "item1 (customerId) missing or non-numeric" };
@@ -116,6 +130,18 @@ export function toSubmitResult(
         "transient classification must not be converted directly to SubmitResult",
       );
   }
+}
+
+interface AbpEnvelope {
+  result?: unknown;
+  success?: boolean;
+  error?: unknown;
+  __abp?: boolean;
+}
+
+function isAbpEnvelope(body: unknown): boolean {
+  if (!body || typeof body !== "object") return false;
+  return "success" in body || "__abp" in body;
 }
 
 function extractMessage(body: unknown): string {

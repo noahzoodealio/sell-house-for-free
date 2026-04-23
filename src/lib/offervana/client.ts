@@ -7,9 +7,9 @@ const OFFERVANA_BASE_URL = "https://sellfreeai.zoodealio.net";
 const CREATE_HOST_ADMIN_PATH =
   "/api/services/app/CustomerAppServiceV2/CreateHostAdminCustomer";
 
-const MAX_ATTEMPTS = 3;
-const PER_ATTEMPT_TIMEOUT_MS = 5000;
-const BACKOFF_SCHEDULE_MS = [0, 1000, 4000];
+const MAX_ATTEMPTS = 2;
+const PER_ATTEMPT_TIMEOUT_MS = 13_000;
+const BACKOFF_SCHEDULE_MS = [0, 1000];
 const JITTER_MAX_MS = 250;
 
 export interface CreateHostAdminOptions {

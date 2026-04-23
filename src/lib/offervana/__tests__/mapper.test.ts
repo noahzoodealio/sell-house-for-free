@@ -58,21 +58,21 @@ function baseDraft(overrides: Partial<SellerFormDraft> = {}): SellerFormDraft {
 }
 
 describe("mapDraftToNewClientDto", () => {
-  it("maps the cash path to CustomerLeadSource=13 with homeowner role + seller source flags", () => {
+  it("maps the cash path to customerLeadSource=13 with homeowner role + seller source flags", () => {
     const dto = mapDraftToNewClientDto(baseDraft());
-    expect(dto.CustomerLeadSource).toBe(
+    expect(dto.customerLeadSource).toBe(
       CUSTOMER_LEAD_SOURCE_SELL_YOUR_HOUSE_FREE,
     );
-    expect(dto.SubmitterRole).toBe(SUBMITTER_ROLE_HOMEOWNER);
-    expect(dto.IsSellerSource).toBe(true);
-    expect(dto.SendPrelims).toBe(true);
+    expect(dto.submitterRole).toBe(SUBMITTER_ROLE_HOMEOWNER);
+    expect(dto.isSellerSource).toBe(true);
+    expect(dto.sendPrelims).toBe(true);
   });
 
-  it("maps the renovation path to CustomerLeadSource=14", () => {
+  it("maps the renovation path to customerLeadSource=14", () => {
     const dto = mapDraftToNewClientDto(
       baseDraft({ pillarHint: "renovation-only" }),
     );
-    expect(dto.CustomerLeadSource).toBe(
+    expect(dto.customerLeadSource).toBe(
       CUSTOMER_LEAD_SOURCE_SELL_YOUR_HOUSE_FREE_RENOVATION,
     );
   });
@@ -80,25 +80,39 @@ describe("mapDraftToNewClientDto", () => {
   it("defaults listing path + missing pillarHint to lead source 13", () => {
     expect(
       mapDraftToNewClientDto(baseDraft({ pillarHint: "listing" }))
-        .CustomerLeadSource,
+        .customerLeadSource,
     ).toBe(CUSTOMER_LEAD_SOURCE_SELL_YOUR_HOUSE_FREE);
     expect(
       mapDraftToNewClientDto(baseDraft({ pillarHint: undefined }))
-        .CustomerLeadSource,
+        .customerLeadSource,
     ).toBe(CUSTOMER_LEAD_SOURCE_SELL_YOUR_HOUSE_FREE);
   });
 
-  it("emits contact fields via SignUpData", () => {
+  it("emits contact fields via signUpData (firstName/lastName/email/phone)", () => {
     const dto = mapDraftToNewClientDto(baseDraft());
-    expect(dto.SignUpData).toEqual({
-      Name: "Jane",
-      LastName: "Doe",
-      EmailAddress: "jane@example.com",
-      PhoneNumber: "+16025551234",
+    expect(dto.signUpData).toEqual({
+      firstName: "Jane",
+      lastName: "Doe",
+      email: "jane@example.com",
+      phone: "+16025551234",
     });
   });
 
-  it("concatenates street2 into PropertyAddress when present", () => {
+  it("emits address to propData with stateCd + zipCode + country=US + customerId=0", () => {
+    const dto = mapDraftToNewClientDto(baseDraft());
+    expect(dto.propData).toMatchObject({
+      address1: "123 Main St",
+      address2: null,
+      city: "Phoenix",
+      stateCd: "AZ",
+      zipCode: "85001",
+      country: "US",
+      customerId: 0,
+      propertyType: "single-family",
+    });
+  });
+
+  it("passes street2 through propData.address2 when present", () => {
     const dto = mapDraftToNewClientDto(
       baseDraft({
         address: {
@@ -110,20 +124,10 @@ describe("mapDraftToNewClientDto", () => {
         },
       }),
     );
-    expect(dto.PropData.PropertyAddress).toBe("123 Main St Apt 4");
+    expect(dto.propData.address2).toBe("Apt 4");
   });
 
-  it("falls back to user-entered property facts when enrichment is absent", () => {
-    const dto = mapDraftToNewClientDto(baseDraft());
-    expect(dto.PropData.PropertyBedrooms).toBe(3);
-    expect(dto.PropData.PropertyBathrooms).toBe(2);
-    expect(dto.PropData.PropertySquareFootage).toBe(1800);
-    expect(dto.PropData.PropertyYearBuilt).toBe(1995);
-    expect(dto.PropData.AttomId).toBeNull();
-    expect(dto.PropData.MlsRecordId).toBeNull();
-  });
-
-  it("prefers enrichment.details + propagates attomId/mlsRecordId when enrichment.status=ok", () => {
+  it("emits bedrooms/bathrooms/squareFootage at top level of surveyData (offervana reads them via dynamic binder), preferring enrichment when status=ok", () => {
     const dto = mapDraftToNewClientDto(
       baseDraft({
         property: {
@@ -147,15 +151,39 @@ describe("mapDraftToNewClientDto", () => {
         },
       }),
     );
-    expect(dto.PropData.PropertyBedrooms).toBe(4);
-    expect(dto.PropData.PropertyBathrooms).toBe(2.5);
-    expect(dto.PropData.PropertySquareFootage).toBe(2200);
-    expect(dto.PropData.PropertyYearBuilt).toBe(2001);
-    expect(dto.PropData.AttomId).toBe("A-1001");
-    expect(dto.PropData.MlsRecordId).toBe("M-2002");
+    const survey = JSON.parse(dto.surveyData!);
+    expect(survey.bedrooms).toBe(4);
+    expect(survey.bathrooms).toBe(2.5);
+    expect(survey.squareFootage).toBe(2200);
+    expect(survey.yearBuilt).toBe(2001);
+    expect(survey.attomId).toBe("A-1001");
+    expect(survey.mlsRecordId).toBe("M-2002");
+    expect(dto.propData.legalOne).toBe("A-1001");
   });
 
-  it("ignores enrichment.details when status is timeout/error but still forwards ids if present", () => {
+  it("falls back to user-entered property facts when enrichment absent, top-level on surveyData", () => {
+    const dto = mapDraftToNewClientDto(baseDraft());
+    const survey = JSON.parse(dto.surveyData!);
+    expect(survey.bedrooms).toBe(3);
+    expect(survey.bathrooms).toBe(2);
+    expect(survey.squareFootage).toBe(1800);
+    expect(survey.attomId).toBeNull();
+    expect(survey.enrichmentStatus).toBe("idle");
+  });
+
+  it("defaults bedrooms=1 / bathrooms=1 / squareFootage=1500 when both sources absent (offervana decimal cast requires non-null)", () => {
+    const dto = mapDraftToNewClientDto(
+      baseDraft({
+        property: { propertyType: "single-family" },
+      }),
+    );
+    const survey = JSON.parse(dto.surveyData!);
+    expect(survey.bedrooms).toBe(1);
+    expect(survey.bathrooms).toBe(1);
+    expect(survey.squareFootage).toBe(1500);
+  });
+
+  it("ignores enrichment.details when status is not ok but still carries attomId if present", () => {
     const dto = mapDraftToNewClientDto(
       baseDraft({
         enrichment: {
@@ -165,31 +193,38 @@ describe("mapDraftToNewClientDto", () => {
         },
       }),
     );
-    expect(dto.PropData.PropertyBedrooms).toBe(3);
-    expect(dto.PropData.AttomId).toBe("A-9");
+    const survey = JSON.parse(dto.surveyData!);
+    expect(survey.bedrooms).toBe(3);
+    expect(survey.attomId).toBe("A-9");
+    expect(dto.propData.legalOne).toBe("A-9");
   });
 
-  it("serializes SurveyData as JSON containing condition, consent versions, and enrichment status", () => {
+  it("serializes surveyData as a JSON string carrying condition + consent + path", () => {
     const dto = mapDraftToNewClientDto(
       baseDraft({
-        enrichment: {
-          status: "ok",
-          listingStatus: "not-listed",
-        },
+        enrichment: { status: "ok", listingStatus: "not-listed" },
       }),
     );
-    const survey = JSON.parse(dto.SurveyData!);
+    expect(typeof dto.surveyData).toBe("string");
+    const survey = JSON.parse(dto.surveyData!);
     expect(survey.condition).toEqual({
       currentCondition: "move-in",
       timeline: "0-3mo",
     });
     expect(survey.consent.tcpa).toBe("tcpa-2026-04");
-    expect(survey.consent.acceptedAt).toBe("2026-04-23T15:00:00.000Z");
-    expect(survey.enrichmentStatus).toBe("ok");
     expect(survey.currentListingStatus).toBe("not-listed");
+    expect(survey.sellYourHouseFreePath).toBe("cash");
   });
 
-  it("copies utm + click identifiers + referrer, parses entryTimestamp to ms, defaults others to null", () => {
+  it("derives sellYourHouseFreePath='renovation' on pillarHint='renovation-only'", () => {
+    const dto = mapDraftToNewClientDto(
+      baseDraft({ pillarHint: "renovation-only" }),
+    );
+    const survey = JSON.parse(dto.surveyData!);
+    expect(survey.sellYourHouseFreePath).toBe("renovation");
+  });
+
+  it("copies utm + click identifiers + parses entryTimestamp to ms", () => {
     const dto = mapDraftToNewClientDto(
       baseDraft({
         attribution: {
@@ -209,37 +244,32 @@ describe("mapDraftToNewClientDto", () => {
         },
       }),
     );
-    expect(dto.UtmSource).toBe("google");
-    expect(dto.UtmMedium).toBe("cpc");
-    expect(dto.UtmCampaign).toBe("az-sellers");
-    expect(dto.UtmTerm).toBe("sell house");
-    expect(dto.UtmContent).toBe("ad-42");
-    expect(dto.Gclid).toBe("gclid-x");
-    expect(dto.Gbraid).toBe("gb-y");
-    expect(dto.Wbraid).toBe("wb-z");
-    expect(dto.GadSource).toBe("AdSource-1");
-    expect(dto.GadCampaignId).toBe("cmp-7");
-    expect(dto.Referrer).toBe("https://news.example.com");
-    expect(dto.EntryPage).toBe("/get-started");
-    expect(dto.EntryTimestamp).toBe(Date.parse("2026-04-23T14:59:00.000Z"));
-    expect(dto.GppcParam).toBeNull();
-    expect(dto.SessionId).toBeNull();
+    expect(dto.utmSource).toBe("google");
+    expect(dto.utmMedium).toBe("cpc");
+    expect(dto.gclid).toBe("gclid-x");
+    expect(dto.entryTimestamp).toBe(Date.parse("2026-04-23T14:59:00.000Z"));
+    expect(dto.referrer).toBe("https://news.example.com");
+    expect(dto.gppcParam).toBeNull();
+    expect(dto.sessionId).toBeNull();
   });
 
-  it("returns null EntryTimestamp when attribution.entryTimestamp is missing or unparseable", () => {
-    expect(mapDraftToNewClientDto(baseDraft()).EntryTimestamp).toBeNull();
+  it("returns null entryTimestamp when attribution.entryTimestamp is missing or unparseable", () => {
+    expect(mapDraftToNewClientDto(baseDraft()).entryTimestamp).toBeNull();
     expect(
       mapDraftToNewClientDto(
         baseDraft({ attribution: { entryTimestamp: "not-a-date" } }),
-      ).EntryTimestamp,
+      ).entryTimestamp,
     ).toBeNull();
   });
 
-  it("emits PascalCase top-level keys for wire compatibility", () => {
+  it("emits camelCase top-level keys for wire compatibility with the swagger-documented schema", () => {
     const dto = mapDraftToNewClientDto(baseDraft());
-    const keys = Object.keys(dto);
-    for (const k of keys) {
-      expect(/^[A-Z]/.test(k)).toBe(true);
+    for (const k of Object.keys(dto)) {
+      expect(/^[a-z]/.test(k)).toBe(true);
     }
+    expect(Object.keys(dto.signUpData).every((k) => /^[a-z]/.test(k))).toBe(
+      true,
+    );
+    expect(Object.keys(dto.propData).every((k) => /^[a-z]/.test(k))).toBe(true);
   });
 });

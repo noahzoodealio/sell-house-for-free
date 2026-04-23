@@ -2,11 +2,35 @@ import { describe, expect, it } from "vitest";
 import { classifyResponse, normalizeOkPayload } from "@/lib/offervana/errors";
 
 describe("classifyResponse", () => {
-  it("returns ok for 2xx", () => {
-    expect(classifyResponse(200, { item1: 1, item2: 2, item3: "abc" }).kind).toBe(
-      "ok",
-    );
+  it("returns ok for 2xx with ABP envelope unwrapping", () => {
+    expect(
+      classifyResponse(200, {
+        result: { item1: 1, item2: 2, item3: "abc" },
+        success: true,
+        error: null,
+        __abp: true,
+      }).kind,
+    ).toBe("ok");
     expect(classifyResponse(201, {}).kind).toBe("ok");
+  });
+
+  it("treats 200 with ABP success:false as non-ok", () => {
+    expect(
+      classifyResponse(200, {
+        result: null,
+        success: false,
+        error: { message: "User friendly fail" },
+        __abp: true,
+      }).kind,
+    ).toBe("permanent-failure");
+    expect(
+      classifyResponse(200, {
+        result: null,
+        success: false,
+        error: { message: "Email already registered" },
+        __abp: true,
+      }).kind,
+    ).toBe("email-conflict");
   });
 
   it("detects email-conflict on non-2xx responses (ABP UserFriendlyException)", () => {
@@ -55,9 +79,20 @@ describe("classifyResponse", () => {
 });
 
 describe("normalizeOkPayload", () => {
-  it("normalizes lowercase item1/item2/item3", () => {
+  it("normalizes lowercase item1/item2/item3 at top level", () => {
     expect(
       normalizeOkPayload({ item1: 42, item2: 1337, item3: "REF-XYZ" }),
+    ).toEqual({ customerId: 42, userId: 1337, referralCode: "REF-XYZ" });
+  });
+
+  it("unwraps the ABP envelope result wrapper", () => {
+    expect(
+      normalizeOkPayload({
+        result: { item1: 42, item2: 1337, item3: "REF-XYZ" },
+        success: true,
+        error: null,
+        __abp: true,
+      }),
     ).toEqual({ customerId: 42, userId: 1337, referralCode: "REF-XYZ" });
   });
 

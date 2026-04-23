@@ -27,23 +27,25 @@ const submissionId = "44444444-4444-4444-8444-444444444444";
 const now = new Date("2026-04-23T16:00:00.000Z");
 
 const sampleDto: NewClientDto = {
-  PropData: {
-    PropertyAddress: "1 A St",
-    PropertyCity: "Phoenix",
-    PropertyState: "AZ",
-    PropertyZip: "85001",
+  propData: {
+    address1: "1 A St",
+    city: "Phoenix",
+    country: "US",
+    stateCd: "AZ",
+    zipCode: "85001",
+    customerId: 0,
   },
-  SignUpData: {
-    Name: "Jane",
-    LastName: "Doe",
-    EmailAddress: "jane@example.com",
-    PhoneNumber: "+16025551234",
+  signUpData: {
+    firstName: "Jane",
+    lastName: "Doe",
+    email: "jane@example.com",
+    phone: "+16025551234",
   },
-  SurveyData: null,
-  SendPrelims: true,
-  CustomerLeadSource: 13,
-  SubmitterRole: 0,
-  IsSellerSource: true,
+  surveyData: null,
+  sendPrelims: true,
+  customerLeadSource: 13,
+  submitterRole: 0,
+  isSellerSource: true,
 };
 
 describe("recordDeadLetter", () => {
@@ -85,9 +87,9 @@ describe("recordDeadLetter", () => {
     expect((row.draft_json as Record<string, unknown>).contact).toBeUndefined();
 
     const dto = row.dto_json as Record<string, unknown>;
-    expect(dto.SignUpData).toBeUndefined();
-    expect(dto.PropData).toBeDefined();
-    expect(dto.CustomerLeadSource).toBe(13);
+    expect(dto.signUpData).toBeUndefined();
+    expect(dto.propData).toBeDefined();
+    expect(dto.customerLeadSource).toBe(13);
   });
 
   it("emits a single structured JSON log line on console.error", async () => {

@@ -10,7 +10,9 @@ import {
 } from "@/lib/seller-form/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 15;
+// Offervana host-admin create-customer call typically takes 3–8s; 30s gives
+// retry headroom within the S2 2-attempt @ 13s/attempt budget.
+export const maxDuration = 30;
 
 export const metadata = buildMetadata({
   title: "Get started",

@@ -1,50 +1,50 @@
 export interface NewClientDto {
-  PropData: AddPropInput;
-  SignUpData: SignUpData;
-  SurveyData: string | null;
-  SendPrelims: boolean;
-  CustomerLeadSource: number | null;
-  SubmitterRole: number;
-  IsSellerSource: boolean | null;
-  GppcParam?: string | null;
-  EntryPage?: string | null;
-  EntryTimestamp?: number | null;
-  Gclid?: string | null;
-  Gbraid?: string | null;
-  Wbraid?: string | null;
-  GadSource?: string | null;
-  GadCampaignId?: string | null;
-  UtmSource?: string | null;
-  UtmMedium?: string | null;
-  UtmCampaign?: string | null;
-  UtmTerm?: string | null;
-  UtmContent?: string | null;
-  Referrer?: string | null;
-  SessionId?: string | null;
+  propData: AddPropInput;
+  signUpData: SignUpData;
+  surveyData: string | null;
+  sendPrelims: boolean;
+  customerLeadSource: number | null;
+  submitterRole: number;
+  isSellerSource: boolean | null;
+  gppcParam?: string | null;
+  entryPage?: string | null;
+  entryTimestamp?: number | null;
+  gclid?: string | null;
+  gbraid?: string | null;
+  wbraid?: string | null;
+  gadSource?: string | null;
+  gadCampaignId?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  utmTerm?: string | null;
+  utmContent?: string | null;
+  referrer?: string | null;
+  sessionId?: string | null;
 }
 
 export interface AddPropInput {
-  PropertyAddress: string;
-  PropertyCity: string;
-  PropertyState: string;
-  PropertyZip: string;
-  PropertyCounty?: string | null;
-  PropertyBedrooms?: number | null;
-  PropertyBathrooms?: number | null;
-  PropertySquareFootage?: number | null;
-  PropertyYearBuilt?: number | null;
-  PropertyType?: string | null;
-  AttomId?: string | null;
-  MlsRecordId?: string | null;
-  [key: string]: unknown;
+  address1: string;
+  address2?: string | null;
+  city: string;
+  country: string;
+  stateCd: string;
+  zipCode: string;
+  gpsCoordinates?: string | null;
+  customerId: number;
+  propertyType?: string | null;
+  dwellingType?: number | null;
+  absenteeInd?: number | null;
+  legalOne?: string | null;
+  reoFlag?: boolean | null;
+  auctionDate?: string | null;
 }
 
 export interface SignUpData {
-  Name: string;
-  LastName: string;
-  EmailAddress: string;
-  PhoneNumber: string;
-  [key: string]: unknown;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
 }
 
 export interface OffervanaOkPayload {

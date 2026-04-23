@@ -70,7 +70,7 @@ function redactDraftPii(
 }
 
 function redactDtoPii(dto: NewClientDto): Record<string, unknown> {
-  const { SignUpData: _signUpData, ...rest } = dto as unknown as Record<
+  const { signUpData: _signUpData, ...rest } = dto as unknown as Record<
     string,
     unknown
   >;
