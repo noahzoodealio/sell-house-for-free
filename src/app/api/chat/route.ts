@@ -14,6 +14,7 @@ import { transactionManagerPrompt } from "@/lib/ai/prompts/transaction-manager";
 import { analyzeOfferTool } from "@/lib/ai/tools/analyze-offer";
 import { explainTermsTool } from "@/lib/ai/tools/explain-terms";
 import { reviewPdfTool } from "@/lib/ai/tools/review-pdf";
+import { reviewPhotosTool } from "@/lib/ai/tools/review-photos";
 import {
   bumpSessionActivity,
   loadSession,
@@ -123,6 +124,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         id: sessionId,
         context: session.context,
       }),
+      review_photos: reviewPhotosTool({ id: sessionId }),
     },
     stopWhen: stepCountIs(8),
     experimental_telemetry: {

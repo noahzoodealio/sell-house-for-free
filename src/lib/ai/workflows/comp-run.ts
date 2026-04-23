@@ -172,15 +172,27 @@ export async function hydrateStep(
 export async function reviewPhotosStep(
   hydrated: HydratedComp[],
 ): Promise<PhotoAssessment[]> {
-  // S17 replaces this body with Claude vision.
-  return hydrated.map((h) => ({
-    mlsRecordId: h.mlsRecordId,
-    condition: "unknown" as const,
-    notableFeatures: [],
-    concerns: [],
-    disclaimer:
-      "AI photo assessment pending — S17 lights up the vision pass.",
-  }));
+  const { reviewPhotosImpl } = await import("@/lib/ai/tools/review-photos");
+  const results = await Promise.all(
+    hydrated.map(async (h) => {
+      try {
+        return await reviewPhotosImpl({
+          mlsRecordId: h.mlsRecordId,
+          photoUrls: h.photoUrls,
+        });
+      } catch {
+        return {
+          mlsRecordId: h.mlsRecordId,
+          condition: "unknown" as const,
+          notableFeatures: [],
+          concerns: [],
+          disclaimer:
+            "AI-authored photo read unavailable — vision call failed.",
+        };
+      }
+    }),
+  );
+  return results;
 }
 
 export async function applyDeviationsStep(
