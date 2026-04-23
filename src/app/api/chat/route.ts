@@ -15,6 +15,7 @@ import { analyzeOfferTool } from "@/lib/ai/tools/analyze-offer";
 import { explainTermsTool } from "@/lib/ai/tools/explain-terms";
 import { reviewPdfTool } from "@/lib/ai/tools/review-pdf";
 import { reviewPhotosTool } from "@/lib/ai/tools/review-photos";
+import { startCompJobTool } from "@/lib/ai/tools/start-comp-job";
 import {
   bumpSessionActivity,
   loadSession,
@@ -125,6 +126,10 @@ export async function POST(request: NextRequest): Promise<Response> {
         context: session.context,
       }),
       review_photos: reviewPhotosTool({ id: sessionId }),
+      start_comp_job: startCompJobTool({
+        id: sessionId,
+        context: session.context,
+      }),
     },
     stopWhen: stepCountIs(8),
     experimental_telemetry: {
