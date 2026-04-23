@@ -9,6 +9,9 @@ import {
   type StepSlug,
 } from "@/lib/seller-form/types";
 
+export const runtime = "nodejs";
+export const maxDuration = 15;
+
 export const metadata = buildMetadata({
   title: "Get started",
   description:

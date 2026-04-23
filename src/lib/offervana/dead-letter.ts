@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import type { Database, OffervanaFailureReason } from "@/lib/supabase/schema";
+import type { OffervanaFailureReason } from "@/lib/supabase/schema";
 
 import type { NewClientDto } from "./types";
 
@@ -16,7 +16,7 @@ export interface DeadLetterInput {
 }
 
 export interface DeadLetterDeps {
-  client?: SupabaseClient<Database>;
+  client?: SupabaseClient;
   logger?: Pick<Console, "error">;
   now?: () => Date;
 }
@@ -70,7 +70,10 @@ function redactDraftPii(
 }
 
 function redactDtoPii(dto: NewClientDto): Record<string, unknown> {
-  const { SignUpData: _signUpData, ...rest } = dto as Record<string, unknown>;
+  const { SignUpData: _signUpData, ...rest } = dto as unknown as Record<
+    string,
+    unknown
+  >;
   return rest;
 }
 

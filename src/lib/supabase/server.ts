@@ -3,9 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import type { Database } from "./schema";
-
-export const getSupabaseAdmin = cache((): SupabaseClient<Database> => {
+export const getSupabaseAdmin = cache((): SupabaseClient => {
   const url = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -20,7 +18,7 @@ export const getSupabaseAdmin = cache((): SupabaseClient<Database> => {
     );
   }
 
-  return createClient<Database>(url, serviceRoleKey, {
+  return createClient(url, serviceRoleKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

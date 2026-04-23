@@ -1,14 +1,16 @@
 "use server";
 
-/**
- * Server Action for the seller submission.
- *
- * **SIGNATURE MUST NOT CHANGE.** E5 replaces only the happy-path body —
- * Zod call + return shape + redirect stay stable so the orchestrator
- * (S3) doesn't re-wire when E5 lands the real Offervana pipeline.
- */
-
+import { after } from "next/server";
 import { redirect } from "next/navigation";
+
+import { createHostAdminCustomer } from "@/lib/offervana/client";
+import { recordDeadLetter } from "@/lib/offervana/dead-letter";
+import {
+  lookupIdempotent,
+  storeIdempotent,
+} from "@/lib/offervana/idempotency";
+import { mapDraftToNewClientDto } from "@/lib/offervana/mapper";
+import type { SubmitResult } from "@/lib/offervana/types";
 import { validateAll } from "@/lib/seller-form/schema";
 import type {
   AttributionFields,
@@ -65,6 +67,16 @@ function parseFormData(formData: FormData): unknown {
   return candidate;
 }
 
+function logAudit(event: string, payload: Record<string, unknown>): void {
+  console.log(
+    JSON.stringify({
+      event,
+      ts: new Date().toISOString(),
+      ...payload,
+    }),
+  );
+}
+
 export async function submitSellerForm(
   _prevState: SubmitState,
   formData: FormData,
@@ -77,18 +89,109 @@ export async function submitSellerForm(
   }
 
   const draft = result.data as SellerFormDraft;
-  const idempotencyKey =
-    strOrUndefined(formData.get("idempotencyKey")) ?? draft.submissionId;
+  const submissionId = draft.submissionId;
 
-  // E5 replaces this block with the real Offervana HTTP call + retry.
-  if (process.env.NODE_ENV !== "production") {
-    const { contact: _contact, ...safeDraft } = draft;
-    console.log("[submitSellerForm]", {
-      idempotencyKey,
-      submissionId: draft.submissionId,
-      draft: safeDraft,
+  const cached = await lookupIdempotent(submissionId).catch((err: Error) => {
+    logAudit("offervana.idempotency.lookup_failed", {
+      submissionId,
+      error: err.message,
     });
+    return null;
+  });
+
+  if (cached) {
+    logAudit("offervana.submit.idempotent_replay", {
+      submissionId,
+      referralCode: cached.referralCode,
+    });
+    redirect(
+      `/get-started/thanks?ref=${encodeURIComponent(cached.referralCode)}`,
+    );
   }
 
-  redirect(`/get-started/thanks?ref=${encodeURIComponent(draft.submissionId)}`);
+  const dto = mapDraftToNewClientDto(draft);
+  const submitResult: SubmitResult = await createHostAdminCustomer(dto, {
+    submissionId,
+  });
+
+  const referralCode = resolveReferralCode(submitResult);
+
+  after(async () => {
+    await dispatchAfter(draft, dto, submitResult, referralCode);
+  });
+
+  redirect(`/get-started/thanks?ref=${encodeURIComponent(referralCode)}`);
+}
+
+function resolveReferralCode(result: SubmitResult): string {
+  switch (result.kind) {
+    case "ok":
+      return result.payload.referralCode;
+    case "email-conflict":
+      return "pending";
+    case "permanent-failure":
+    case "transient-exhausted":
+    case "malformed-response":
+      return "unassigned";
+  }
+}
+
+async function dispatchAfter(
+  draft: SellerFormDraft,
+  dto: ReturnType<typeof mapDraftToNewClientDto>,
+  result: SubmitResult,
+  referralCode: string,
+): Promise<void> {
+  const submissionId = draft.submissionId;
+
+  if (result.kind === "ok") {
+    await storeIdempotent(submissionId, result.payload).catch((err: Error) => {
+      logAudit("offervana.idempotency.store_failed", {
+        submissionId,
+        error: err.message,
+      });
+    });
+    logAudit("offervana.submit.ok", {
+      submissionId,
+      customerId: result.payload.customerId,
+      userId: result.payload.userId,
+      referralCode: result.payload.referralCode,
+      attempts: result.attempts,
+    });
+    // E6 owns the PM handoff write; stub for now.
+    logAudit("offervana.pm_handoff.pending", {
+      submissionId,
+      referralCode: result.payload.referralCode,
+    });
+    return;
+  }
+
+  const reason =
+    result.kind === "email-conflict"
+      ? "email-conflict"
+      : result.kind === "permanent-failure"
+        ? "permanent"
+        : result.kind === "transient-exhausted"
+          ? "transient-exhausted"
+          : "malformed-response";
+
+  await recordDeadLetter({
+    submissionId,
+    reason,
+    detail: { kind: result.kind, attempts: result.attempts, ...result.detail },
+    draftJson: draft as unknown as Record<string, unknown>,
+    dto,
+  }).catch((err: Error) => {
+    logAudit("offervana.dead_letter.write_failed", {
+      submissionId,
+      reason,
+      error: err.message,
+    });
+  });
+
+  logAudit("offervana.submit.dead_letter_scheduled", {
+    submissionId,
+    reason,
+    referralCode,
+  });
 }

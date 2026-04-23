@@ -3,14 +3,14 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import type { Database, OffervanaIdempotencyRow } from "@/lib/supabase/schema";
+import type { OffervanaIdempotencyRow } from "@/lib/supabase/schema";
 
 import type { OffervanaOkPayload } from "./types";
 
 export const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface IdempotencyDeps {
-  client?: SupabaseClient<Database>;
+  client?: SupabaseClient;
   now?: () => Date;
 }
 
