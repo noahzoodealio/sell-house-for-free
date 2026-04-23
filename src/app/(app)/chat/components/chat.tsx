@@ -7,6 +7,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
+import { DocUpload } from "./doc-upload";
 import { Message } from "./message";
 
 interface ChatProps {
@@ -116,7 +117,16 @@ export function Chat({ sessionId }: ChatProps) {
         className="border-t border-border px-4 py-3 bg-surface"
         aria-label="Send a message"
       >
-        <div className="max-w-4xl mx-auto flex items-end gap-2">
+        <div className="max-w-4xl mx-auto flex flex-col gap-2">
+          <DocUpload
+            onUploaded={(file) => {
+              void sendMessage({
+                text: `I just uploaded ${file.originalName} — can you take a look? (documentId: ${file.documentId})`,
+              });
+            }}
+          />
+        </div>
+        <div className="max-w-4xl mx-auto flex items-end gap-2 mt-2">
           <label htmlFor="chat-input" className="sr-only">
             Message
           </label>
