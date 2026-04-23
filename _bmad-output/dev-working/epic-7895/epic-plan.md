@@ -99,9 +99,32 @@ Single feature branch: `feature/e9-ai-agent-suite-7895` (worktree at `.claude/wo
 
 ## Autopilot phases checklist
 
-- [ ] Plan approved by user
+- [x] Plan approved by user (auto-mode, user invoked `/zoo-core-dev-epic e9 do everything in a worktree`)
 - [ ] Phase A complete (S1–S7)
 - [ ] Phase B complete (S8–S15)
 - [ ] Phase C complete (S16–S23)
 - [ ] `summary-report.md` written
 - [ ] Feature #7895 state set to Ready For Testing (per ADO state feedback memory: In Development → Code Review → Ready For Testing)
+
+## Per-story completion log
+
+Appended as each story closes out. Survives compaction — newest at bottom.
+
+### S1 — #7896 — ai_sessions/messages/tool_runs/artifacts tables + ai-docs bucket
+- Commit: `ff98ee9`
+- Files: `supabase/migrations/20260423190000_e9_s1_ai_tables.sql`, `supabase/migrations/20260423190100_e9_s1_ai_storage_bucket.sql`
+- Naming: timestamp-prefix (matches E5 convention); story asked for ordinal (`0003_*`) but AC#instructed verify-then-follow existing pattern.
+- Migration ordinals used: two above + existing E5 at `20260423165128` and `20260423174659`.
+- **Open action: apply to staging Supabase before S3 integration tests.** Use `scripts/apply-migration.mjs` (E5-S1 precedent) or `supabase db push`.
+- Deferred: FK to `public.submissions` on `ai_sessions.submission_id` — E6 has not shipped that table; column is intentionally a soft-reference `text null`.
+- 30-day retention for ai-docs bucket: pg_cron job `delete_old_ai_docs_nightly` at 03:00 UTC (native lifecycle not uniformly available; fallback per story AC#12).
+- Tests: schema-level only; no unit tests in this story (migration AC requires an applied DB to verify).
+
+### S2 — #7897 — AI Gateway client + packages
+- Commit: `4ffec21`
+- Files: `package.json`, `package-lock.json`, `src/lib/ai/gateway.ts`, `src/lib/ai/__tests__/gateway.test.ts`, `scripts/smoke-ai-gateway.mjs`, `.env.example`
+- **Package name surprise:** Vercel Workflow DevKit ships on npm as plain `workflow` (v4.2.4, vercel-release-bot), not `@vercel/workflow` as the Feature description and Feature #7895 story body said. Installed `workflow@^4.2.4`; propagated this name into S16's scope.
+- AI SDK v6 exports no public `GatewayProvider` type — module uses `ReturnType<typeof createGateway>` to derive it.
+- Deferred: `docs/launch/env-matrix.md` rows (file belongs to E8-S1; not on main yet). Follow-up once E8 merges; `.env.example` changes here are the source of truth until then.
+- Tests (4): models-shape, Object.isFrozen, missing-key throws, present-key returns a model object with modelId.
+- `npx tsc --noEmit` clean; vitest clean.
