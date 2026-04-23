@@ -2,6 +2,11 @@ import type { ReactElement } from "react";
 import type { UIMessage } from "@ai-sdk/react";
 
 import { cn } from "@/lib/cn";
+import { DocSummarySchema } from "@/lib/ai/schemas/doc-summary";
+import { OfferAnalysisSchema } from "@/lib/ai/schemas/offer-analysis";
+
+import { DocSummaryCard } from "./doc-summary-card";
+import { OfferAnalysisCard } from "./offer-analysis-card";
 
 /**
  * Minimal markdown renderer for bold/italic/inline-code/links/bulleted-and-numbered lists.
@@ -132,12 +137,60 @@ function renderBlocks(text: string): ReactElement[] {
   return blocks;
 }
 
+function extractToolResults(message: UIMessage): Array<{
+  toolName: string;
+  result: unknown;
+}> {
+  const results: Array<{ toolName: string; result: unknown }> = [];
+  for (const part of message.parts ?? []) {
+    const p = part as {
+      type: string;
+      toolName?: string;
+      output?: unknown;
+      result?: unknown;
+    };
+    if (typeof p.type !== "string") continue;
+    if (!p.type.startsWith("tool-") && p.type !== "tool-result") continue;
+
+    const toolName =
+      p.toolName ??
+      (p.type.startsWith("tool-") ? p.type.slice("tool-".length) : undefined);
+    const payload = p.output ?? p.result;
+    if (!toolName || payload === undefined) continue;
+
+    results.push({ toolName, result: payload });
+  }
+  return results;
+}
+
 export function Message({ message }: { message: UIMessage }) {
   const isUser = message.role === "user";
   const textParts = (message.parts ?? [])
     .filter((part): part is { type: "text"; text: string } => part.type === "text")
     .map((part) => part.text)
     .join("\n");
+  const toolResults = extractToolResults(message);
+
+  const cards: ReactElement[] = [];
+  for (const [i, r] of toolResults.entries()) {
+    if (r.toolName === "review_pdf") {
+      const parsed = DocSummarySchema.safeParse(
+        (r.result as { summary?: unknown }).summary ?? r.result,
+      );
+      if (parsed.success) {
+        cards.push(<DocSummaryCard key={`doc-${i}`} summary={parsed.data} />);
+        continue;
+      }
+    }
+    if (r.toolName === "analyze_offer") {
+      const parsed = OfferAnalysisSchema.safeParse(r.result);
+      if (parsed.success) {
+        cards.push(
+          <OfferAnalysisCard key={`offer-${i}`} analysis={parsed.data} />,
+        );
+      }
+    }
+  }
 
   return (
     <div
@@ -146,15 +199,20 @@ export function Message({ message }: { message: UIMessage }) {
         isUser ? "justify-end" : "justify-start",
       )}
     >
-      <div
-        className={cn(
-          "max-w-[82%] md:max-w-[70%] rounded-2xl px-4 py-3 text-[15px]",
-          isUser
-            ? "bg-brand text-brand-foreground"
-            : "bg-surface border border-border text-ink-body",
+      <div className="max-w-[82%] md:max-w-[70%] flex flex-col gap-2">
+        {textParts && (
+          <div
+            className={cn(
+              "rounded-2xl px-4 py-3 text-[15px]",
+              isUser
+                ? "bg-brand text-brand-foreground"
+                : "bg-surface border border-border text-ink-body",
+            )}
+          >
+            {renderBlocks(textParts)}
+          </div>
         )}
-      >
-        {renderBlocks(textParts)}
+        {cards}
       </div>
     </div>
   );
