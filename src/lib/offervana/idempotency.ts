@@ -40,7 +40,6 @@ export async function lookupIdempotent(
   const row = data as OffervanaIdempotencyRow;
   return {
     customerId: row.customer_id,
-    userId: row.user_id,
     referralCode: row.referral_code,
   };
 }
@@ -57,7 +56,7 @@ export async function storeIdempotent(
     {
       submission_id: submissionId,
       customer_id: payload.customerId,
-      user_id: payload.userId,
+      user_id: null,
       referral_code: payload.referralCode,
       created_at: now.toISOString(),
     },

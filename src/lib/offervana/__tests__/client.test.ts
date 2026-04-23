@@ -1,30 +1,47 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createHostAdminCustomer } from "@/lib/offervana/client";
-import type { NewClientDto } from "@/lib/offervana/types";
+import { createOuterApiCustomer } from "@/lib/offervana/client";
+import type { CreateCustomerDto } from "@/lib/offervana/types";
 
 const ORIGINAL_ENV = process.env.ZOODEALIO_API_KEY;
 
-function makeDto(): NewClientDto {
+function makeDto(): CreateCustomerDto {
   return {
-    propData: {
-      address1: "123 Main",
-      city: "Phoenix",
-      country: "US",
-      stateCd: "AZ",
-      zipCode: "85001",
-      customerId: 0,
-    },
-    signUpData: {
+    name: "Jane",
+    surname: "Doe",
+    emailAddress: "jane@example.com",
+    phoneNumber: "+16025551234",
+    isEmailNotificationsEnabled: true,
+    isSmsNotificationsEnabled: true,
+    address1: "123 Main",
+    city: "Phoenix",
+    stateCd: "AZ",
+    zipCode: "85001",
+    country: "US",
+    floors: 1,
+    bedroomsCount: 3,
+    bathroomsCount: 2,
+    squareFootage: 1800,
+  };
+}
+
+function okEnvelope(id = 99, ref = "R-1") {
+  return {
+    result: {
+      id,
       firstName: "Jane",
       lastName: "Doe",
       email: "jane@example.com",
       phone: "+16025551234",
+      referalType: "host-admin",
+      referalCode: ref,
+      createdOn: "2026-04-23T00:00:00Z",
+      updatedOn: "2026-04-23T00:00:00Z",
     },
-    surveyData: null,
-    sendPrelims: true,
-    customerLeadSource: 13,
-    submitterRole: 0,
-    isSellerSource: true,
+    targetUrl: null,
+    success: true,
+    error: null,
+    unAuthorizedRequest: false,
+    __abp: true,
   };
 }
 
@@ -45,19 +62,17 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("createHostAdminCustomer", () => {
+describe("createOuterApiCustomer", () => {
   it("throws when ZOODEALIO_API_KEY is missing", async () => {
     delete process.env.ZOODEALIO_API_KEY;
     await expect(
-      createHostAdminCustomer(makeDto(), { fetchImpl: vi.fn() }),
+      createOuterApiCustomer(makeDto(), { fetchImpl: vi.fn() }),
     ).rejects.toThrow(/ZOODEALIO_API_KEY/);
   });
 
-  it("returns ok on HTTP 200 with valid ValueTuple body", async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(jsonResponse(200, { item1: 99, item2: 1, item3: "R1" }));
-    const result = await createHostAdminCustomer(makeDto(), {
+  it("POSTs to /openapi/Customers with ApiKey header + cache: no-store + ABP envelope unwrap", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(200, okEnvelope(42, "REF-1")));
+    const result = await createOuterApiCustomer(makeDto(), {
       fetchImpl,
       sleep: async () => {},
       random: () => 0,
@@ -65,19 +80,17 @@ describe("createHostAdminCustomer", () => {
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
       expect(result.payload).toEqual({
-        customerId: 99,
-        userId: 1,
-        referralCode: "R1",
+        customerId: 42,
+        referralCode: "REF-1",
       });
       expect(result.attempts).toBe(1);
     }
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe(
-      "https://sellfreeai.zoodealio.net/api/services/app/CustomerAppServiceV2/CreateHostAdminCustomer",
-    );
+    expect(url).toBe("https://sellfreeai.zoodealio.net/openapi/Customers");
     expect(init.method).toBe("POST");
-    expect(init.headers.Authorization).toBe("Bearer test-key");
+    expect(init.headers.ApiKey).toBe("test-key");
+    expect(init.headers.Authorization).toBeUndefined();
     expect(init.cache).toBe("no-store");
   });
 
@@ -85,10 +98,8 @@ describe("createHostAdminCustomer", () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse(503, { error: { message: "busy" } }))
-      .mockResolvedValueOnce(
-        jsonResponse(200, { item1: 1, item2: 2, item3: "R" }),
-      );
-    const result = await createHostAdminCustomer(makeDto(), {
+      .mockResolvedValueOnce(jsonResponse(200, okEnvelope(1, "R")));
+    const result = await createOuterApiCustomer(makeDto(), {
       fetchImpl,
       sleep: async () => {},
       random: () => 0,
@@ -100,7 +111,7 @@ describe("createHostAdminCustomer", () => {
 
   it("returns transient-exhausted after exhausting attempts", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(502, null));
-    const result = await createHostAdminCustomer(makeDto(), {
+    const result = await createOuterApiCustomer(makeDto(), {
       fetchImpl,
       sleep: async () => {},
       random: () => 0,
@@ -118,7 +129,7 @@ describe("createHostAdminCustomer", () => {
         error: { message: "Email already registered for user." },
       }),
     );
-    const result = await createHostAdminCustomer(makeDto(), {
+    const result = await createOuterApiCustomer(makeDto(), {
       fetchImpl,
       sleep: async () => {},
       random: () => 0,
@@ -131,7 +142,7 @@ describe("createHostAdminCustomer", () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(jsonResponse(400, { error: { message: "bad dto" } }));
-    const result = await createHostAdminCustomer(makeDto(), {
+    const result = await createOuterApiCustomer(makeDto(), {
       fetchImpl,
       sleep: async () => {},
       random: () => 0,
@@ -140,11 +151,11 @@ describe("createHostAdminCustomer", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it("returns malformed-response when 200 body lacks ValueTuple shape", async () => {
+  it("returns malformed-response when 200 body lacks the GetCustomersDto shape", async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValue(jsonResponse(200, { foo: "bar" }));
-    const result = await createHostAdminCustomer(makeDto(), {
+      .mockResolvedValue(jsonResponse(200, { result: { foo: "bar" }, success: true }));
+    const result = await createOuterApiCustomer(makeDto(), {
       fetchImpl,
       sleep: async () => {},
       random: () => 0,
@@ -157,15 +168,29 @@ describe("createHostAdminCustomer", () => {
     const fetchImpl = vi
       .fn()
       .mockRejectedValueOnce(new Error("ECONNRESET"))
-      .mockResolvedValueOnce(
-        jsonResponse(200, { item1: 1, item2: 2, item3: "R" }),
-      );
-    const result = await createHostAdminCustomer(makeDto(), {
+      .mockResolvedValueOnce(jsonResponse(200, okEnvelope(1, "R")));
+    const result = await createOuterApiCustomer(makeDto(), {
       fetchImpl,
       sleep: async () => {},
       random: () => 0,
     });
     expect(result.kind).toBe("ok");
     expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("forwards X-Client-Submission-Id when provided", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(200, okEnvelope(1, "R")));
+    await createOuterApiCustomer(makeDto(), {
+      fetchImpl,
+      submissionId: "11111111-1111-4111-8111-111111111111",
+      sleep: async () => {},
+      random: () => 0,
+    });
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init.headers["X-Client-Submission-Id"]).toBe(
+      "11111111-1111-4111-8111-111111111111",
+    );
   });
 });

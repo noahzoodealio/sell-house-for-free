@@ -7,7 +7,7 @@ export type OffervanaFailureReason =
 export interface OffervanaIdempotencyRow {
   submission_id: string;
   customer_id: number;
-  user_id: number;
+  user_id: number | null;
   referral_code: string;
   created_at: string;
 }

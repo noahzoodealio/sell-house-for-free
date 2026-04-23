@@ -1,123 +1,117 @@
 import type { SellerFormDraft } from "@/lib/seller-form/types";
 
-import type { AddPropInput, NewClientDto, SignUpData } from "./types";
+import type { CreateCustomerDto } from "./types";
 
-export const CUSTOMER_LEAD_SOURCE_SELL_YOUR_HOUSE_FREE = 13;
-export const CUSTOMER_LEAD_SOURCE_SELL_YOUR_HOUSE_FREE_RENOVATION = 14;
-export const SUBMITTER_ROLE_HOMEOWNER = 0;
+const DEFAULT_BEDROOMS = 1;
+const DEFAULT_BATHROOMS = 1;
+const DEFAULT_SQUARE_FOOTAGE = 1500;
+const DEFAULT_FLOORS = 1;
+const ADDITIONAL_INFO_MAX_BYTES = 1024;
 
-export function mapDraftToNewClientDto(draft: SellerFormDraft): NewClientDto {
-  return {
-    propData: buildPropData(draft),
-    signUpData: buildSignUpData(draft),
-    surveyData: buildSurveyData(draft),
-    sendPrelims: true,
-    customerLeadSource: pickLeadSource(draft),
-    submitterRole: SUBMITTER_ROLE_HOMEOWNER,
-    isSellerSource: true,
-    ...buildAttribution(draft),
-  };
-}
+export function mapDraftToCreateCustomerDto(
+  draft: SellerFormDraft,
+): CreateCustomerDto {
+  const { firstName, lastName } = splitName(draft.contact.name);
+  const enriched =
+    draft.enrichment?.status === "ok" ? draft.enrichment.details : undefined;
 
-function buildPropData(draft: SellerFormDraft): AddPropInput {
-  const { address, property, enrichment } = draft;
-  return {
-    address1: address.street1,
-    address2: address.street2 ?? null,
-    city: address.city,
-    country: "US",
-    stateCd: address.state,
-    zipCode: address.zip,
-    gpsCoordinates: null,
-    customerId: 0,
-    propertyType: property.propertyType ?? null,
-    dwellingType: null,
-    absenteeInd: null,
-    legalOne: enrichment?.attomId ?? null,
-    reoFlag: null,
-    auctionDate: null,
-  };
-}
-
-function buildSignUpData(draft: SellerFormDraft): SignUpData {
-  const [firstName, ...rest] = draft.contact.name.trim().split(/\s+/);
-  return {
-    firstName: firstName ?? "",
-    lastName: rest.join(" "),
-    email: draft.contact.email,
-    phone: draft.contact.phone,
-  };
-}
-
-function buildSurveyData(draft: SellerFormDraft): string {
-  const enriched = draft.enrichment?.status === "ok"
-    ? draft.enrichment.details
-    : undefined;
-
-  // Offervana reads bedrooms/bathrooms/squareFootage directly off the deserialized
-  // dynamic — they must live at the top level and must be non-null numbers (the
-  // Offervana binder casts to decimal). Architecture §3.1.3.
-  const bedrooms = enriched?.bedrooms ?? draft.property.bedrooms ?? 1;
-  const bathrooms = enriched?.bathrooms ?? draft.property.bathrooms ?? 1;
+  const bedroomsCount =
+    enriched?.bedrooms ?? draft.property.bedrooms ?? DEFAULT_BEDROOMS;
+  const bathroomsCount =
+    enriched?.bathrooms ?? draft.property.bathrooms ?? DEFAULT_BATHROOMS;
   const squareFootage =
-    enriched?.squareFootage ?? draft.property.squareFootage ?? 1500;
+    enriched?.squareFootage ??
+    draft.property.squareFootage ??
+    DEFAULT_SQUARE_FOOTAGE;
+  const yearBuilt =
+    enriched?.yearBuilt ?? draft.property.yearBuilt ?? null;
 
-  const payload = {
+  return {
+    name: firstName,
+    surname: lastName,
+    emailAddress: draft.contact.email ?? null,
+    phoneNumber: draft.contact.phone ?? null,
+
+    isEmailNotificationsEnabled: true,
+    isSmsNotificationsEnabled: true,
+
+    address1: draft.address.street1,
+    address2: draft.address.street2 ?? null,
+    city: draft.address.city,
+    stateCd: draft.address.state,
+    zipCode: draft.address.zip,
+    country: "US",
+
+    floors: DEFAULT_FLOORS,
+    bedroomsCount,
+    bathroomsCount,
+    squareFootage,
+    yearBuilt,
+    coordinates: null,
+
+    additionalInfo: buildAdditionalInfo(draft),
+  };
+}
+
+function splitName(raw: string): { firstName: string; lastName: string } {
+  const parts = raw.trim().split(/\s+/);
+  const firstName = parts[0] ?? "";
+  const lastName = parts.slice(1).join(" ");
+  return { firstName, lastName };
+}
+
+function buildAdditionalInfo(draft: SellerFormDraft): string {
+  // Everything the OuterAPI CreateCustomerDto has no home for —
+  // PMs can still read this JSON string when triaging the lead.
+  const info = {
     submissionId: draft.submissionId,
     schemaVersion: draft.schemaVersion,
-    bedrooms,
-    bathrooms,
-    squareFootage,
-    yearBuilt: enriched?.yearBuilt ?? draft.property.yearBuilt ?? null,
-    lotSize: enriched?.lotSize ?? draft.property.lotSize ?? null,
     pillarHint: draft.pillarHint,
     cityHint: draft.cityHint,
+    sellYourHouseFreePath:
+      draft.pillarHint === "renovation-only" ? "renovation" : "cash",
     currentListingStatus:
-      draft.currentListingStatus ??
-      draft.enrichment?.listingStatus ??
-      null,
+      draft.currentListingStatus ?? draft.enrichment?.listingStatus ?? null,
+    hasAgent: (draft as Record<string, unknown>).hasAgent ?? null,
     condition: draft.condition,
-    attomId: draft.enrichment?.attomId ?? null,
-    mlsRecordId: draft.enrichment?.mlsRecordId ?? null,
     consent: {
       tcpa: draft.consent.tcpa?.version ?? null,
       terms: draft.consent.terms?.version ?? null,
       privacy: draft.consent.privacy?.version ?? null,
       acceptedAt: draft.consent.tcpa?.acceptedAt ?? null,
     },
-    enrichmentStatus: draft.enrichment?.status ?? "idle",
-    sellYourHouseFreePath:
-      draft.pillarHint === "renovation-only" ? "renovation" : "cash",
+    enrichment: {
+      status: draft.enrichment?.status ?? "idle",
+      attomId: draft.enrichment?.attomId ?? null,
+      mlsRecordId: draft.enrichment?.mlsRecordId ?? null,
+    },
+    attribution: {
+      utmSource: draft.attribution.utmSource ?? null,
+      utmMedium: draft.attribution.utmMedium ?? null,
+      utmCampaign: draft.attribution.utmCampaign ?? null,
+      utmTerm: draft.attribution.utmTerm ?? null,
+      utmContent: draft.attribution.utmContent ?? null,
+      gclid: draft.attribution.gclid ?? null,
+      gbraid: draft.attribution.gbraid ?? null,
+      wbraid: draft.attribution.wbraid ?? null,
+      gadSource: draft.attribution.gadSource ?? null,
+      gadCampaignId: draft.attribution.gadCampaignId ?? null,
+      referrer: draft.attribution.referrer ?? null,
+      entryPage: draft.attribution.entryPage ?? null,
+      entryTimestamp: parseEntryTimestamp(draft.attribution.entryTimestamp),
+    },
   };
-  return JSON.stringify(payload);
-}
 
-function pickLeadSource(draft: SellerFormDraft): number {
-  if (draft.pillarHint === "renovation-only") {
-    return CUSTOMER_LEAD_SOURCE_SELL_YOUR_HOUSE_FREE_RENOVATION;
-  }
-  return CUSTOMER_LEAD_SOURCE_SELL_YOUR_HOUSE_FREE;
-}
+  const serialized = JSON.stringify(info);
+  if (serialized.length <= ADDITIONAL_INFO_MAX_BYTES) return serialized;
 
-function buildAttribution(draft: SellerFormDraft) {
-  const a = draft.attribution;
-  return {
-    gppcParam: null,
-    entryPage: a.entryPage ?? null,
-    entryTimestamp: parseEntryTimestamp(a.entryTimestamp),
-    gclid: a.gclid ?? null,
-    gbraid: a.gbraid ?? null,
-    wbraid: a.wbraid ?? null,
-    gadSource: a.gadSource ?? null,
-    gadCampaignId: a.gadCampaignId ?? null,
-    utmSource: a.utmSource ?? null,
-    utmMedium: a.utmMedium ?? null,
-    utmCampaign: a.utmCampaign ?? null,
-    utmTerm: a.utmTerm ?? null,
-    utmContent: a.utmContent ?? null,
-    referrer: a.referrer ?? null,
-    sessionId: null,
-  };
+  // Over budget — drop attribution first (marketing context), keep the
+  // submission identity + consent + enrichment.
+  const trimmed = { ...info, attribution: null };
+  const trimmedSerialized = JSON.stringify(trimmed);
+  return trimmedSerialized.length <= ADDITIONAL_INFO_MAX_BYTES
+    ? trimmedSerialized
+    : trimmedSerialized.slice(0, ADDITIONAL_INFO_MAX_BYTES);
 }
 
 function parseEntryTimestamp(raw: string | undefined): number | null {

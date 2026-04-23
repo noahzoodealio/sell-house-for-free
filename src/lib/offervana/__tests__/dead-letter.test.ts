@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { recordDeadLetter } from "@/lib/offervana/dead-letter";
-import type { NewClientDto } from "@/lib/offervana/types";
+import type { CreateCustomerDto } from "@/lib/offervana/types";
 
 type Inserted = Record<string, unknown>;
 
@@ -26,26 +26,23 @@ function makeClient(error: unknown = null): {
 const submissionId = "44444444-4444-4444-8444-444444444444";
 const now = new Date("2026-04-23T16:00:00.000Z");
 
-const sampleDto: NewClientDto = {
-  propData: {
-    address1: "1 A St",
-    city: "Phoenix",
-    country: "US",
-    stateCd: "AZ",
-    zipCode: "85001",
-    customerId: 0,
-  },
-  signUpData: {
-    firstName: "Jane",
-    lastName: "Doe",
-    email: "jane@example.com",
-    phone: "+16025551234",
-  },
-  surveyData: null,
-  sendPrelims: true,
-  customerLeadSource: 13,
-  submitterRole: 0,
-  isSellerSource: true,
+const sampleDto: CreateCustomerDto = {
+  name: "Jane",
+  surname: "Doe",
+  emailAddress: "jane@example.com",
+  phoneNumber: "+16025551234",
+  isEmailNotificationsEnabled: true,
+  isSmsNotificationsEnabled: true,
+  address1: "1 A St",
+  city: "Phoenix",
+  stateCd: "AZ",
+  zipCode: "85001",
+  country: "US",
+  floors: 1,
+  bedroomsCount: 3,
+  bathroomsCount: 2,
+  squareFootage: 1800,
+  additionalInfo: '{"pillarHint":"cash-offers"}',
 };
 
 describe("recordDeadLetter", () => {
@@ -87,9 +84,16 @@ describe("recordDeadLetter", () => {
     expect((row.draft_json as Record<string, unknown>).contact).toBeUndefined();
 
     const dto = row.dto_json as Record<string, unknown>;
-    expect(dto.signUpData).toBeUndefined();
-    expect(dto.propData).toBeDefined();
-    expect(dto.customerLeadSource).toBe(13);
+    // PII fields stripped at the top level of the flat CreateCustomerDto.
+    expect(dto.name).toBeUndefined();
+    expect(dto.surname).toBeUndefined();
+    expect(dto.emailAddress).toBeUndefined();
+    expect(dto.phoneNumber).toBeUndefined();
+    // Non-PII fields preserved.
+    expect(dto.address1).toBe("1 A St");
+    expect(dto.zipCode).toBe("85001");
+    expect(dto.floors).toBe(1);
+    expect(dto.additionalInfo).toBe('{"pillarHint":"cash-offers"}');
   });
 
   it("emits a single structured JSON log line on console.error", async () => {

@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { classifyResponse, normalizeOkPayload } from "@/lib/offervana/errors";
 
 describe("classifyResponse", () => {
-  it("returns ok for 2xx with ABP envelope unwrapping", () => {
+  it("returns ok for 2xx with ABP envelope + success: true", () => {
     expect(
       classifyResponse(200, {
-        result: { item1: 1, item2: 2, item3: "abc" },
+        result: { id: 42, referalCode: "abc" },
         success: true,
         error: null,
         __abp: true,
@@ -33,7 +33,7 @@ describe("classifyResponse", () => {
     ).toBe("email-conflict");
   });
 
-  it("detects email-conflict on non-2xx responses (ABP UserFriendlyException)", () => {
+  it("detects email-conflict on non-2xx ABP UserFriendlyException", () => {
     expect(
       classifyResponse(500, {
         error: { message: "Email already registered for this tenant." },
@@ -51,7 +51,7 @@ describe("classifyResponse", () => {
 
   it("treats ABP UserFriendly 500 as permanent when not an email conflict", () => {
     const result = classifyResponse(500, {
-      error: { code: 0, message: "Validation failed: PropertyZip required." },
+      error: { code: 0, message: "Validation failed: zipCode required." },
     });
     expect(result.kind).toBe("permanent-failure");
     expect(result.message).toMatch(/Validation failed/);
@@ -79,45 +79,44 @@ describe("classifyResponse", () => {
 });
 
 describe("normalizeOkPayload", () => {
-  it("normalizes lowercase item1/item2/item3 at top level", () => {
-    expect(
-      normalizeOkPayload({ item1: 42, item2: 1337, item3: "REF-XYZ" }),
-    ).toEqual({ customerId: 42, userId: 1337, referralCode: "REF-XYZ" });
-  });
-
-  it("unwraps the ABP envelope result wrapper", () => {
+  it("unwraps ABP envelope + reads GetCustomersDto id + referalCode", () => {
     expect(
       normalizeOkPayload({
-        result: { item1: 42, item2: 1337, item3: "REF-XYZ" },
+        result: { id: 42, referalCode: "REF-XYZ" },
         success: true,
         error: null,
         __abp: true,
       }),
-    ).toEqual({ customerId: 42, userId: 1337, referralCode: "REF-XYZ" });
+    ).toEqual({ customerId: 42, referralCode: "REF-XYZ" });
   });
 
-  it("also accepts PascalCase Item1/Item2/Item3", () => {
+  it("tolerates the corrected `referralCode` spelling if upstream fixes it", () => {
     expect(
-      normalizeOkPayload({ Item1: 7, Item2: 8, Item3: "R" }),
-    ).toEqual({ customerId: 7, userId: 8, referralCode: "R" });
+      normalizeOkPayload({
+        result: { id: 7, referralCode: "REF-FIXED" },
+        success: true,
+        error: null,
+        __abp: true,
+      }),
+    ).toEqual({ customerId: 7, referralCode: "REF-FIXED" });
   });
 
-  it("reports missing customerId", () => {
+  it("accepts a bare (non-envelope) GetCustomersDto", () => {
     expect(
-      normalizeOkPayload({ item2: 1, item3: "x" }),
-    ).toEqual({ error: "item1 (customerId) missing or non-numeric" });
+      normalizeOkPayload({ id: 12, referalCode: "R" }),
+    ).toEqual({ customerId: 12, referralCode: "R" });
   });
 
-  it("reports missing userId", () => {
+  it("reports missing id", () => {
     expect(
-      normalizeOkPayload({ item1: 1, item3: "x" }),
-    ).toEqual({ error: "item2 (userId) missing or non-numeric" });
+      normalizeOkPayload({ result: { referalCode: "x" }, success: true }),
+    ).toEqual({ error: "result.id missing or non-numeric" });
   });
 
-  it("reports missing referralCode", () => {
+  it("reports missing referalCode", () => {
     expect(
-      normalizeOkPayload({ item1: 1, item2: 2, item3: "" }),
-    ).toEqual({ error: "item3 (referralCode) missing or empty" });
+      normalizeOkPayload({ result: { id: 1 }, success: true }),
+    ).toEqual({ error: "result.referalCode missing or empty" });
   });
 
   it("rejects non-object bodies", () => {

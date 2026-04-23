@@ -55,36 +55,42 @@ export function classifyResponse(
   return { kind: "transient", message };
 }
 
+/**
+ * Normalize the ABP-wrapped GetCustomersDto into our internal
+ * `{ customerId, referralCode }` shape. Upstream sometimes misspells
+ * the referral field as `referalCode` — we accept both.
+ */
 export function normalizeOkPayload(
   body: unknown,
 ): OffervanaOkPayload | { error: string } {
   if (!body || typeof body !== "object") {
     return { error: "response body is not an object" };
   }
-  // ABP returns { result: { item1, item2, item3 }, success, error }.
+
+  // ABP envelope → unwrap to the result payload first.
   const envelope = body as Record<string, unknown>;
   const container =
     envelope.result && typeof envelope.result === "object"
       ? (envelope.result as Record<string, unknown>)
       : envelope;
-  const item1 = container.item1 ?? container.Item1;
-  const item2 = container.item2 ?? container.Item2;
-  const item3 = container.item3 ?? container.Item3;
 
-  if (typeof item1 !== "number") {
-    return { error: "item1 (customerId) missing or non-numeric" };
+  const idRaw = container.id ?? container.Id;
+  const refRaw =
+    container.referalCode ??
+    container.referralCode ??
+    container.ReferalCode ??
+    container.ReferralCode;
+
+  if (typeof idRaw !== "number") {
+    return { error: "result.id missing or non-numeric" };
   }
-  if (typeof item2 !== "number") {
-    return { error: "item2 (userId) missing or non-numeric" };
-  }
-  if (typeof item3 !== "string" || item3.length === 0) {
-    return { error: "item3 (referralCode) missing or empty" };
+  if (typeof refRaw !== "string" || refRaw.length === 0) {
+    return { error: "result.referalCode missing or empty" };
   }
 
   return {
-    customerId: item1,
-    userId: item2,
-    referralCode: item3,
+    customerId: idRaw,
+    referralCode: refRaw,
   };
 }
 

@@ -1,19 +1,16 @@
 #!/usr/bin/env node
-// E5-S8 UAT smoke + chaos runner.
+// E5-S8 UAT smoke + chaos runner against the Offervana OuterAPI.
 //
-// Hits the live https://sellfreeai.zoodealio.net CreateHostAdminCustomer
-// endpoint and reports each scenario's outcome. Requires ZOODEALIO_API_KEY
-// in .env.local (or env). Pass a scenario name or `all`.
+// Hits POST https://sellfreeai.zoodealio.net/openapi/Customers (enterprise
+// integration endpoint) with an `ApiKey` header and reports each scenario's
+// outcome. Requires ZOODEALIO_API_KEY in .env.local (or env).
 //
 // Scenarios:
-//   happy              — real submit with a unique email, expects item1/2/3
-//   email-conflict     — submit with a fixed email twice; second should 500
-//                        with "already registered" or similar
-//   timeout            — calls the client with a 1ms per-attempt timeout
-//                        to force a transient-exhausted outcome
-//   malformed-response — POSTs to a valid endpoint that returns the wrong
-//                        shape (skipped — no such endpoint on UAT; left as
-//                        a placeholder for E8 chaos infra)
+//   happy              — real submit with a unique email; expects 200 with
+//                        ABP envelope + GetCustomersDto `{id, referalCode}`
+//   email-conflict     — submit twice with the same email; second should
+//                        land on "already registered" ABP error
+//   timeout            — force AbortSignal.timeout; expects TimeoutError
 //
 // Usage: node scripts/e5-smoke.mjs happy
 //        node scripts/e5-smoke.mjs all
@@ -39,47 +36,35 @@ function loadDotenvLocal() {
 }
 
 const BASE_URL = "https://sellfreeai.zoodealio.net";
-const PATH = "/api/services/app/CustomerAppServiceV2/CreateHostAdminCustomer";
+const PATH = "/openapi/Customers";
 
-function buildDto({ email, firstName = "Smoke", lastName = "Test" }) {
+function buildDto({ email, name = "Smoke", surname = "Test" }) {
   return {
-    propData: {
-      address1: "123 Smoke St",
-      address2: null,
-      city: "Phoenix",
-      country: "US",
-      stateCd: "AZ",
-      zipCode: "85001",
-      gpsCoordinates: null,
-      customerId: 0,
-      propertyType: "single-family",
-    },
-    signUpData: {
-      firstName,
-      lastName,
-      email,
-      phone: "+16025551234",
-    },
-    surveyData: JSON.stringify({
-      submissionId: crypto.randomUUID(),
+    name,
+    surname,
+    emailAddress: email,
+    phoneNumber: "+16025551234",
+    isEmailNotificationsEnabled: true,
+    isSmsNotificationsEnabled: true,
+    address1: "123 Smoke St",
+    city: "Phoenix",
+    stateCd: "AZ",
+    zipCode: "85001",
+    country: "US",
+    floors: 1,
+    bedroomsCount: 3,
+    bathroomsCount: 2,
+    squareFootage: 1800,
+    yearBuilt: 1995,
+    additionalInfo: JSON.stringify({
       source: "e5-smoke",
-      bedrooms: 3,
-      bathrooms: 2,
-      squareFootage: 1800,
-      yearBuilt: 1995,
-      condition: { currentCondition: "move-in", timeline: "0-3mo" },
       pillarHint: "cash-offers",
+      sellYourHouseFreePath: "cash",
     }),
-    sendPrelims: true,
-    customerLeadSource: 13,
-    submitterRole: 0,
-    isSellerSource: true,
-    entryPage: "/get-started",
-    entryTimestamp: Date.now(),
   };
 }
 
-async function callOffervana(dto, { timeoutMs = 12000 } = {}) {
+async function callOffervana(dto, { timeoutMs = 13000 } = {}) {
   const apiKey = process.env.ZOODEALIO_API_KEY;
   if (!apiKey) throw new Error("ZOODEALIO_API_KEY not set");
   const response = await fetch(`${BASE_URL}${PATH}`, {
@@ -87,7 +72,7 @@ async function callOffervana(dto, { timeoutMs = 12000 } = {}) {
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      ApiKey: apiKey,
     },
     body: JSON.stringify(dto),
     cache: "no-store",
@@ -111,25 +96,26 @@ async function scenarioHappy() {
   const resultObj =
     envelope && typeof envelope === "object" && envelope.result
       ? envelope.result
-      : envelope;
+      : null;
   const ok =
     result.status === 200 &&
     envelope?.success === true &&
-    typeof resultObj === "object" &&
     resultObj !== null &&
-    "item1" in resultObj &&
-    "item2" in resultObj &&
-    "item3" in resultObj;
+    typeof resultObj.id === "number" &&
+    (typeof resultObj.referalCode === "string" ||
+      typeof resultObj.referralCode === "string");
   return { name: "happy", pass: ok, email, result };
 }
 
 async function scenarioEmailConflict() {
   const email = "smoke-conflict@sellfreeai-smoke.invalid";
-  const first = await callOffervana(buildDto({ email }));
-  const second = await callOffervana(buildDto({ email }));
+  const first = await callOffervana(buildDto({ email }), { timeoutMs: 30000 });
+  const second = await callOffervana(buildDto({ email }), { timeoutMs: 30000 });
+  const body = second.body && typeof second.body === "object" ? second.body : {};
+  const msg = body?.error?.message ?? "";
   const conflictDetected =
-    second.status >= 400 &&
-    JSON.stringify(second.body).toLowerCase().includes("email");
+    (second.status >= 400 && /email/i.test(JSON.stringify(body))) ||
+    (second.status === 200 && body?.success === false && /email/i.test(msg));
   return {
     name: "email-conflict",
     pass: conflictDetected,

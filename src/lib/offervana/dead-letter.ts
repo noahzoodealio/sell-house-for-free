@@ -5,14 +5,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import type { OffervanaFailureReason } from "@/lib/supabase/schema";
 
-import type { NewClientDto } from "./types";
+import type { CreateCustomerDto } from "./types";
 
 export interface DeadLetterInput {
   submissionId: string;
   reason: OffervanaFailureReason;
   detail: Record<string, unknown>;
   draftJson?: Record<string, unknown> | null;
-  dto?: NewClientDto | null;
+  dto?: CreateCustomerDto | null;
 }
 
 export interface DeadLetterDeps {
@@ -69,11 +69,15 @@ function redactDraftPii(
   return rest;
 }
 
-function redactDtoPii(dto: NewClientDto): Record<string, unknown> {
-  const { signUpData: _signUpData, ...rest } = dto as unknown as Record<
-    string,
-    unknown
-  >;
+function redactDtoPii(dto: CreateCustomerDto): Record<string, unknown> {
+  // CreateCustomerDto is flat — PII fields live at the top level.
+  const {
+    name: _name,
+    surname: _surname,
+    emailAddress: _emailAddress,
+    phoneNumber: _phoneNumber,
+    ...rest
+  } = dto as unknown as Record<string, unknown>;
   return rest;
 }
 

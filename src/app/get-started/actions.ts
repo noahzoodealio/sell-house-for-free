@@ -3,13 +3,13 @@
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 
-import { createHostAdminCustomer } from "@/lib/offervana/client";
+import { createOuterApiCustomer } from "@/lib/offervana/client";
 import { recordDeadLetter } from "@/lib/offervana/dead-letter";
 import {
   lookupIdempotent,
   storeIdempotent,
 } from "@/lib/offervana/idempotency";
-import { mapDraftToNewClientDto } from "@/lib/offervana/mapper";
+import { mapDraftToCreateCustomerDto } from "@/lib/offervana/mapper";
 import type { SubmitResult } from "@/lib/offervana/types";
 import { validateAll } from "@/lib/seller-form/schema";
 import type { SellerFormDraft, SubmitState } from "@/lib/seller-form/types";
@@ -56,8 +56,8 @@ export async function submitSellerForm(
     redirect(buildPortalRedirect(cached.referralCode));
   }
 
-  const dto = mapDraftToNewClientDto(draft);
-  const submitResult: SubmitResult = await createHostAdminCustomer(dto, {
+  const dto = mapDraftToCreateCustomerDto(draft);
+  const submitResult: SubmitResult = await createOuterApiCustomer(dto, {
     submissionId,
   });
 
@@ -89,7 +89,7 @@ function resolveReferralCode(result: SubmitResult): string {
 
 async function dispatchAfter(
   draft: SellerFormDraft,
-  dto: ReturnType<typeof mapDraftToNewClientDto>,
+  dto: ReturnType<typeof mapDraftToCreateCustomerDto>,
   result: SubmitResult,
   referralCode: string,
 ): Promise<void> {
@@ -105,7 +105,6 @@ async function dispatchAfter(
     logAudit("offervana.submit.ok", {
       submissionId,
       customerId: result.payload.customerId,
-      userId: result.payload.userId,
       referralCode: result.payload.referralCode,
       attempts: result.attempts,
     });

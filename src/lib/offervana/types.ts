@@ -1,55 +1,70 @@
-export interface NewClientDto {
-  propData: AddPropInput;
-  signUpData: SignUpData;
-  surveyData: string | null;
-  sendPrelims: boolean;
-  customerLeadSource: number | null;
-  submitterRole: number;
-  isSellerSource: boolean | null;
-  gppcParam?: string | null;
-  entryPage?: string | null;
-  entryTimestamp?: number | null;
-  gclid?: string | null;
-  gbraid?: string | null;
-  wbraid?: string | null;
-  gadSource?: string | null;
-  gadCampaignId?: string | null;
-  utmSource?: string | null;
-  utmMedium?: string | null;
-  utmCampaign?: string | null;
-  utmTerm?: string | null;
-  utmContent?: string | null;
-  referrer?: string | null;
-  sessionId?: string | null;
-}
+/**
+ * Types for the Offervana OuterAPI Customers endpoint.
+ * See https://sellfreeai.zoodealio.net/swagger/v1/swagger.json — schema
+ * `Offervana.OuterApi.Customers.Dto.CreateCustomerDto`.
+ */
 
-export interface AddPropInput {
+export interface CreateCustomerDto {
+  // Required identity fields.
+  name: string;
+  surname: string;
+  // Required routing + preferences.
+  isEmailNotificationsEnabled: boolean;
+  isSmsNotificationsEnabled: boolean;
+  // Required address.
   address1: string;
-  address2?: string | null;
   city: string;
-  country: string;
   stateCd: string;
   zipCode: string;
-  gpsCoordinates?: string | null;
-  customerId: number;
-  propertyType?: string | null;
-  dwellingType?: number | null;
-  absenteeInd?: number | null;
-  legalOne?: string | null;
-  reoFlag?: boolean | null;
-  auctionDate?: string | null;
-}
+  country: string;
+  // Required property fact.
+  floors: number;
 
-export interface SignUpData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
+  // Contact (nullable on the wire — included when available).
+  emailAddress?: string | null;
+  password?: string | null;
+  phoneNumber?: string | null;
+
+  // Referral + ABP tenant hooks.
+  refLink?: string | null;
+  refId?: number | null;
+
+  // Address extension.
+  address2?: string | null;
+
+  // Property facts (flat — these replaced the nested surveyData blob).
+  bedroomsCount?: number;
+  bathroomsCount?: number;
+  squareFootage?: number;
+  parkingSpaces?: string | null;
+  yearBuilt?: number | null;
+  coordinates?: string | null;
+  estimatedValue?: number | null;
+  realValue?: number | null;
+
+  // Residential context (all nullable — pass-through from the draft when present).
+  isTenantRentalLeasing?: boolean | null;
+  rentalMonth?: number | null;
+  rentalYear?: number | null;
+  isPrimaryResidence?: boolean | null;
+  sewerSeptic?: string | null;
+  isSolarPanels?: boolean | null;
+  solarLeaseOwned?: string | null;
+  solarEstimatedValue?: number | null;
+  isPool?: boolean | null;
+  poolType?: string | null;
+
+  // Catch-all for everything the DTO doesn't have a home for
+  // (pillar hint, consent versions, attribution, enrichment ids).
+  additionalInfo?: string | null;
+
+  // Population + optional gallery.
+  population?: number | null;
+  imageUrls?: string[] | null;
 }
 
 export interface OffervanaOkPayload {
   customerId: number;
-  userId: number;
   referralCode: string;
 }
 
