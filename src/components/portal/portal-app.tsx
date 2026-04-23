@@ -12,6 +12,7 @@ import {
   type PortalData,
 } from "./portal-data";
 import { PhotosSection } from "./portal-photos";
+import { ChatBootstrap } from "./chat/chat-bootstrap";
 
 const NAV_ITEMS = [
   { id: "overview", label: "Overview" },
@@ -40,6 +41,41 @@ function usePortalData(): [PortalData, React.Dispatch<React.SetStateAction<Porta
   useEffect(() => {
     savePortal(data);
   }, [data]);
+
+  // Merge live OffersV2 data in on mount. The portal-loading page stashes
+  // the submission id to localStorage so /portal can re-hydrate without
+  // carrying sid through every nav. If no sid or the payload hasn't been
+  // fetched yet, we keep the seed offers so the tiles never go blank.
+  useEffect(() => {
+    const sid =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("sellfree:portalSid")
+        : null;
+    if (!sid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/portal/offers?sid=${encodeURIComponent(sid)}`,
+          { cache: "no-store" },
+        );
+        if (!res.ok) return;
+        const body = (await res.json()) as
+          | { status: "ready"; offers: PortalData["offers"] }
+          | { status: "empty" | "pending" }
+          | { status: "error"; message: string };
+        if (cancelled) return;
+        if (body.status === "ready" && body.offers.length > 0) {
+          setData((prev) => ({ ...prev, offers: body.offers }));
+        }
+      } catch {
+        // Offer fetch is best-effort — seed offers remain on failure.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return [data, setData];
 }
@@ -499,6 +535,8 @@ function OfferCard({
     bone: { bg: "var(--bone-2)", fg: "var(--ink)", accent: "var(--ink-3)" },
   } as const;
   const t = tones[offer.tone];
+  const detailsShared = offer.displayState === "DETAILS_SHARED";
+  const sharedAmount = offer.sharedAmount ?? null;
 
   return (
     <div
@@ -557,13 +595,19 @@ function OfferCard({
               marginBottom: 4,
             }}
           >
-            Estimated offer range
+            {detailsShared ? "Offer ready" : "Estimated offer range"}
           </div>
-          <div className="offer-range-nums">
-            <span>${(offer.low / 1000).toFixed(0)}K</span>
-            <span className="offer-range-dash">—</span>
-            <span>${(offer.high / 1000).toFixed(0)}K</span>
-          </div>
+          {detailsShared && sharedAmount != null ? (
+            <div className="offer-range-nums">
+              <span>${(sharedAmount / 1000).toFixed(0)}K</span>
+            </div>
+          ) : (
+            <div className="offer-range-nums">
+              <span>${(offer.low / 1000).toFixed(0)}K</span>
+              <span className="offer-range-dash">—</span>
+              <span>${(offer.high / 1000).toFixed(0)}K</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -585,11 +629,24 @@ function OfferCard({
           ))}
         </ul>
         <button className="btn btn-primary offer-cta">
-          Request offer details
+          {detailsShared ? "Review your offer" : "Request offer details"}
         </button>
         <button className="offer-feedback-link">
           Send feedback on this offer
         </button>
+        <div
+          style={{
+            marginTop: 12,
+            fontSize: 10,
+            fontFamily: "var(--sf-font-mono)",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--muted)",
+            textAlign: "center",
+          }}
+        >
+          Powered by Zoodealio
+        </div>
       </div>
     </div>
   );
@@ -868,39 +925,7 @@ function TeamCard({
   );
 }
 
-type ChatMsg = { role: "ai" | "user"; text: string };
-
-function AISection({ data }: { data: PortalData }) {
-  const [q, setQ] = useState("");
-  const [msgs, setMsgs] = useState<ChatMsg[]>([
-    {
-      role: "ai",
-      text: `Hi ${data.user.first} — I'm your sellfree AI. I know your property, comps, offers, and every document. Ask me anything.`,
-    },
-  ]);
-  const [busy, setBusy] = useState(false);
-
-  const ask = async (text: string) => {
-    if (!text.trim() || busy) return;
-    setMsgs((m) => [...m, { role: "user", text }]);
-    setQ("");
-    setBusy(true);
-    // Placeholder: no backend wired yet. Respond after a short delay so the
-    // typing indicator gets a chance to render.
-    setTimeout(() => {
-      setMsgs((m) => [
-        ...m,
-        {
-          role: "ai",
-          text:
-            "(Placeholder — AI backend not yet wired up. Your question was captured.) " +
-            "Once the model is connected I'll answer with specifics about your property, comps, and offers.",
-        },
-      ]);
-      setBusy(false);
-    }, 650);
-  };
-
+function AISection({ data: _data }: { data: PortalData }) {
   return (
     <div className="portal-section">
       <div className="portal-section-head">
@@ -908,71 +933,13 @@ function AISection({ data }: { data: PortalData }) {
           <div className="eyebrow">AI assistant · 24/7</div>
           <h1 className="portal-h1">Ask anything about your sale.</h1>
           <p className="portal-lede">
-            Trained on your property, your offers, market comps, and Texas
-            disclosure law. Answers in seconds — not 4 hours.
+            Friend-style advice on pricing, offers, contract terms, and
+            comps — answers in seconds, grounded in your property.
           </p>
         </div>
       </div>
 
-      <div className="ai-chat">
-        <div className="ai-messages">
-          {msgs.map((m, i) => (
-            <div key={i} className={"ai-msg " + m.role}>
-              <div className="ai-msg-avatar">
-                {m.role === "ai" ? "AI" : data.user.first[0]}
-              </div>
-              <div className="ai-msg-body">{m.text}</div>
-            </div>
-          ))}
-          {busy && (
-            <div className="ai-msg ai">
-              <div className="ai-msg-avatar">AI</div>
-              <div className="ai-msg-body">
-                <span className="ai-typing">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="ai-input-wrap">
-          <input
-            className="ai-input"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Ask about pricing, offers, disclosures..."
-            onKeyDown={(e) => {
-              if (e.key === "Enter") ask(q);
-            }}
-          />
-          <button
-            className="btn btn-primary"
-            onClick={() => ask(q)}
-            disabled={busy || !q.trim()}
-          >
-            Ask →
-          </button>
-        </div>
-      </div>
-
-      <div className="portal-card">
-        <div className="eyebrow" style={{ marginBottom: 14 }}>
-          Suggested questions
-        </div>
-        <div className="ai-suggestions">
-          {data.ai.recentQuestions.map((question, i) => (
-            <button
-              key={i}
-              className="ai-suggestion"
-              onClick={() => ask(question)}
-            >
-              {question} →
-            </button>
-          ))}
-        </div>
-      </div>
+      <ChatBootstrap />
     </div>
   );
 }
@@ -1157,29 +1124,125 @@ const LOADING_STEPS = [
   { t: 6500, label: "Preparing your dashboard", source: "finalize" },
 ];
 
+type FinalizeState =
+  | { phase: "pending" }
+  | { phase: "ready"; referralCode: string }
+  | { phase: "failed"; reason: string };
+
+const POLL_INTERVAL_MS = 1200;
+// Must exceed the server-side Offervana wall-clock budget: 2 attempts @ 25s
+// + 1s backoff + jitter + a few seconds for supabase writes ≈ 55s. 75s
+// gives the client a clean grace margin before declaring timeout.
+const POLL_MAX_DURATION_MS = 75_000;
+const ANIMATION_MIN_MS = 7200;
+
 export function PortalLoading() {
   const [tick, setTick] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [finalize, setFinalize] = useState<FinalizeState>({ phase: "pending" });
   const startRef = useRef(0);
   const doneRef = useRef(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sid = params.get("sid");
+    const ref = params.get("ref");
+
+    // Idempotent replay: server already has the referralCode, no polling needed.
+    if (ref && ref !== "unassigned" && ref !== "pending") {
+      setFinalize({ phase: "ready", referralCode: ref });
+      return;
+    }
+
+    // No sid means the user landed here directly (e.g. dev, or post-signup) —
+    // behave like the old animation-only flow.
+    if (!sid) {
+      setFinalize({ phase: "ready", referralCode: "unassigned" });
+      return;
+    }
+
+    const pollStart = Date.now();
+    let cancelled = false;
+    let timer = 0;
+
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const res = await fetch(
+          `/api/portal/submission-status?sid=${encodeURIComponent(sid)}`,
+          { cache: "no-store" },
+        );
+        const body = (await res.json()) as
+          | { status: "ready"; referralCode: string }
+          | { status: "failed"; reason: string }
+          | { status: "pending" }
+          | { status: "error"; message: string };
+        if (cancelled) return;
+        if (body.status === "ready") {
+          setFinalize({ phase: "ready", referralCode: body.referralCode });
+          return;
+        }
+        if (body.status === "failed") {
+          setFinalize({ phase: "failed", reason: body.reason });
+          return;
+        }
+        if (Date.now() - pollStart > POLL_MAX_DURATION_MS) {
+          setFinalize({ phase: "failed", reason: "timeout" });
+          return;
+        }
+      } catch {
+        // Transient fetch error — keep polling until budget is exhausted.
+        if (Date.now() - pollStart > POLL_MAX_DURATION_MS) {
+          setFinalize({ phase: "failed", reason: "network" });
+          return;
+        }
+      }
+      timer = window.setTimeout(poll, POLL_INTERVAL_MS);
+    };
+
+    poll();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, []);
+
+  const finalizeRef = useRef<FinalizeState>(finalize);
+  finalizeRef.current = finalize;
+
+  useEffect(() => {
     startRef.current = Date.now();
     let raf = 0;
-    const total = 7200;
     const loop = () => {
       const elapsed = Date.now() - startRef.current;
       setTick(elapsed);
-      setProgress(Math.min(elapsed / total, 1));
-      if (elapsed < total) {
-        raf = requestAnimationFrame(loop);
-      } else if (!doneRef.current) {
+      // Animation reaches 90% at ANIMATION_MIN_MS; the last 10% waits for
+      // the server-side finalize so the progress bar never "lies" by
+      // finishing before the work does.
+      const phase = finalizeRef.current.phase;
+      const animPct = Math.min(elapsed / ANIMATION_MIN_MS, 1) * 0.9;
+      const readyBoost = phase === "ready" ? 0.1 : 0;
+      setProgress(Math.min(animPct + readyBoost, 1));
+
+      const animationDone = elapsed >= ANIMATION_MIN_MS;
+      const shouldFinish = !doneRef.current && animationDone && phase !== "pending";
+
+      if (shouldFinish) {
         doneRef.current = true;
         savePortal(seedPortal());
+        // Persist the sid so /portal can fetch OffersV2 on load without
+        // threading it through the URL. Polling only writes on success.
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const sid = params.get("sid");
+          if (sid) window.localStorage.setItem("sellfree:portalSid", sid);
+        } catch {}
         setTimeout(() => {
           window.location.href = "/portal";
         }, 400);
+        return;
       }
+      raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
@@ -1307,7 +1370,7 @@ export function PortalLoading() {
               <div className="pl-progress-meta">
                 <span>{Math.round(progress * 100)}% complete</span>
                 <span>
-                  Est. {Math.max(0, Math.round((7200 - tick) / 1000))}s
+                  Est. {Math.max(0, Math.round((ANIMATION_MIN_MS - tick) / 1000))}s
                   remaining
                 </span>
               </div>

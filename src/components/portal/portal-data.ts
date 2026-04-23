@@ -5,6 +5,12 @@
 
 export type OfferTone = "lime" | "dark" | "bone";
 
+export type PortalOfferDisplayState =
+  | "DETAILS_SHARED"
+  | "OFFER_READY"
+  | "EVALUATING"
+  | "RANGE_ONLY";
+
 export type PortalOffer = {
   id: string;
   name: string;
@@ -16,6 +22,12 @@ export type PortalOffer = {
   closes: string;
   terms: string[];
   tone: OfferTone;
+  // Populated when offers come from the live OffersV2 fetch; seed offers
+  // omit these and fall through to the range-only display path.
+  offerId?: number;
+  displayState?: PortalOfferDisplayState;
+  sharedAmount?: number | null;
+  rawAmount?: number;
 };
 
 export type PortalTodo = {
@@ -207,48 +219,48 @@ export function seedPortal(): PortalData {
       {
         id: "cash-plus",
         name: "Cash+",
-        label: "Sell at peak price",
+        label: "Post-repair value offer",
         low: 725000,
         high: 758000,
         popular: true,
-        lender: "Knock · backed by sellfree",
+        lender: "Zoodealio partner network",
         closes: "As fast as 14 days",
         terms: [
+          "Offer based on post-repair value",
           "No showings required",
-          "Keep up to 98% of market",
-          "3.5% service fee",
+          "Sellfree + partners handle repairs",
         ],
         tone: "lime",
       },
       {
         id: "snml",
         name: "SNML",
-        label: "Sell now, move later",
+        label: "Full market value · leaseback",
         low: 688000,
         high: 720000,
         popular: false,
-        lender: "Flyhomes partners",
-        closes: "14-day close · 90-day leaseback",
+        lender: "Zoodealio partner network",
+        closes: "14-day close · flexible leaseback",
         terms: [
-          "Lease back from buyer",
-          "90 days to move",
-          "2% leaseback rent",
+          "Full market value offer",
+          "Lease back from buyer after close",
+          "Move on your timeline",
         ],
         tone: "dark",
       },
       {
         id: "cash",
         name: "Cash",
-        label: "Certain cash in hand",
+        label: "70–100% of market value",
         low: 650000,
         high: 685000,
         popular: false,
-        lender: "Opendoor · Offerpad",
+        lender: "Zoodealio partner network",
         closes: "As fast as 7 days",
         terms: [
           "No repairs needed",
           "Waived contingencies",
-          "7% service fee",
+          "70–100% of market value",
         ],
         tone: "bone",
       },

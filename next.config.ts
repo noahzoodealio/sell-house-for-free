@@ -18,6 +18,12 @@ const nextConfig: NextConfig = {
         hostname: "images.homejunction.com",
         pathname: "/listings/**",
       },
+      // Supabase Storage signed URLs for ai-docs bucket previews (E9-S8).
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/sign/**",
+      },
     ],
   },
 };

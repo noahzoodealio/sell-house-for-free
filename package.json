@@ -13,16 +13,20 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@ai-sdk/react": "^3.0.170",
     "@headlessui/react": "^2.2.10",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",
     "@next/mdx": "^16.2.3",
+    "@supabase/supabase-js": "^2.104.1",
     "@types/mdx": "^2.0.13",
     "@vercel/analytics": "^2.0.1",
+    "ai": "^6.0.168",
     "next": "16.2.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "^0.0.1",
+    "workflow": "^4.2.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -38,6 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "jsdom": "^29.0.2",
+    "pg": "^8.20.0",
     "schema-dts": "^1.1.5",
     "tailwindcss": "^4",
     "typescript": "^5",

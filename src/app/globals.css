@@ -2,6 +2,7 @@
 
 @source not "../../_bmad";
 @source not "../../_bmad-output";
+@source not "../../.claude";
 
 @theme {
   /* Brand */
