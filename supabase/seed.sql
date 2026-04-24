@@ -1,0 +1,14 @@
+-- E6-S1 (ADO 7823): seed placeholder.
+--
+-- This file is intentionally empty at S1. E6-S2 (ADO 7825) populates it
+-- with three placeholder team_members rows so the assign_next_pm RPC is
+-- end-to-end testable in local dev + preview environments.
+--
+-- Rules (inherited from E6-S2):
+--   - NEVER commit real PII (real names, emails, phones, photo paths) to
+--     this file. Production roster ships via a separate hand-curated
+--     migration (see E6-S8 / 20260420000000_seed_prod_roster.sql).
+--   - Use `on conflict (email) do nothing` so `supabase db reset` is
+--     idempotent.
+--   - Placeholder emails use the `.placeholder@sellyourhousefree.com`
+--     suffix so they're easy to grep out before production stamping.
