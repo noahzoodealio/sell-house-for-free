@@ -37,7 +37,7 @@ test.describe("E4 enrichment — no-match", () => {
     await submit(page);
 
     await expect(page).toHaveURL(
-      new RegExp(`/get-started/thanks\\?ref=${submissionId}$`),
+      new RegExp(`/portal/setup\\?sid=${submissionId}(?:&|$)`),
     );
   });
 });

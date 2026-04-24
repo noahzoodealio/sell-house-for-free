@@ -64,7 +64,7 @@ test.describe("E4 enrichment — currently listed", () => {
     await submit(page);
 
     await expect(page).toHaveURL(
-      new RegExp(`/get-started/thanks\\?ref=${submissionId}$`),
+      new RegExp(`/portal/setup\\?sid=${submissionId}(?:&|$)`),
     );
   });
 });

@@ -15,8 +15,15 @@ import {
 } from "@/lib/offervana/idempotency";
 import { mapDraftToCreateCustomerDto } from "@/lib/offervana/mapper";
 import type { SubmitResult } from "@/lib/offervana/types";
+import { mapOffersV2ToPortal } from "@/lib/offervana/map-offers";
+import {
+  assignPmAndNotify,
+  type AssignInput,
+  type AssignInputOffer,
+} from "@/lib/pm-service";
 import { validateAll } from "@/lib/seller-form/schema";
 import type { SellerFormDraft, SubmitState } from "@/lib/seller-form/types";
+import type { SubmissionOfferPath } from "@/lib/supabase/schema";
 
 import { parseFormData } from "./parse";
 
@@ -77,17 +84,27 @@ export async function submitSellerForm(
     // Chain the OffersV2 fetch right after a successful customer create —
     // the upstream generates initial offer estimates during /openapi/Customers
     // so by the time that POST returns, OffersV2 has something to read.
+    let offersPayload: unknown[] = [];
     if (submitResult.kind === "ok" && submitResult.payload.propertyId != null) {
-      await fetchAndLogOffers(
-        submitResult.payload.propertyId,
-        submissionId,
-        submitResult.payload.referralCode,
-      );
+      offersPayload =
+        (await fetchAndLogOffers(
+          submitResult.payload.propertyId,
+          submissionId,
+          submitResult.payload.referralCode,
+        )) ?? [];
     } else if (submitResult.kind === "ok") {
       logAudit("offervana.offers.skipped_no_property_id", {
         submissionId,
         customerId: submitResult.payload.customerId,
       });
+    }
+
+    // E6: hand off to PM service. Runs after Offervana success + offers
+    // fetch so assignPmAndNotify receives both the referral code and
+    // the per-path offer rows in one call. Orchestrator never throws;
+    // failures surface via Sentry event pm_assignment_failed / pm_email_failed.
+    if (submitResult.kind === "ok") {
+      await runPmHandoff(draft, submitResult.payload, offersPayload);
     }
   });
 
@@ -134,11 +151,6 @@ async function dispatchAfter(
       referralCode: result.payload.referralCode,
       attempts: result.attempts,
     });
-    // E6 owns the PM handoff write; stub for now.
-    logAudit("offervana.pm_handoff.pending", {
-      submissionId,
-      referralCode: result.payload.referralCode,
-    });
     return;
   }
 
@@ -176,7 +188,7 @@ async function fetchAndLogOffers(
   propertyId: number,
   submissionId: string,
   referralCode: string,
-): Promise<void> {
+): Promise<unknown[] | null> {
   const result = await fetchOffersV2(propertyId, { submissionId });
 
   switch (result.kind) {
@@ -196,7 +208,7 @@ async function fetchAndLogOffers(
           });
         },
       );
-      return;
+      return result.offers;
     case "empty":
       logAudit("offervana.offers.empty", {
         submissionId,
@@ -204,7 +216,7 @@ async function fetchAndLogOffers(
         propertyId,
         latencyMs: result.latencyMs,
       });
-      return;
+      return [];
     case "error":
       logAudit("offervana.offers.error", {
         submissionId,
@@ -214,6 +226,107 @@ async function fetchAndLogOffers(
         status: result.detail.status,
         message: result.detail.message,
       });
-      return;
+      return null;
   }
+}
+
+async function runPmHandoff(
+  draft: SellerFormDraft,
+  payload: Extract<SubmitResult, { kind: "ok" }>["payload"],
+  offersPayload: unknown[],
+): Promise<void> {
+  const input = buildAssignInput(draft, payload, offersPayload);
+
+  logAudit("[e6.assign].start", {
+    submissionId: input.submissionId,
+    referralCode: input.referralCode,
+    pillarHint: input.pillarHint,
+    offersCount: input.offers.length,
+  });
+
+  const result = await assignPmAndNotify(input);
+
+  if (result.ok) {
+    logAudit("[e6.assign].ok", {
+      submissionId: input.submissionId,
+      referralCode: input.referralCode,
+      pmUserId: result.pmUserId,
+      profileCreated: result.profileCreated,
+      sellerEmailEnqueued: result.emailsEnqueued.seller,
+      teamEmailEnqueued: result.emailsEnqueued.team,
+    });
+  } else {
+    logAudit("[e6.assign].failed", {
+      submissionId: input.submissionId,
+      referralCode: input.referralCode,
+      reason: result.reason,
+      sentryEventId: result.sentryEventId,
+    });
+  }
+}
+
+function buildAssignInput(
+  draft: SellerFormDraft,
+  payload: Extract<SubmitResult, { kind: "ok" }>["payload"],
+  offersPayload: unknown[],
+): AssignInput {
+  const address = draft.address;
+  const property = draft.property;
+  const consent = draft.consent;
+
+  const seller = {
+    fullName: draft.contact.name,
+    email: draft.contact.email,
+    phone: draft.contact.phone || undefined,
+    address: address.street1,
+    addressLine2: address.street2,
+    city: address.city,
+    state: address.state,
+    zip: address.zip,
+    beds: property.bedrooms,
+    baths: property.bathrooms,
+    sqft: property.squareFootage,
+    yearBuilt: property.yearBuilt,
+    timeline: draft.condition?.timeline,
+    sellerPaths: draft.currentListingStatus ? [draft.currentListingStatus] : [],
+    tcpaVersion: consent?.tcpa?.version,
+    tcpaAcceptedAt: consent?.tcpa?.acceptedAt,
+    termsVersion: consent?.terms?.version,
+    termsAcceptedAt: consent?.terms?.acceptedAt,
+  };
+
+  return {
+    submissionId: draft.submissionId,
+    referralCode: payload.referralCode,
+    customerId: payload.customerId,
+    userId: null,
+    propertyId: payload.propertyId,
+    pillarHint: draft.pillarHint ?? null,
+    seller,
+    offers: offersFromPayload(offersPayload),
+  };
+}
+
+const TILE_TO_PATH: Record<string, SubmissionOfferPath> = {
+  cash: "cash",
+  "cash-plus": "cash_plus",
+  snml: "snml",
+  list: "list",
+};
+
+function offersFromPayload(raw: unknown[]): AssignInputOffer[] {
+  if (raw.length === 0) return [];
+  const mapped = mapOffersV2ToPortal(raw);
+  const out: AssignInputOffer[] = [];
+  for (const m of mapped) {
+    const path = TILE_TO_PATH[m.id];
+    if (!path) continue;
+    out.push({
+      path,
+      lowCents: Number.isFinite(m.low) ? Math.round(m.low * 100) : null,
+      highCents: Number.isFinite(m.high) ? Math.round(m.high * 100) : null,
+      rawPayload: { id: m.id, name: m.name, displayState: m.displayState },
+    });
+  }
+  return out;
 }

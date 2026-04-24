@@ -36,10 +36,4 @@ export const ROUTES = [
     showInNav: false,
     showInSitemap: false,
   },
-  {
-    path: "/get-started/thanks",
-    title: "Thanks",
-    showInNav: false,
-    showInSitemap: false,
-  },
 ] as const satisfies readonly RouteEntry[];

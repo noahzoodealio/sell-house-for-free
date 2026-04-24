@@ -151,7 +151,8 @@
       "Bash(grep -E \"\\\\\\\\.tsx?\")",
       "Bash(xargs grep *)",
       "WebFetch(domain:getridley.com)",
-      "WebSearch"
+      "WebSearch",
+      "mcp__ado__wit_get_work_items_batch_by_ids"
     ]
   }
 }
