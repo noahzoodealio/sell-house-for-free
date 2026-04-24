@@ -302,4 +302,74 @@ All of the above are deliberate MVP scope cuts. Revisit post-launch based on rea
 - **Runtime owner:** whoever is on call (rotation TBD).
 - **Copy / legal:** E2 marketing for tone, E7 for compliance wording.
 - **Infrastructure (Supabase, Resend, Sentry accounts):** Zoodealio infra team.
+
+## 12. Auth provider configuration (E10)
+
+Supabase Auth is the identity provider for sellers entering `/portal`. This section documents the dashboard configuration that lives outside the repo. All values below are set on the `shf-pm-service` Supabase project (provisioned by E6-S1).
+
+### 12.1 Provider states
+
+| Provider | Mode | Notes |
+|---|---|---|
+| Email | magiclink + OTP (both enabled) | Magic link powers E6 seamless first-login; OTP powers `/portal/login` re-entry. |
+| Phone | SMS via Twilio | TCPA gate enforced in server action (E10-S3) — dashboard does not know about consent. |
+| OAuth (Google/Apple/Facebook) | disabled | Intentional; not on roadmap. |
+| Password | disabled | Passwordless only. |
+
+### 12.2 TTL + code configuration
+
+| Setting | Value | Source |
+|---|---|---|
+| OTP code length | 6 digits | Supabase default; do not change. |
+| OTP code expiry | 300 seconds (5 min) | E10 epic brief. |
+| Magic-link expiry | 86400 seconds (24 h) | Supabase default; matches E6 confirmation-email read window. |
+| Session refresh | rotation enabled | Supabase default. |
+
+### 12.3 Redirect allow-list
+
+Exactly two entries per environment (additions require code-review approval):
+
+- `{SITE_URL}/portal/auth/callback` — E10-S2 callback (all re-send + future logins).
+- `{SITE_URL}/portal/setup` — E6 confirmation-email magic-link landing (seamless first-login).
+
+Environment matrix:
+
+- **Production** — `SITE_URL = https://<canonical>.tld` (set at ship).
+- **Preview** — Vercel preview wildcard if Supabase supports it; else per-deployment override added by release ops.
+- **Local development** — `http://localhost:3000`.
+
+### 12.4 Email templates — Supabase built-ins are DISABLED
+
+Supabase's default `signup` and `magiclink` email templates are disabled. Seller email copy is owned by E6-S4 and E6-S7 (Resend + React Email). Re-enabling the built-in templates requires a copy-review checkpoint — do not flip them on unilaterally.
+
+### 12.5 Twilio (phone OTP sender)
+
+- **Account SID + Auth Token + Messaging Service SID** live in the Supabase dashboard (Auth → Providers → Phone). They MUST NOT appear in `.env.local`, `.env.example`, or any Vercel env.
+- **A2P 10DLC registration** — Twilio brand + campaign registered for SMS deliverability in the US. Brand ID: _____ (fill after registration). Campaign ID: _____ (fill after registration).
+- **Alternative:** toll-free number verified via Twilio's TFV process.
+- **Twilio error budget:** 10 delivery failures per day (baseline — E10-S6 sets after 7-day dry-run). Weekly manual review of Twilio console until scripted polling lands.
+
+### 12.6 Rate limits (baseline — tuned by E10-S6)
+
+- Magic-link send: 30 per hour per IP (Supabase default).
+- Email OTP send: 60 per hour per IP (Supabase default).
+- App-layer `auth_resend_attempts` (E10-S2 table): 3 per identifier per 15 minutes (shared between callback re-send and `/portal/login` send).
+- 4th bad `verifyOtp` in 1 hour → client cool-down (Supabase also invalidates the code after repeated failures).
+
+### 12.7 Rotate Twilio credentials (stub — expand in S6)
+
+1. Generate a new Twilio Auth Token in the Twilio console.
+2. Paste into Supabase dashboard → Auth → Providers → Phone. Do NOT keep the old token active in parallel (Supabase accepts one).
+3. Wait 2 minutes for Supabase edge to propagate.
+4. Smoke-test with a real phone: `/portal/login` → phone tab → request code → verify delivery.
+5. Revoke the old Auth Token in Twilio after smoke passes.
+
+### 12.8 Do-not list
+
+- Do not disable rate limits in production.
+- Do not set magic-link TTL > 24 hours.
+- Do not enable user enumeration via dashboard settings.
+- Do not store Twilio credentials outside Supabase dashboard.
+- Do not re-enable Supabase built-in email templates without E6-S4 copy review.
+- Do not give the service-role key a `NEXT_PUBLIC_` counterpart — it MUST stay server-side.
 - **PM roster changes (adding / disabling / reassigning):** ops team via SQL snippets in section 3.
