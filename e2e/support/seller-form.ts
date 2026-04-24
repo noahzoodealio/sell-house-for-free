@@ -107,6 +107,6 @@ export async function completeAndSubmit(
   await fillContactAndConsent(page);
   await submit(page);
   await expect(page).toHaveURL(
-    new RegExp(`/get-started/thanks\\?ref=${submissionId}`),
+    new RegExp(`/portal/setup\\?sid=${submissionId}(?:&|$)`),
   );
 }

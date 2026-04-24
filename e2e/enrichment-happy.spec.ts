@@ -40,7 +40,7 @@ test.describe("E4 enrichment — happy path", () => {
 
     await expect(page).toHaveURL(
       new RegExp(
-        `/get-started/thanks\\?ref=${submissionId}$`,
+        `/portal/setup\\?sid=${submissionId}(?:&|$)`,
       ),
     );
   });

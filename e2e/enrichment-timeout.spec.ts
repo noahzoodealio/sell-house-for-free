@@ -42,7 +42,7 @@ test.describe("E4 enrichment — timeout", () => {
     await submit(page);
 
     await expect(page).toHaveURL(
-      new RegExp(`/get-started/thanks\\?ref=${submissionId}$`),
+      new RegExp(`/portal/setup\\?sid=${submissionId}(?:&|$)`),
     );
   });
 });
