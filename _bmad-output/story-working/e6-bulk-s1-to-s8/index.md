@@ -51,6 +51,36 @@ stories-created:
 started-at: 2026-04-18T02:20:00Z
 completed-at: 2026-04-18T02:38:00Z
 last-completed-step: 5
+revised-at: 2026-04-23T21:40:00Z
+revised-by: Noah (via /zoo-core-create-story e6 action=update-existing)
+revision-doc: scope-revision-2026-04-23.md
+stories-revised:
+  - id: 7782
+    change: Feature body rewrite — reflect expanded data model (profiles/submissions/submission_offers), Resend + React Email, /portal/setup confirmation, team_members rename
+  - id: 7823
+    change: Expand — add profiles/submissions/submission_offers tables; rename pm_members → team_members; 18 ACs
+    size: M
+  - id: 7825
+    change: No functional change — rename pm_members → team_members in seed + verify snippets + runbook
+    size: S
+  - id: 7827
+    change: Expand — AssignInput takes full seller draft; 4-step orchestrator (insert submission + submission_offers / create auth.users + profiles / assign team_member / enqueue emails); AssignResult adds profileCreated
+    size: M
+  - id: 7830
+    change: Rewrite — Resend + React Email replaces SendGrid; templates as TSX in src/lib/email/templates/; drop 5 SENDGRID_* env vars, add RESEND_API_KEY + EMAIL_FROM + EMAIL_REPLY_TO
+    size: M
+  - id: 7832
+    change: Rewrite — full draft passthrough via expanded AssignInput; redirect target now /portal/setup?sid=…&ref=… (was /get-started/thanks)
+    size: S
+  - id: 7845
+    change: Rewrite — move confirmation UI into /portal/setup (PmPreview + SubmissionRef + FallbackMessage above existing polling island); delete /get-started/thanks + thanks-ref.tsx + 5 E2E specs
+    size: L (was M)
+  - id: 7852
+    change: Rewrite / collapse — final TSX template copy + TCPA footer + preview smoke; drop email-templates/ reference files (Git IS the reference); no SendGrid UI work
+    size: XS (was S)
+  - id: 7859
+    change: Expand — runbook covers seller account lifecycle (profiles/submissions/assignment_events); rename pm_members → team_members in prod-roster SQL; Sentry event names unchanged
+    size: M
 ---
 
 # E6 bulk S1→S8 — PM Working Sidecar
@@ -114,6 +144,24 @@ All eight stories filed with `format: "Html"` placed **inside each item object**
 - No inter-story `Related` links filed in ADO. Hierarchy (Parent) link is on each story pointing at 7782; sibling dependencies documented in each story body under the header.
 - Figma frames not fetched — architecture noted PM photos + confirmation UI coordinate with E2 during pickup, not at decomposition.
 - Did not verify whether E5's `actions.ts` exists in the current tree; S5 includes a `TODO(E5)` stub-behind fallback if E5 isn't merged yet.
+
+## Revision pass (2026-04-23)
+
+Ran `/zoo-core-create-story e6 action=update-existing` after the scope-revision doc was authored. All eight story bodies + Feature 7782 description rewritten in place on ADO via `wit_update_work_item` (`System.Description` + `System.Title` as needed). Format `html` preserved; ReproSteps left untouched (auto-populated clones of the original draft).
+
+Titles updated to reflect revised scope:
+- 7823: "Supabase provisioning + schema (profiles/submissions/submission_offers + team_members/assignment_events) + assign_next_pm RPC + getSupabaseAdmin"
+- 7825: "Placeholder team_members seed + local dev harness + assign_next_pm end-to-end smoke"
+- 7827: "PM service core: assignPmAndNotify (promotes submission + creates seller profile + assigns team_member + enqueues emails) + getAssignmentByReferralCode"
+- 7830: "Resend + React Email integration: send.ts + templates/*.tsx (retry + backoff + notification_log per attempt); drop email-stub.ts"
+- 7832: "Wire assignPmAndNotify into E5 actions.ts (full draft passthrough) between Offervana success and /portal/setup redirect"
+- 7845: "Move confirmation UI into /portal/setup (PmPreview + SubmissionRef + FallbackMessage); delete /get-started/thanks route + thanks-ref.tsx + update 5 E2E specs"
+- 7852: "Finalize Resend template copy (seller + team-member TSX); delete email-templates/ HTML/plaintext reference files; send-a-real-email smoke"
+- 7859: "Ops runbook (team_members + seller-account lifecycle) + prod team_members roster migration + Sentry alert rules"
+
+IDs preserved throughout. Hierarchy links untouched. Sentry event names (`pm_assignment_failed` / `pm_email_failed`) remain the S3→S8 contract.
+
+One wit_update_work_item call failed on the first try (S5, 7832) with `Expected array, received string` — escaping backticks inside JSON template-literal examples broke parsing. Retried without literal backticks and succeeded. Lesson: avoid backticks in `updates[].value` strings when pushing via MCP JSON tools.
 
 ## Next steps
 
