@@ -28,19 +28,29 @@ const NAV_ITEMS = [
 
 type SectionId = (typeof NAV_ITEMS)[number]["id"];
 
-function usePortalData(): [PortalData, React.Dispatch<React.SetStateAction<PortalData>>] {
-  // Render with the deterministic seed on first paint so SSR and the
-  // pre-hydration client match; swap in any persisted copy on mount.
-  const [data, setData] = useState<PortalData>(() => seedPortal());
+function usePortalData(
+  initialData?: PortalData,
+): [PortalData | null, React.Dispatch<React.SetStateAction<PortalData | null>>] {
+  // Priority:
+  //   1. initialData from the Server Component (Supabase-hydrated) — wins.
+  //   2. seedPortal() — returns null in prod; produces the dev-only
+  //      localStorage-seeded copy outside prod.
+  // The pre-hydration client matches the SSR render because the Server
+  // Component commits the initial state before shipping the tree.
+  const [data, setData] = useState<PortalData | null>(
+    () => initialData ?? seedPortal(),
+  );
 
   useEffect(() => {
+    if (initialData) return; // Server-hydrated tree — don't overwrite.
     const stored = loadPortal();
     if (stored) setData(stored);
-  }, []);
+  }, [initialData]);
 
   useEffect(() => {
+    if (initialData) return;
     savePortal(data);
-  }, [data]);
+  }, [data, initialData]);
 
   // Merge live OffersV2 data in on mount. The portal-loading page stashes
   // the submission id to localStorage so /portal can re-hydrate without
@@ -66,7 +76,9 @@ function usePortalData(): [PortalData, React.Dispatch<React.SetStateAction<Porta
           | { status: "error"; message: string };
         if (cancelled) return;
         if (body.status === "ready" && body.offers.length > 0) {
-          setData((prev) => ({ ...prev, offers: body.offers }));
+          setData((prev) =>
+            prev ? { ...prev, offers: body.offers } : prev,
+          );
         }
       } catch {
         // Offer fetch is best-effort — seed offers remain on failure.
@@ -80,8 +92,14 @@ function usePortalData(): [PortalData, React.Dispatch<React.SetStateAction<Porta
   return [data, setData];
 }
 
-export function PortalApp({ initialSection = "overview" as SectionId }) {
-  const [data] = usePortalData();
+export function PortalApp({
+  initialSection = "overview" as SectionId,
+  initialData,
+}: {
+  initialSection?: SectionId;
+  initialData?: PortalData;
+} = {}) {
+  const [data] = usePortalData(initialData);
   const [active, setActive] = useState<SectionId>(initialSection);
 
   const go = (id: SectionId) => {
@@ -90,6 +108,23 @@ export function PortalApp({ initialSection = "overview" as SectionId }) {
       window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     }
   };
+
+  // Prod without snapshot + no dev seed — show an empty state instead of
+  // rendering a placeholder portal. The Server Component gate should
+  // prevent this in practice (anonymous users never see the client tree).
+  if (!data) {
+    return (
+      <main className="mx-auto flex min-h-[60vh] max-w-lg flex-col justify-center px-6 py-16">
+        <h1 className="text-3xl font-semibold text-ink-heading">
+          Setting up your portal…
+        </h1>
+        <p className="mt-3 text-ink-body">
+          We&apos;re preparing your view. If this screen persists, please
+          sign in again or contact support.
+        </p>
+      </main>
+    );
+  }
 
   return (
     <div className="sellfree-root">

@@ -146,7 +146,17 @@ function readFlowCrumbs(): FlowCrumbs {
   }
 }
 
-export function seedPortal(): PortalData {
+export function seedPortal(): PortalData | null {
+  // E10-S4: the localStorage seed is a dev-only fallback. In production
+  // /portal hydrates from Supabase via `getPortalSnapshot` on the Server
+  // Component; seeding placeholder data would leak fake copy into the
+  // authenticated surface.
+  if (
+    typeof process !== "undefined" &&
+    process.env.NODE_ENV === "production"
+  ) {
+    return null;
+  }
   const flow = readFlowCrumbs();
   const seed = flow.seedAddress || {
     addr: "1429 Maple Grove Lane",
@@ -363,6 +373,12 @@ export function seedPortal(): PortalData {
   };
 }
 
+/**
+ * @deprecated E10-S4 — production portals hydrate from Supabase via a
+ * Server Component calling `getPortalSnapshot`. `loadPortal` remains as
+ * a dev-only read of the localStorage seed so offline iteration on the
+ * portal UI keeps working without a session.
+ */
 export function loadPortal(): PortalData | null {
   if (typeof window === "undefined") return null;
   try {
@@ -373,8 +389,9 @@ export function loadPortal(): PortalData | null {
   }
 }
 
-export function savePortal(d: PortalData) {
+export function savePortal(d: PortalData | null) {
   if (typeof window === "undefined") return;
+  if (d == null) return;
   try {
     window.localStorage.setItem(PORTAL_KEY, JSON.stringify(d));
   } catch {
