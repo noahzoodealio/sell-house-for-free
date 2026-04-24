@@ -15,6 +15,7 @@ import {
 } from "@react-email/components";
 
 import type { SellerConfirmationProps } from "../dynamic-data";
+import { Disclaimer } from "./disclaimer";
 
 // Placeholder copy — E6-S7 finalizes the seller confirmation wording +
 // TCPA footer import (E7) + three-part AI/tech-platform disclaimer.
@@ -31,13 +32,20 @@ export function SellerConfirmation(props: SellerConfirmationProps) {
       <Body style={bodyStyle}>
         <Container style={containerStyle}>
           <Heading as="h1" style={headingStyle}>
-            Hi {props.sellerFirstName},
+            Hi {props.sellerFirstName}, we&apos;ve received your home.
           </Heading>
           <Text style={bodyText}>
-            Thanks for starting the process. We&apos;ve assigned{" "}
-            <strong>{props.pmFirstName}</strong> to your file.{" "}
-            {props.pmFirstName} will reach out within{" "}
-            {props.contactWindowHours} hours.
+            Thanks for sharing the details. We&apos;ve assigned{" "}
+            <strong>{props.pmFirstName}</strong> as your Project Manager —
+            they&apos;ll reach out within{" "}
+            <strong>{props.contactWindowHours} hours</strong> to walk you
+            through every path available for your home, from cash offers to
+            a traditional listing.
+          </Text>
+          <Text style={bodyText}>
+            You don&apos;t need to do anything yet. If a question comes up
+            before {props.pmFirstName} reaches out, just reply to this email
+            — we read every response.
           </Text>
 
           <Section style={pmSection}>
@@ -59,18 +67,13 @@ export function SellerConfirmation(props: SellerConfirmationProps) {
           <Hr style={hrStyle} />
 
           <Text style={smallText}>
-            Your reference code: <code>{props.referralCode}</code>
+            Submission reference: <code>{props.referralCode}</code>
           </Text>
 
-          <Text style={disclaimerText}>
-            Sell Your House Free is a technology platform, not a real estate
-            brokerage. We connect you with a knowledgeable friend who can
-            explain your options.
-          </Text>
+          <Disclaimer />
 
-          {/* TODO(E7): TCPA footer wording lands with E7. */}
           <Text style={footerText}>
-            You&apos;re receiving this because you submitted your home at{" "}
+            You&apos;re receiving this because you submitted your home at
             sellyourhousefree.com.{" "}
             <Link href={props.unsubscribeUrl} style={linkStyle}>
               Unsubscribe
@@ -154,13 +157,6 @@ const hrStyle = {
 const smallText = {
   fontSize: "14px",
   color: "#475569",
-};
-
-const disclaimerText = {
-  fontSize: "12px",
-  color: "#64748b",
-  marginTop: "16px",
-  lineHeight: "18px",
 };
 
 const footerText = {
