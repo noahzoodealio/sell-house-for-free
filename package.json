@@ -18,6 +18,8 @@
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",
     "@next/mdx": "^16.2.3",
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.0.7",
     "@supabase/supabase-js": "^2.104.1",
     "@types/mdx": "^2.0.13",
     "@vercel/analytics": "^2.0.1",
@@ -25,7 +27,9 @@
     "next": "16.2.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "resend": "^6.12.2",
     "server-only": "^0.0.1",
+    "vercel": "^52.0.0",
     "workflow": "^4.2.4",
     "zod": "^4.3.6"
   },

@@ -105,7 +105,7 @@ vi.mock("@/lib/supabase/server", () => ({
   getSupabaseAdmin: () => mockSupabase,
 }));
 
-vi.mock("../email-stub", () => ({
+vi.mock("@/lib/email", () => ({
   sendSellerConfirmation: async () => {
     if (state.seller.throw) throw new Error("seller send throw");
     return state.seller.sendResult ?? { ok: true };

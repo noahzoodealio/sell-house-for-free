@@ -10,7 +10,8 @@ import { RPC_TIMEOUT_MS, CONTACT_WINDOW_HOURS } from "./config";
 import {
   sendSellerConfirmation,
   sendTeamMemberNotification,
-} from "./email-stub";
+} from "@/lib/email";
+
 import {
   captureException,
   sanitizeSentryExtras,
