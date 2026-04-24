@@ -1,23 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { trackAuthEvent } from "@/lib/auth/events";
 import { createServerAuthClient } from "@/lib/supabase/server-auth";
 
 export const runtime = "nodejs";
-
-// Sentry-style audit event emitted on exchange failure. E10-S6 replaces
-// this with the typed `trackAuthEvent` helper; for now it writes a
-// structured console line so infra capture (Vercel logs, Sentry's default
-// console integration) has something to match on.
-function logAuthFailure(reason: string, code?: string) {
-  console.warn(
-    JSON.stringify({
-      event: "seller_magic_link_exchange_failed",
-      reason,
-      code: code ?? null,
-    }),
-  );
-}
 
 function noIndexHeaders(response: NextResponse): NextResponse {
   response.headers.set("Cache-Control", "no-store");
@@ -64,7 +51,11 @@ export async function GET(request: NextRequest) {
   const target = resolveRedirect(request, rawRedirect);
 
   if (!code && !tokenHash) {
-    logAuthFailure("missing_params");
+    trackAuthEvent({
+      type: "seller_login_failed",
+      method: "magic_link",
+      reason: "exchange_failed",
+    });
     return noIndexHeaders(NextResponse.redirect(expiredUrl(request, "error")));
   }
 
@@ -72,13 +63,35 @@ export async function GET(request: NextRequest) {
 
   try {
     if (code) {
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
       if (error) {
         const reason = mapSupabaseErrorReason(error.message);
-        logAuthFailure(reason, error.message);
+        if (reason === "expired") {
+          trackAuthEvent({
+            type: "seller_magic_link_expired",
+            identifierType: "email",
+          });
+        }
+        trackAuthEvent({
+          type: "seller_login_failed",
+          method: "magic_link",
+          reason:
+            reason === "expired"
+              ? "expired"
+              : reason === "used"
+                ? "used"
+                : "exchange_failed",
+        });
         return noIndexHeaders(
           NextResponse.redirect(expiredUrl(request, reason)),
         );
+      }
+      if (data.user) {
+        trackAuthEvent({
+          type: "seller_login_succeeded",
+          method: "magic_link",
+          userId: data.user.id,
+        });
       }
     } else if (tokenHash) {
       // Token-hash flow covers the email-delivered variants only; SMS uses
@@ -102,20 +115,46 @@ export async function GET(request: NextRequest) {
               | "signup"
               | "email_change")
           : "email";
-      const { error } = await supabase.auth.verifyOtp({
+      const { data, error } = await supabase.auth.verifyOtp({
         token_hash: tokenHash,
         type,
       });
       if (error) {
         const reason = mapSupabaseErrorReason(error.message);
-        logAuthFailure(reason, error.message);
+        if (reason === "expired") {
+          trackAuthEvent({
+            type: "seller_magic_link_expired",
+            identifierType: "email",
+          });
+        }
+        trackAuthEvent({
+          type: "seller_login_failed",
+          method: "magic_link",
+          reason:
+            reason === "expired"
+              ? "expired"
+              : reason === "used"
+                ? "used"
+                : "exchange_failed",
+        });
         return noIndexHeaders(
           NextResponse.redirect(expiredUrl(request, reason)),
         );
       }
+      if (data.user) {
+        trackAuthEvent({
+          type: "seller_login_succeeded",
+          method: "magic_link",
+          userId: data.user.id,
+        });
+      }
     }
-  } catch (err) {
-    logAuthFailure("exchange_failed", err instanceof Error ? err.message : undefined);
+  } catch {
+    trackAuthEvent({
+      type: "seller_login_failed",
+      method: "magic_link",
+      reason: "exchange_failed",
+    });
     return noIndexHeaders(NextResponse.redirect(expiredUrl(request, "error")));
   }
 

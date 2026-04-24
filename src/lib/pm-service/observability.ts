@@ -8,7 +8,13 @@ import "server-only";
 // name, address). The caller constructs a sanitized-extras object via
 // sanitizeSentryExtras() below and passes it here.
 
-export type SentryEventName = "pm_assignment_failed" | "pm_email_failed";
+export type SentryEventName =
+  | "pm_assignment_failed"
+  | "pm_email_failed"
+  | "seller_login_succeeded"
+  | "seller_login_failed"
+  | "seller_magic_link_expired"
+  | "seller_login_resend";
 
 export type SentrySeverity = "critical" | "error" | "warning";
 
@@ -58,6 +64,10 @@ const SAFE_EXTRA_KEYS = new Set([
   "classification",
   "templateKey",
   "recipientType",
+  // E10 auth events:
+  "authMethod",
+  "authReason",
+  "identifierType",
 ]);
 
 export function sanitizeSentryExtras(

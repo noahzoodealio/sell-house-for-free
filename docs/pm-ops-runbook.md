@@ -372,4 +372,72 @@ Supabase's default `signup` and `magiclink` email templates are disabled. Seller
 - Do not store Twilio credentials outside Supabase dashboard.
 - Do not re-enable Supabase built-in email templates without E6-S4 copy review.
 - Do not give the service-role key a `NEXT_PUBLIC_` counterpart — it MUST stay server-side.
+
+## 13. Seller can't log in — triage (E10-S6)
+
+Walk the steps in order. Target: triage in under 10 minutes.
+
+1. **What did they try?** Ask which method — magic-link email, email OTP, or SMS OTP — and whether they received the message at all.
+2. **Check the delivery path.**
+   - SMS: open Twilio console → Messaging → search by phone (last 4). Look at delivery status.
+   - Email: open Resend dashboard → filter by the seller's email address. Look at bounces / complaints.
+3. **Check Supabase auth.** Supabase dashboard → Authentication → Users → search by email or phone. Confirm the `auth.users` row exists, read the recent audit log for that user.
+4. **Check Sentry for structured events.** Search for `authEvent:seller_login_failed` with the seller's `userId` (from step 3) — shows which specific failure reason the server recorded (`rate_limited`, `tcpa_missing`, `user_not_found`, `invalid_code`, `expired`, `used`, `exchange_failed`). PII reminder: Sentry events contain `userId` only, no raw email/phone — cross-reference via the Supabase dashboard if you need the raw identifier.
+5. **Provider-side resolution.** If auth row exists + delivery shows "delivered" but seller still blocked: Supabase dashboard → user → "Send magic link" button issues a fresh link.
+6. **Nuke + re-send.** If step 5 fails: same user page → "Revoke refresh tokens" → issue a fresh magic link.
+7. **Escalate** to a maintainer if the auth logs show nothing for the identifier.
+
+## 14. Session-revoke SOP (E10-S6)
+
+**When to revoke:**
+- Seller reports a compromised device.
+- Seller explicitly asks to sign out of everywhere.
+- Ops notices suspicious activity (unexpected geo-jump, brute-force on verify, etc.).
+
+**How:**
+1. Supabase dashboard → Authentication → Users → search by email or phone.
+2. Click the user → **Revoke refresh tokens** button.
+3. Send a fresh magic link (or tell the seller to request one via `/portal/login`).
+4. Record the action in `notification_log` or the ops ledger with a one-line reason; paste the user's `auth.uid()` (NOT the raw email/phone).
+
+## 15. Twilio error budget (E10-S6)
+
+**Baseline:** 10 SMS delivery failures per day is the escalation threshold. Weekly manual review until a scripted Twilio → Sentry poll lands.
+
+**How to check:**
+- Twilio console → Messaging → Logs.
+- Filter: `Status = undelivered OR failed`, last 7 days.
+- If > 10 in any 24h window, investigate the error codes. Common ones: 30003 (blocked by carrier), 30007 (carrier rejected — A2P 10DLC brand issue), 21610 (opted-out recipient — drop + ask to opt back in).
+
+**What to do on a breach:**
+- Check A2P 10DLC campaign status in Twilio (may be paused).
+- Page a maintainer if the seller volume is trending up and failures are > 1% of sends.
+
+## 16. E10 Sentry alert rules (E10-S6 — configure once dashboard access ready)
+
+Both rules are issue alerts on the structured events emitted by `src/lib/auth/events.ts`. Payload carries `authEvent`, `authMethod`, `authReason`, `identifierType`, `userId` — no raw email/phone.
+
+### Rule 1: Login failure rate
+
+- **Condition:** event `message` contains `authEvent:"seller_login_failed"` AND count > 20 in 1 hour.
+- **Action:** notify on-call channel (placeholder: `#alerts-offervana` / Noah's email — set the real channel when on-call rotation is defined).
+- **Why:** sustained failure spike indicates abuse attempt or outage. Not every spike is bad (a marketing blast can cause spikes), but threshold-crossing deserves eyes.
+
+### Rule 2: Magic-link expiry rate
+
+- **Condition:** event `message` contains `authEvent:"seller_magic_link_expired"` AND count > 5 in 1 hour.
+- **Action:** low-priority investigation ticket (no paging).
+- **Why:** expiry spike usually means a confirmation email got delayed past TTL (Resend outage, spam-folder accumulation). Not an incident — but patterns here inform whether to extend magic-link TTL beyond 24h.
+
+## 17. E10 7-day dry-run (E10-S6)
+
+After S1-S5 land in preview + first live smoke (email send, phone send, verify, RLS cross-read denial), keep S6 in ADO "Code Review" for 7 days. During the window:
+
+- Watch the two alert rules. If they fire constantly at thresholds 20/hr and 5/hr, the thresholds are too low (or something's genuinely broken). Adjust in this runbook + the Sentry rule config.
+- Log total Twilio errors/day for 7 days; reset the 10/day baseline if real traffic shows a different ambient rate.
+- If no anomalies after 7 days, move S6 to "Ready for Testing" and QA can close the epic.
+
+## 18. `auth_resend_attempts` retention (E10-S6)
+
+Rows older than 24h are safe to prune. No scripted cron lands in this epic — the table stays manageable at MVP volume (< 500 submissions/month → < 50k rows/year). Revisit when volume > 5k submissions/month.
 - **PM roster changes (adding / disabling / reassigning):** ops team via SQL snippets in section 3.

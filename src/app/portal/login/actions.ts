@@ -1,5 +1,6 @@
 "use server";
 
+import { trackAuthEvent } from "@/lib/auth/events";
 import {
   checkResendRateLimit,
   recordResendAttempt,
@@ -77,6 +78,11 @@ export async function requestOtp(
     }
     const rate = await checkResendRateLimit(raw);
     if (!rate.allowed) {
+      trackAuthEvent({
+        type: "seller_login_failed",
+        method: "email_otp",
+        reason: "rate_limited",
+      });
       return {
         ok: false,
         reason: "rate_limited",
@@ -96,23 +102,45 @@ export async function requestOtp(
       if (error) {
         const msg = error.message.toLowerCase();
         if (msg.includes("not found") || msg.includes("does not exist")) {
+          trackAuthEvent({
+            type: "seller_login_failed",
+            method: "email_otp",
+            reason: "user_not_found",
+          });
           return enforceTimingFloor(startedAt, {
             ok: false,
             reason: "user_not_found",
           } as const);
         }
+        trackAuthEvent({
+          type: "seller_login_failed",
+          method: "email_otp",
+          reason: "exchange_failed",
+        });
         return enforceTimingFloor(startedAt, {
           ok: false,
           reason: "unknown_error",
         } as const);
       }
     } catch {
+      trackAuthEvent({
+        type: "seller_login_failed",
+        method: "email_otp",
+        reason: "exchange_failed",
+      });
       return enforceTimingFloor(startedAt, {
         ok: false,
         reason: "unknown_error",
       } as const);
     }
 
+    if (rate.attemptsInWindow > 0) {
+      trackAuthEvent({
+        type: "seller_login_resend",
+        identifierType: "email",
+        attempt: rate.attemptsInWindow + 1,
+      });
+    }
     await recordResendAttempt(raw, "email");
     return enforceTimingFloor(startedAt, {
       ok: true,
@@ -132,6 +160,11 @@ export async function requestOtp(
 
   const rate = await checkResendRateLimit(phone);
   if (!rate.allowed) {
+    trackAuthEvent({
+      type: "seller_login_failed",
+      method: "sms_otp",
+      reason: "rate_limited",
+    });
     return {
       ok: false,
       reason: "rate_limited",
@@ -152,12 +185,22 @@ export async function requestOtp(
     : null;
 
   if (!profile) {
+    trackAuthEvent({
+      type: "seller_login_failed",
+      method: "sms_otp",
+      reason: "user_not_found",
+    });
     return enforceTimingFloor(startedAt, {
       ok: false,
       reason: "user_not_found",
     } as const);
   }
   if (!profile.tcpa_version) {
+    trackAuthEvent({
+      type: "seller_login_failed",
+      method: "sms_otp",
+      reason: "tcpa_missing",
+    });
     return enforceTimingFloor(startedAt, {
       ok: false,
       reason: "tcpa_missing",
@@ -170,18 +213,35 @@ export async function requestOtp(
       options: { shouldCreateUser: false, channel: "sms" },
     });
     if (error) {
+      trackAuthEvent({
+        type: "seller_login_failed",
+        method: "sms_otp",
+        reason: "exchange_failed",
+      });
       return enforceTimingFloor(startedAt, {
         ok: false,
         reason: "unknown_error",
       } as const);
     }
   } catch {
+    trackAuthEvent({
+      type: "seller_login_failed",
+      method: "sms_otp",
+      reason: "exchange_failed",
+    });
     return enforceTimingFloor(startedAt, {
       ok: false,
       reason: "unknown_error",
     } as const);
   }
 
+  if (rate.attemptsInWindow > 0) {
+    trackAuthEvent({
+      type: "seller_login_resend",
+      identifierType: "phone",
+      attempt: rate.attemptsInWindow + 1,
+    });
+  }
   await recordResendAttempt(phone, "phone");
   return enforceTimingFloor(startedAt, {
     ok: true,
@@ -193,7 +253,15 @@ export async function requestOtp(
 export async function verifyOtpAndSignIn(
   input: VerifyOtpInput,
 ): Promise<VerifyOtpResult> {
+  const method: "email_otp" | "sms_otp" =
+    input.method === "email" ? "email_otp" : "sms_otp";
+
   if (!/^\d{6}$/.test(input.token)) {
+    trackAuthEvent({
+      type: "seller_login_failed",
+      method,
+      reason: "invalid_code",
+    });
     return { ok: false, reason: "invalid_code" };
   }
 
@@ -204,13 +272,33 @@ export async function verifyOtpAndSignIn(
       input.method === "email"
         ? ({ email: input.identifier, token: input.token, type: "email" } as const)
         : ({ phone: input.identifier, token: input.token, type: "sms" } as const);
-    const { error } = await supabase.auth.verifyOtp(verifyInput);
+    const { data, error } = await supabase.auth.verifyOtp(verifyInput);
     if (error) {
       const msg = error.message.toLowerCase();
-      if (msg.includes("expired")) return { ok: false, reason: "expired" };
+      if (msg.includes("expired")) {
+        trackAuthEvent({ type: "seller_login_failed", method, reason: "expired" });
+        return { ok: false, reason: "expired" };
+      }
+      trackAuthEvent({
+        type: "seller_login_failed",
+        method,
+        reason: "invalid_code",
+      });
       return { ok: false, reason: "invalid_code" };
     }
+    if (data.user) {
+      trackAuthEvent({
+        type: "seller_login_succeeded",
+        method,
+        userId: data.user.id,
+      });
+    }
   } catch {
+    trackAuthEvent({
+      type: "seller_login_failed",
+      method,
+      reason: "exchange_failed",
+    });
     return { ok: false, reason: "unknown_error" };
   }
 
