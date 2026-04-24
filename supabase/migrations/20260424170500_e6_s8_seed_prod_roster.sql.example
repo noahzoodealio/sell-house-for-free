@@ -1,0 +1,61 @@
+-- E6-S8 (ADO 7859): Production team_members roster migration — TEMPLATE.
+--
+-- This file is a TEMPLATE. Copy to a concrete filename (drop the
+-- `.example` suffix) and fill in real PM names / emails / phones /
+-- photo paths BEFORE applying. The concrete migration file contains
+-- private directory data; do NOT commit it to git unless the team
+-- has agreed the information is safe to publish (see E6-S8 runbook,
+-- "Production roster migration" section).
+--
+-- Applied manually via `supabase db push`. Never auto-applied by CI.
+--
+-- What this migration does:
+--   1. DELETE the three placeholder team_members (Jordan / Morgan /
+--      Taylor, `.placeholder@sellyourhousefree.com` domain) seeded by
+--      E6-S2.
+--   2. INSERT the real production roster.
+--
+-- Pre-flight:
+--   - Real PM photos uploaded to public/pm/*.jpg (see launch checklist
+--     in docs/pm-ops-runbook.md §8).
+--   - No seller submissions are currently assigned to a placeholder
+--     (placeholders have ON DELETE SET NULL on submissions.pm_user_id,
+--     so this would orphan assignments — unassigned submissions show
+--     <FallbackMessage /> on the portal until a real PM is re-assigned
+--     manually via ops SQL).
+
+begin;
+
+-- Step 1 — delete placeholders.
+delete from public.team_members where email like '%.placeholder@%';
+
+-- Step 2 — insert real roster. Example shape only; replace with real
+-- names, emails, phones, photo paths.
+--
+-- insert into public.team_members
+--   (first_name, last_name, email, phone, photo_url, bio, active, role, coverage_regions)
+-- values
+--   ('Pat',   'Example', 'pat@sellyourhousefree.com',
+--    '+15555551234', '/pm/pat.jpg',
+--    'Senior Project Manager, 8 years AZ residential.',
+--    true, array['pm']::text[], array['all']::text[]),
+--   ('Chris', 'Example', 'chris@sellyourhousefree.com',
+--    '+15555555678', '/pm/chris.jpg',
+--    'Project Manager, 4 years AZ, bilingual EN/ES.',
+--    true, array['pm']::text[], array['all']::text[]);
+
+-- Step 3 — sanity check. Uncomment the raise to gate the commit on
+-- a minimum active PM count.
+--
+-- do $$
+-- declare v_count int;
+-- begin
+--   select count(*) into v_count
+--     from public.team_members
+--    where active = true and 'pm' = any(role);
+--   if v_count < 2 then
+--     raise exception 'E6 launch requires at least 2 active PMs, got %', v_count;
+--   end if;
+-- end $$;
+
+commit;
