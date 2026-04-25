@@ -20,6 +20,13 @@ import { getOfferHistoryTool } from "@/lib/ai/tools/offervana-offer-history";
 import { listMyOffersTool } from "@/lib/ai/tools/offervana-offers";
 import { listMyOffersV2Tool } from "@/lib/ai/tools/offervana-offers-v2";
 import { getMyOffervanaPropertyTool } from "@/lib/ai/tools/offervana-property";
+import { getMyAssignedPmTool } from "@/lib/ai/tools/shf-assigned-pm";
+import { listMyArtifactsTool } from "@/lib/ai/tools/shf-artifacts";
+import { listMyDocumentsTool } from "@/lib/ai/tools/shf-documents";
+import { getMyEnrichedPropertyTool } from "@/lib/ai/tools/shf-enriched-property";
+import { listMySubmissionOffersTool } from "@/lib/ai/tools/shf-submission-offers";
+import { getMySubmissionTool } from "@/lib/ai/tools/shf-submission";
+import { listMyThreadMessagesTool } from "@/lib/ai/tools/shf-thread-messages";
 import {
   bumpSessionActivity,
   loadSession,
@@ -154,8 +161,36 @@ export async function POST(request: NextRequest): Promise<Response> {
               id: sessionId,
               submissionId: session.submissionId,
             }),
+            // E13-S5 Supabase read tools — also gated on session.submissionId.
+            getMySubmission: getMySubmissionTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            listMySubmissionOffers: listMySubmissionOffersTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            getMyAssignedPm: getMyAssignedPmTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            listMyThreadMessages: listMyThreadMessagesTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            listMyDocuments: listMyDocumentsTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            getMyEnrichedProperty: getMyEnrichedPropertyTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
           }
         : {}),
+      // listMyArtifacts is session-scoped, not submission-scoped — always
+      // available so the LLM can recall its own prior outputs.
+      listMyArtifacts: listMyArtifactsTool({ id: sessionId }),
     },
     stopWhen: stepCountIs(8),
     experimental_telemetry: {
