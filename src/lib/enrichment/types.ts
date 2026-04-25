@@ -60,6 +60,10 @@ export type EnrichmentTelemetry = {
   attomOk: boolean;
   attomLatencyMs?: number;
   sources: EnrichmentSource[];
+  // E12-S6: per-endpoint durable-cache hit indicators surfaced to the
+  // /api/enrich route for analytics dimensions.
+  durableProfileHit?: boolean;
+  durableMlsSearchHit?: boolean;
 };
 
 export type EnrichmentResult = {

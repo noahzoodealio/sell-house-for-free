@@ -49,23 +49,34 @@ function logOne(line: LogLine): void {
 }
 
 // Fire-and-forget custom event for the enrichment outcome. Dimensions are
-// capped to `status` × `cache_hit` — no submissionId, no addressKey, no raw
-// address. Failures fall back to a single structured log line and never
-// block or reject the response.
+// capped to a small allow-list — no submissionId, no addressKey, no raw
+// address. E12-S6 added `durable_hit` (aggregate) plus per-endpoint flags
+// `durable_profile_hit` / `durable_mls_search_hit` so the per-endpoint
+// hit-rate dashboard can be built without re-emitting per-endpoint events.
+// Failures fall back to a single structured log line and never block or
+// reject the response.
 function trackEnrichmentStatus(
   status: EnrichmentEnvelope["status"],
   cacheHit: boolean,
+  durableProfileHit: boolean,
+  durableMlsSearchHit: boolean,
 ): void {
+  const dims = {
+    status,
+    cache_hit: cacheHit,
+    durable_hit: durableProfileHit || durableMlsSearchHit,
+    durable_profile_hit: durableProfileHit,
+    durable_mls_search_hit: durableMlsSearchHit,
+  };
   try {
-    void track("enrichment_status", { status, cache_hit: cacheHit });
+    void track("enrichment_status", dims);
   } catch (err) {
     console.log(
       "[api/enrich]",
       JSON.stringify({
         at: new Date().toISOString(),
         event: "track_failed",
-        status,
-        cache_hit: cacheHit,
+        ...dims,
         error: err instanceof Error ? err.message : "unknown",
       }),
     );
@@ -124,7 +135,7 @@ async function handleEnrich(
       cacheHit: false,
       kind: "enrich",
     });
-    trackEnrichmentStatus(body.status, false);
+    trackEnrichmentStatus(body.status, false, false, false);
     return NextResponse.json(body, { status: 200, headers: RESPONSE_HEADERS });
   }
 
@@ -135,6 +146,8 @@ async function handleEnrich(
   let mlsSearchHit = false;
   let mlsDetailsHit = false;
   let mlsImagesHit = false;
+  let durableProfileHit = false;
+  let durableMlsSearchHit = false;
 
   try {
     if (isDevMockEnabled()) {
@@ -148,6 +161,8 @@ async function handleEnrich(
       mlsSearchHit = result.telemetry.mlsSearchOk;
       mlsDetailsHit = result.telemetry.mlsDetailsOk;
       mlsImagesHit = result.telemetry.mlsImagesOk;
+      durableProfileHit = result.telemetry.durableProfileHit ?? false;
+      durableMlsSearchHit = result.telemetry.durableMlsSearchHit ?? false;
     }
   } catch {
     body = { status: "error", code: "unhandled" };
@@ -178,7 +193,7 @@ async function handleEnrich(
     kind: "enrich",
   });
 
-  trackEnrichmentStatus(body.status, cacheHit);
+  trackEnrichmentStatus(body.status, cacheHit, durableProfileHit, durableMlsSearchHit);
 
   return NextResponse.json(body, { status: 200, headers: RESPONSE_HEADERS });
 }

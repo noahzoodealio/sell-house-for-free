@@ -22,6 +22,7 @@ import {
   isNegativeCacheStale,
   isStale,
 } from "./durable-cache-policy";
+import { captureEnrichmentEvent } from "./observability";
 import {
   addressCacheKey,
   isAzZip,
@@ -60,6 +61,17 @@ type RunResult = {
   mlsDetailsOk: boolean;
   mlsImagesOk: boolean;
   sources: EnrichmentSource[];
+  // E12-S6: per-endpoint durable-hit flags surfaced to API analytics.
+  durableProfileHit: boolean;
+  durableMlsSearchHit: boolean;
+};
+
+// Shared mutable hit-tracker — both cached helpers may run concurrently
+// inside Promise.allSettled. Each helper sets its own slot on hit; we
+// read both after settle.
+type DurableHitTracker = {
+  profile: boolean;
+  mls_search: boolean;
 };
 
 const DEFAULT_SOURCES: EnrichmentSource[] = ["mls", "attom"];
@@ -145,17 +157,12 @@ async function logStaleOutage(
   addressKey: string,
   err: unknown,
 ): Promise<void> {
-  if (process.env.NODE_ENV !== "production") {
-    console.log(
-      "[enrichment]",
-      JSON.stringify({
-        event: "enrichment_stale_refresh_skipped_outage",
-        endpoint,
-        addressKey,
-        err: err instanceof Error ? err.message : String(err),
-      }),
-    );
-  }
+  captureEnrichmentEvent({
+    event: "enrichment_stale_refresh_skipped_outage",
+    severity: "warning",
+    error: err,
+    extras: { endpoint, addressKey, outage: true },
+  });
 }
 
 /**
@@ -167,13 +174,33 @@ async function logStaleOutage(
 async function cachedAttomProfile(
   input: EnrichInput,
   addressKey: string,
+  hits: DurableHitTracker,
 ): Promise<AttomProfileDto | null> {
   const cached = await readDurable<AttomProfileDto>(addressKey, "profile");
   if (cached && !isStale("profile", cached.fetchedAt)) {
+    hits.profile = true;
+    captureEnrichmentEvent({
+      event: "enrichment_durable_hit",
+      severity: "info",
+      extras: {
+        endpoint: "profile",
+        addressKey,
+        ageMs: Date.now() - cached.fetchedAt.getTime(),
+      },
+    });
     return cached.payload;
   }
 
   try {
+    captureEnrichmentEvent({
+      event: "enrichment_upstream_refetch",
+      severity: "info",
+      extras: {
+        endpoint: "profile",
+        addressKey,
+        stale: cached !== null,
+      },
+    });
     const profile = await getAttomProfile(input.address);
     if (profile !== null) {
       await writeDurable(addressKey, "profile", profile, locatorFor(input));
@@ -184,6 +211,12 @@ async function cachedAttomProfile(
       await logStaleOutage("profile", addressKey, err);
       return cached.payload;
     }
+    captureEnrichmentEvent({
+      event: "enrichment_upstream_error",
+      severity: "error",
+      error: err,
+      extras: { endpoint: "profile", addressKey },
+    });
     throw err;
   }
 }
@@ -194,16 +227,36 @@ async function cachedAttomProfile(
 async function cachedSearchByAddress(
   input: EnrichInput,
   addressKey: string,
+  hits: DurableHitTracker,
 ): Promise<SearchByAddressResult | null> {
   const cached = await readDurable<SearchByAddressResult>(
     addressKey,
     "mls_search",
   );
   if (cached && !isStale("mls_search", cached.fetchedAt)) {
+    hits.mls_search = true;
+    captureEnrichmentEvent({
+      event: "enrichment_durable_hit",
+      severity: "info",
+      extras: {
+        endpoint: "mls_search",
+        addressKey,
+        ageMs: Date.now() - cached.fetchedAt.getTime(),
+      },
+    });
     return cached.payload;
   }
 
   try {
+    captureEnrichmentEvent({
+      event: "enrichment_upstream_refetch",
+      severity: "info",
+      extras: {
+        endpoint: "mls_search",
+        addressKey,
+        stale: cached !== null,
+      },
+    });
     const result = await searchByAddress(input.address);
     if (result !== null) {
       await writeDurable(addressKey, "mls_search", result, locatorFor(input));
@@ -214,6 +267,12 @@ async function cachedSearchByAddress(
       await logStaleOutage("mls_search", addressKey, err);
       return cached.payload;
     }
+    captureEnrichmentEvent({
+      event: "enrichment_upstream_error",
+      severity: "error",
+      error: err,
+      extras: { endpoint: "mls_search", addressKey },
+    });
     throw err;
   }
 }
@@ -230,13 +289,14 @@ async function runEnrichment(
   // Round 1 — parallel MLS search + ATTOM profile. Either side may be
   // a synthetic `Promise.resolve(null)` when disabled via the env toggle.
   // Both calls go through the durable cache (E12-S4).
+  const hits: DurableHitTracker = { profile: false, mls_search: false };
   const attomStartedAt = attomEnabled ? performance.now() : undefined;
   const [searchSettled, attomSettled] = (await Promise.allSettled([
     mlsEnabled
-      ? cachedSearchByAddress(input, addressKey)
+      ? cachedSearchByAddress(input, addressKey, hits)
       : Promise.resolve<SearchByAddressResult | null>(null),
     attomEnabled
-      ? cachedAttomProfile(input, addressKey)
+      ? cachedAttomProfile(input, addressKey, hits)
       : Promise.resolve<AttomProfileDto | null>(null),
   ])) as [
     PromiseSettledResult<SearchByAddressResult | null>,
@@ -277,6 +337,8 @@ async function runEnrichment(
     attomOk,
     mlsSearchOk,
     sources,
+    durableProfileHit: hits.profile,
+    durableMlsSearchHit: hits.mls_search,
   };
 
   // Neither source contributed usable data → preserve existing behaviour
@@ -460,6 +522,8 @@ export async function getEnrichment(
     attomOk: result.attomOk,
     attomLatencyMs: result.attomLatencyMs,
     sources: result.sources,
+    durableProfileHit: result.durableProfileHit,
+    durableMlsSearchHit: result.durableMlsSearchHit,
   };
   return { envelope, telemetry };
 }
