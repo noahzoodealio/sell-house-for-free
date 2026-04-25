@@ -33,7 +33,11 @@ type AttomProperty = {
   lot?: { lotSize2?: number };
 };
 
-function extractProfile(body: unknown): AttomProfileDto | null {
+/**
+ * Pure extractor exported for E12-S4: when the durable cache hits, we
+ * re-extract from the stored raw payload rather than re-paying ATTOM.
+ */
+export function extractProfile(body: unknown): AttomProfileDto | null {
   if (!body || typeof body !== "object") return null;
   const property = (body as { property?: unknown }).property;
   if (!Array.isArray(property) || property.length === 0) return null;
@@ -56,14 +60,16 @@ function extractProfile(body: unknown): AttomProfileDto | null {
 }
 
 /**
- * Fetch ATTOM expandedprofile for an address. Returns `null` when
- * ATTOM's 200 response has an empty `property[]` (no match) so the
- * caller can treat it as "no ATTOM data" without catching an error.
- * 4xx / 5xx / network / timeout / parse failures throw `AttomError`.
+ * Fetch ATTOM expandedprofile and return the raw parsed JSON body.
+ * Exposed for E12-S4: durable cache stores raw so future normalizer
+ * improvements can re-derive without re-paying ATTOM. Returns `null`
+ * when ATTOM responds 200 with no usable body (defensive — currently
+ * always returns the parsed object). Throws `AttomError` for
+ * 4xx/5xx/network/timeout/parse failures.
  */
-export async function getAttomProfile(
+export async function getAttomProfileRaw(
   addr: AddressFields,
-): Promise<AttomProfileDto | null> {
+): Promise<unknown> {
   // Synchronous config validation — no fetch fires on misconfig (AC2).
   const base = getBaseUrl();
   const token = getToken();
@@ -73,7 +79,7 @@ export async function getAttomProfile(
     address1,
   )}&address2=${encodeURIComponent(address2)}`;
 
-  const attempt = async (): Promise<AttomProfileDto | null> => {
+  const attempt = async (): Promise<unknown> => {
     const res = await fetch(url, {
       method: "GET",
       headers: {
@@ -89,12 +95,8 @@ export async function getAttomProfile(
       throw new AttomError({ code: "http", status: res.status });
     }
     const body = await parseJson(res);
-    const profile = extractProfile(body);
     if (process.env.NODE_ENV !== "production") {
-      // Dev-only manual-test log. Includes the building/summary/lot subtrees
-      // (the sections our narrow extractor looks at) so we can spot
-      // path-mismatch bugs. Never the full body — `property[0].assessment.owner`,
-      // `property[0].sale.{buyer,seller}`, etc. carry real PII per AC13.
+      const profile = extractProfile(body);
       const first = (body as { property?: unknown[] } | null)?.property?.[0] as
         | Record<string, unknown>
         | undefined;
@@ -120,8 +122,24 @@ export async function getAttomProfile(
         }),
       );
     }
-    return profile;
+    return body;
   };
 
   return retryOnce(attempt);
+}
+
+/**
+ * Fetch ATTOM expandedprofile for an address. Returns `null` when
+ * ATTOM's 200 response has an empty `property[]` (no match) so the
+ * caller can treat it as "no ATTOM data" without catching an error.
+ * 4xx / 5xx / network / timeout / parse failures throw `AttomError`.
+ *
+ * Thin wrapper over `getAttomProfileRaw` + `extractProfile` so callers
+ * that don't need the raw payload keep the existing single-value API.
+ */
+export async function getAttomProfile(
+  addr: AddressFields,
+): Promise<AttomProfileDto | null> {
+  const raw = await getAttomProfileRaw(addr);
+  return extractProfile(raw);
 }

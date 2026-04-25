@@ -116,8 +116,11 @@ function parseUserStreet1(
  * streets, then pick the newest by `statusChangeDate` so the UI reflects
  * the home's *current* lifecycle state. Returns `null` for off-market
  * addresses.
+ *
+ * Exported for E12-S4: durable-cache reads re-pick the match from the
+ * stored raw items rather than re-paying MLS.
  */
-function pickBestMatch(
+export function pickBestMatch(
   items: ListingSearchItem[],
   addr: AddressFields,
 ): { best: ListingSearchItem; history: ListingSearchItem[] } | null {
@@ -254,6 +257,44 @@ export type SearchByAddressResult = {
   history: PropertySearchResultDto[];
 };
 
+/**
+ * Fetch the raw MLS search response items for an address. Exposed so
+ * E12-S4 durable cache can store the raw items and re-run pickBestMatch
+ * on read without re-paying MLS. Throws MlsError on http/network/parse.
+ */
+export async function searchByAddressRaw(
+  addr: AddressFields,
+): Promise<ListingSearchItem[]> {
+  const base = getBaseUrl("search");
+  const url = `${base}/api/Listings/search?address=${encodeURIComponent(
+    formatAddress(addr),
+  )}&pageSize=10`;
+
+  const attempt = async (): Promise<ListingSearchItem[]> => {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: buildHeaders(),
+      signal: AbortSignal.timeout(getTimeoutMs()),
+    });
+    if (!res.ok) {
+      throw new MlsError({
+        code: "http",
+        endpoint: "search",
+        status: res.status,
+      });
+    }
+    const body = (await parseJson(res, "search")) as
+      | { items?: unknown }
+      | null;
+    if (!body || !Array.isArray((body as { items?: unknown[] }).items)) {
+      throw new MlsError({ code: "parse", endpoint: "search" });
+    }
+    return (body as { items: ListingSearchItem[] }).items;
+  };
+
+  return retryOnce(attempt, "search");
+}
+
 export async function searchByAddress(
   addr: AddressFields,
 ): Promise<SearchByAddressResult | null> {
@@ -264,45 +305,12 @@ export async function searchByAddress(
     formatAddress(addr),
   )}&pageSize=10`;
 
-  const attempt = async (): Promise<{
-    matched: { best: ListingSearchItem; history: ListingSearchItem[] } | null;
-    httpStatus: number;
-    itemsCount: number;
-    rawItems: ListingSearchItem[];
-  }> => {
-    const res = await fetch(url, {
-      method: "GET",
-      headers: buildHeaders(),
-      signal: AbortSignal.timeout(getTimeoutMs()),
-    });
-    if (res.status >= 500) {
-      throw new MlsError({ code: "http", endpoint: "search", status: res.status });
-    }
-    if (!res.ok) {
-      throw new MlsError({ code: "http", endpoint: "search", status: res.status });
-    }
-    const body = (await parseJson(res, "search")) as
-      | { items?: unknown }
-      | null;
-    if (!body || !Array.isArray((body as { items?: unknown[] }).items)) {
-      throw new MlsError({ code: "parse", endpoint: "search" });
-    }
-    const items = (body as { items: ListingSearchItem[] }).items;
-    const matched = pickBestMatch(items, addr);
-    return {
-      matched,
-      httpStatus: res.status,
-      itemsCount: items.length,
-      rawItems: items,
-    };
-  };
-
   const startedAt = Date.now();
   try {
-    const { matched, httpStatus, itemsCount, rawItems } = await retryOnce(
-      attempt,
-      "search",
-    );
+    const rawItems = await searchByAddressRaw(addr);
+    const itemsCount = rawItems.length;
+    const matched = pickBestMatch(rawItems, addr);
+    const httpStatus = 200;
     const matchedItem = matched?.best ?? null;
     const match = matchedItem?.details ?? null;
     logMlsCall({
