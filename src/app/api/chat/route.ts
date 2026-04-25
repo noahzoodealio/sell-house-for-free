@@ -39,6 +39,9 @@ import { getBuildingPermitsTool } from "@/lib/ai/tools/attom-permits";
 import { getRentalAvmTool } from "@/lib/ai/tools/attom-rental-avm";
 import { getSalesHistoryTool } from "@/lib/ai/tools/attom-sales-history";
 import { getNearbySchoolsTool } from "@/lib/ai/tools/attom-schools";
+import { getListingDetailsTool } from "@/lib/ai/tools/mls-detail";
+import { getListingHistoryTool } from "@/lib/ai/tools/mls-history";
+import { searchListingsByAddressTool } from "@/lib/ai/tools/mls-search";
 import {
   bumpSessionActivity,
   loadSession,
@@ -254,6 +257,10 @@ export async function POST(request: NextRequest): Promise<Response> {
         id: sessionId,
         submissionId: session.submissionId,
       }),
+      // E13-S3 MLS read tools.
+      searchListingsByAddress: searchListingsByAddressTool({ id: sessionId }),
+      getListingDetails: getListingDetailsTool({ id: sessionId }),
+      getListingHistory: getListingHistoryTool({ id: sessionId }),
     },
     stopWhen: stepCountIs(8),
     experimental_telemetry: {
