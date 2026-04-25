@@ -5,6 +5,24 @@ vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
 }));
 
+// Durable-cache (E12-S4) reads from Supabase. Default-mock to a chain that
+// returns null for every read (cache miss) and resolves writes silently
+// so existing test expectations around upstream calls + envelope shapes
+// remain valid. Tests that exercise durable-hit paths re-mock per-test.
+vi.mock("@/lib/supabase/server", () => {
+  const chain = () => ({
+    select: () => ({
+      eq: () => ({
+        maybeSingle: async () => ({ data: null, error: null }),
+      }),
+    }),
+    upsert: () => Promise.resolve({ error: null }),
+    update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+    insert: () => Promise.resolve({ error: null }),
+  });
+  return { getSupabaseAdmin: () => ({ from: () => chain() }) };
+});
+
 vi.mock("../mls-client", () => ({
   searchByAddress: vi.fn(),
   getAttomDetails: vi.fn(),
@@ -347,5 +365,211 @@ describe("getEnrichment", () => {
       address: ADDR,
     });
     expect(envelope.status).toBe("error");
+  });
+
+  // ------------------------------------------------------------------
+  // E12-S4: durable cache integration
+  // ------------------------------------------------------------------
+
+  it("E12-S4 durable hit (fresh profile + fresh mls_search) → upstream not called", async () => {
+    const searchByAddress = vi.fn();
+    const getAttomProfile = vi.fn();
+    vi.doMock("../mls-client", () => ({
+      searchByAddress,
+      getAttomDetails: vi.fn().mockResolvedValueOnce({
+        bedrooms: 3,
+        bathrooms: 2,
+        squareFootage: 1800,
+      }),
+      getImages: vi.fn().mockResolvedValueOnce(undefined),
+    }));
+    vi.doMock("../attom-client", () => ({ getAttomProfile }));
+
+    // Override Supabase mock to return fresh durable hits for both endpoints.
+    const fresh = new Date().toISOString();
+    vi.doMock("@/lib/supabase/server", () => ({
+      getSupabaseAdmin: () => ({
+        from: (table: string) => ({
+          select: (cols: string) => ({
+            eq: () => ({
+              maybeSingle: async () => {
+                if (table !== "property_enrichments") {
+                  return { data: null, error: null };
+                }
+                if (cols.includes("attom_profile_payload")) {
+                  return {
+                    data: {
+                      attom_profile_payload: {
+                        bedrooms: 4,
+                        bathrooms: 2.5,
+                        squareFootage: 2400,
+                        yearBuilt: 1998,
+                      },
+                      attom_profile_fetched_at: fresh,
+                    },
+                    error: null,
+                  };
+                }
+                if (cols.includes("mls_search_payload")) {
+                  return {
+                    data: {
+                      mls_search_payload: {
+                        match: {
+                          attomId: "a1",
+                          mlsRecordId: "m1",
+                          listingStatus: "Closed",
+                          latestListingPrice: 500000,
+                        },
+                        history: [
+                          { listingStatus: "Closed", latestListingPrice: 500000 },
+                        ],
+                        inlineImages: undefined,
+                      },
+                      mls_search_fetched_at: fresh,
+                    },
+                    error: null,
+                  };
+                }
+                return { data: null, error: null };
+              },
+            }),
+          }),
+          upsert: () => Promise.resolve({ error: null }),
+          update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+          insert: () => Promise.resolve({ error: null }),
+        }),
+      }),
+    }));
+
+    const { getEnrichment } = await import("../service");
+    const { envelope, telemetry } = await getEnrichment({
+      kind: "enrich",
+      submissionId: UUID,
+      address: ADDR,
+    });
+
+    expect(envelope.status).toBe("ok");
+    expect(telemetry.sources).toEqual(["mls", "attom"]);
+    // Upstream wrappers were never called — durable cache short-circuited both.
+    expect(searchByAddress).not.toHaveBeenCalled();
+    expect(getAttomProfile).not.toHaveBeenCalled();
+  });
+
+  it("E12-S4 negative-cache short-circuit (sources=[] + fresh) → no-match without upstream calls", async () => {
+    const searchByAddress = vi.fn();
+    const getAttomProfile = vi.fn();
+    vi.doMock("../mls-client", () => ({
+      searchByAddress,
+      getAttomDetails: vi.fn(),
+      getImages: vi.fn(),
+    }));
+    vi.doMock("../attom-client", () => ({ getAttomProfile }));
+
+    const fresh = new Date().toISOString();
+    vi.doMock("@/lib/supabase/server", () => ({
+      getSupabaseAdmin: () => ({
+        from: () => ({
+          select: (cols: string) => ({
+            eq: () => ({
+              maybeSingle: async () => {
+                if (cols.includes("sources, updated_at")) {
+                  return {
+                    data: { sources: [], updated_at: fresh },
+                    error: null,
+                  };
+                }
+                return { data: null, error: null };
+              },
+            }),
+          }),
+          upsert: () => Promise.resolve({ error: null }),
+          update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+          insert: () => Promise.resolve({ error: null }),
+        }),
+      }),
+    }));
+
+    const { getEnrichment } = await import("../service");
+    const { envelope, telemetry } = await getEnrichment({
+      kind: "enrich",
+      submissionId: UUID,
+      address: ADDR,
+    });
+
+    expect(envelope.status).toBe("no-match");
+    expect((envelope as { cacheHit: boolean }).cacheHit).toBe(true);
+    expect(searchByAddress).not.toHaveBeenCalled();
+    expect(getAttomProfile).not.toHaveBeenCalled();
+    expect(telemetry.sources).toEqual([]);
+  });
+
+  it("E12-S4 stale durable + upstream success → upstream called and durable refreshed", async () => {
+    const searchByAddress = vi.fn().mockResolvedValueOnce(null);
+    const getAttomProfile = vi.fn().mockResolvedValueOnce({
+      bedrooms: 5,
+      bathrooms: 3,
+      squareFootage: 3000,
+      yearBuilt: 2010,
+    });
+    vi.doMock("../mls-client", () => ({
+      searchByAddress,
+      getAttomDetails: vi.fn(),
+      getImages: vi.fn(),
+    }));
+    vi.doMock("../attom-client", () => ({ getAttomProfile }));
+
+    // Stale: 200 days old (profile TTL is 90d).
+    const stale = new Date(
+      Date.now() - 200 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    let writeCount = 0;
+    vi.doMock("@/lib/supabase/server", () => ({
+      getSupabaseAdmin: () => ({
+        from: (table: string) => ({
+          select: (cols: string) => ({
+            eq: () => ({
+              maybeSingle: async () => {
+                if (
+                  table === "property_enrichments" &&
+                  cols.includes("attom_profile_payload")
+                ) {
+                  return {
+                    data: {
+                      attom_profile_payload: {
+                        bedrooms: 1,
+                        bathrooms: 1,
+                        squareFootage: 500,
+                      },
+                      attom_profile_fetched_at: stale,
+                    },
+                    error: null,
+                  };
+                }
+                return { data: null, error: null };
+              },
+            }),
+          }),
+          upsert: () => {
+            writeCount++;
+            return Promise.resolve({ error: null });
+          },
+          update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+          insert: () => Promise.resolve({ error: null }),
+        }),
+      }),
+    }));
+
+    const { getEnrichment } = await import("../service");
+    const { envelope, telemetry } = await getEnrichment({
+      kind: "enrich",
+      submissionId: UUID,
+      address: ADDR,
+    });
+
+    expect(envelope.status).toBe("ok-partial");
+    expect(telemetry.attomOk).toBe(true);
+    expect(getAttomProfile).toHaveBeenCalledTimes(1);
+    expect(writeCount).toBeGreaterThan(0);
   });
 });

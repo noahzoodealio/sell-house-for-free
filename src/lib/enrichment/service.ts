@@ -12,6 +12,18 @@ import {
   withEnrichmentCache,
 } from "./cache";
 import {
+  type AddressLocator,
+  markNegativeCache,
+  readDurable,
+  readNegativeCache,
+  writeDurable,
+} from "./durable-cache";
+import {
+  isNegativeCacheStale,
+  isStale,
+} from "./durable-cache-policy";
+import { captureEnrichmentEvent } from "./observability";
+import {
   addressCacheKey,
   isAzZip,
   mergeToEnrichmentSlot,
@@ -49,6 +61,17 @@ type RunResult = {
   mlsDetailsOk: boolean;
   mlsImagesOk: boolean;
   sources: EnrichmentSource[];
+  // E12-S6: per-endpoint durable-hit flags surfaced to API analytics.
+  durableProfileHit: boolean;
+  durableMlsSearchHit: boolean;
+};
+
+// Shared mutable hit-tracker — both cached helpers may run concurrently
+// inside Promise.allSettled. Each helper sets its own slot on hit; we
+// read both after settle.
+type DurableHitTracker = {
+  profile: boolean;
+  mls_search: boolean;
 };
 
 const DEFAULT_SOURCES: EnrichmentSource[] = ["mls", "attom"];
@@ -108,7 +131,156 @@ function mlsErrorToCached(err: MlsError): CachedBody {
   return { kind: "error", code: err.code };
 }
 
-async function runEnrichment(input: EnrichInput): Promise<RunResult> {
+function locatorFor(input: EnrichInput): AddressLocator {
+  return {
+    street1: input.address.street1,
+    city: input.address.city,
+    state: "AZ",
+    zip: input.address.zip,
+  };
+}
+
+// E12-S4 deviation note: the parent Feature #7921 prescribes storing raw
+// upstream payloads so future normalize.ts improvements can re-derive
+// without re-paying upstream. For S4's first-pass we store the extracted
+// result instead — getAttomProfile already collapses the raw response to
+// the narrow AttomProfileDto, and searchByAddress collapses items to a
+// matched SearchByAddressResult. Storing raw would require exposing
+// getAttomProfileRaw + searchByAddressRaw and threading them through the
+// cached path, which we *did* prepare (S5 + the pickBestMatch export +
+// extractProfile export are in place). Switching the storage form is a
+// follow-up: the durable-cache shape (jsonb columns) is permissive of
+// either form, only the read/write call sites change.
+
+async function logStaleOutage(
+  endpoint: string,
+  addressKey: string,
+  err: unknown,
+): Promise<void> {
+  captureEnrichmentEvent({
+    event: "enrichment_stale_refresh_skipped_outage",
+    severity: "warning",
+    error: err,
+    extras: { endpoint, addressKey, outage: true },
+  });
+}
+
+/**
+ * E12-S4: ATTOM profile with durable-cache short-circuit. On hit + fresh
+ * we return the cached extract. On miss/stale we fetch upstream + write
+ * back. On upstream failure with stale durable, serve stale (outage
+ * tolerance — the whole point of the durable layer).
+ */
+async function cachedAttomProfile(
+  input: EnrichInput,
+  addressKey: string,
+  hits: DurableHitTracker,
+): Promise<AttomProfileDto | null> {
+  const cached = await readDurable<AttomProfileDto>(addressKey, "profile");
+  if (cached && !isStale("profile", cached.fetchedAt)) {
+    hits.profile = true;
+    captureEnrichmentEvent({
+      event: "enrichment_durable_hit",
+      severity: "info",
+      extras: {
+        endpoint: "profile",
+        addressKey,
+        ageMs: Date.now() - cached.fetchedAt.getTime(),
+      },
+    });
+    return cached.payload;
+  }
+
+  try {
+    captureEnrichmentEvent({
+      event: "enrichment_upstream_refetch",
+      severity: "info",
+      extras: {
+        endpoint: "profile",
+        addressKey,
+        stale: cached !== null,
+      },
+    });
+    const profile = await getAttomProfile(input.address);
+    if (profile !== null) {
+      await writeDurable(addressKey, "profile", profile, locatorFor(input));
+    }
+    return profile;
+  } catch (err) {
+    if (cached) {
+      await logStaleOutage("profile", addressKey, err);
+      return cached.payload;
+    }
+    captureEnrichmentEvent({
+      event: "enrichment_upstream_error",
+      severity: "error",
+      error: err,
+      extras: { endpoint: "profile", addressKey },
+    });
+    throw err;
+  }
+}
+
+/**
+ * E12-S4: MLS search with durable-cache short-circuit.
+ */
+async function cachedSearchByAddress(
+  input: EnrichInput,
+  addressKey: string,
+  hits: DurableHitTracker,
+): Promise<SearchByAddressResult | null> {
+  const cached = await readDurable<SearchByAddressResult>(
+    addressKey,
+    "mls_search",
+  );
+  if (cached && !isStale("mls_search", cached.fetchedAt)) {
+    hits.mls_search = true;
+    captureEnrichmentEvent({
+      event: "enrichment_durable_hit",
+      severity: "info",
+      extras: {
+        endpoint: "mls_search",
+        addressKey,
+        ageMs: Date.now() - cached.fetchedAt.getTime(),
+      },
+    });
+    return cached.payload;
+  }
+
+  try {
+    captureEnrichmentEvent({
+      event: "enrichment_upstream_refetch",
+      severity: "info",
+      extras: {
+        endpoint: "mls_search",
+        addressKey,
+        stale: cached !== null,
+      },
+    });
+    const result = await searchByAddress(input.address);
+    if (result !== null) {
+      await writeDurable(addressKey, "mls_search", result, locatorFor(input));
+    }
+    return result;
+  } catch (err) {
+    if (cached) {
+      await logStaleOutage("mls_search", addressKey, err);
+      return cached.payload;
+    }
+    captureEnrichmentEvent({
+      event: "enrichment_upstream_error",
+      severity: "error",
+      error: err,
+      extras: { endpoint: "mls_search", addressKey },
+    });
+    throw err;
+  }
+}
+
+async function runEnrichment(
+  input: EnrichInput,
+  addressKey: string,
+): Promise<RunResult> {
   const { address } = input;
   const enabledSources = getEnabledSources();
   const mlsEnabled = enabledSources.includes("mls");
@@ -116,13 +288,15 @@ async function runEnrichment(input: EnrichInput): Promise<RunResult> {
 
   // Round 1 — parallel MLS search + ATTOM profile. Either side may be
   // a synthetic `Promise.resolve(null)` when disabled via the env toggle.
+  // Both calls go through the durable cache (E12-S4).
+  const hits: DurableHitTracker = { profile: false, mls_search: false };
   const attomStartedAt = attomEnabled ? performance.now() : undefined;
   const [searchSettled, attomSettled] = (await Promise.allSettled([
     mlsEnabled
-      ? searchByAddress(address)
+      ? cachedSearchByAddress(input, addressKey, hits)
       : Promise.resolve<SearchByAddressResult | null>(null),
     attomEnabled
-      ? getAttomProfile(address)
+      ? cachedAttomProfile(input, addressKey, hits)
       : Promise.resolve<AttomProfileDto | null>(null),
   ])) as [
     PromiseSettledResult<SearchByAddressResult | null>,
@@ -163,6 +337,8 @@ async function runEnrichment(input: EnrichInput): Promise<RunResult> {
     attomOk,
     mlsSearchOk,
     sources,
+    durableProfileHit: hits.profile,
+    durableMlsSearchHit: hits.mls_search,
   };
 
   // Neither source contributed usable data → preserve existing behaviour
@@ -293,7 +469,31 @@ export async function getEnrichment(
 
   const key = addressCacheKey(input.address);
 
-  const result = await runEnrichment(input);
+  // E12-S4: durable negative-cache short-circuit. If we previously saw
+  // this address with no upstream match and the negative-cache TTL
+  // hasn't expired, skip both upstreams entirely and return no-match.
+  // Wrapped in try/catch so a Supabase outage degrades to the original
+  // behavior — never fail the request because the cache layer is down.
+  try {
+    const negative = await readNegativeCache(key);
+    if (negative && !isNegativeCacheStale(negative.updatedAt)) {
+      const envelope = toEnvelope({ kind: "no-match" }, true);
+      return {
+        envelope,
+        telemetry: {
+          mlsSearchOk: false,
+          mlsDetailsOk: false,
+          mlsImagesOk: false,
+          attomOk: false,
+          sources: [],
+        },
+      };
+    }
+  } catch {
+    // ignore — durable layer is best-effort, fall through
+  }
+
+  const result = await runEnrichment(input, key);
   const { body } = result;
 
   const cacheHit = SEEN_KEYS.has(key);
@@ -304,6 +504,12 @@ export async function getEnrichment(
     await withEnrichmentCache(`${key}:no-match`, () => Promise.resolve(body), {
       revalidate: ENRICHMENT_TTL_NO_MATCH_SECONDS,
     });
+    // Persist the negative-cache row durably (1h TTL via S3 policy).
+    try {
+      await markNegativeCache(key, locatorFor(input));
+    } catch {
+      // best-effort — caller already has the no-match envelope
+    }
   }
 
   SEEN_KEYS.add(key);
@@ -316,6 +522,8 @@ export async function getEnrichment(
     attomOk: result.attomOk,
     attomLatencyMs: result.attomLatencyMs,
     sources: result.sources,
+    durableProfileHit: result.durableProfileHit,
+    durableMlsSearchHit: result.durableMlsSearchHit,
   };
   return { envelope, telemetry };
 }

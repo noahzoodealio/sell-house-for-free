@@ -60,6 +60,10 @@ export type EnrichmentTelemetry = {
   attomOk: boolean;
   attomLatencyMs?: number;
   sources: EnrichmentSource[];
+  // E12-S6: per-endpoint durable-cache hit indicators surfaced to the
+  // /api/enrich route for analytics dimensions.
+  durableProfileHit?: boolean;
+  durableMlsSearchHit?: boolean;
 };
 
 export type EnrichmentResult = {
@@ -160,7 +164,7 @@ export type ListingImageDto = {
 };
 
 export type MlsErrorCode = "timeout" | "network" | "http" | "parse" | "config";
-export type MlsEndpoint = "search" | "attom" | "images" | "all";
+export type MlsEndpoint = "search" | "attom" | "images" | "history" | "all";
 
 export type MlsErrorInit = {
   code: MlsErrorCode;

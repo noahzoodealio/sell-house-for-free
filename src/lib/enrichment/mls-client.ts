@@ -116,8 +116,11 @@ function parseUserStreet1(
  * streets, then pick the newest by `statusChangeDate` so the UI reflects
  * the home's *current* lifecycle state. Returns `null` for off-market
  * addresses.
+ *
+ * Exported for E12-S4: durable-cache reads re-pick the match from the
+ * stored raw items rather than re-paying MLS.
  */
-function pickBestMatch(
+export function pickBestMatch(
   items: ListingSearchItem[],
   addr: AddressFields,
 ): { best: ListingSearchItem; history: ListingSearchItem[] } | null {
@@ -254,6 +257,44 @@ export type SearchByAddressResult = {
   history: PropertySearchResultDto[];
 };
 
+/**
+ * Fetch the raw MLS search response items for an address. Exposed so
+ * E12-S4 durable cache can store the raw items and re-run pickBestMatch
+ * on read without re-paying MLS. Throws MlsError on http/network/parse.
+ */
+export async function searchByAddressRaw(
+  addr: AddressFields,
+): Promise<ListingSearchItem[]> {
+  const base = getBaseUrl("search");
+  const url = `${base}/api/Listings/search?address=${encodeURIComponent(
+    formatAddress(addr),
+  )}&pageSize=10`;
+
+  const attempt = async (): Promise<ListingSearchItem[]> => {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: buildHeaders(),
+      signal: AbortSignal.timeout(getTimeoutMs()),
+    });
+    if (!res.ok) {
+      throw new MlsError({
+        code: "http",
+        endpoint: "search",
+        status: res.status,
+      });
+    }
+    const body = (await parseJson(res, "search")) as
+      | { items?: unknown }
+      | null;
+    if (!body || !Array.isArray((body as { items?: unknown[] }).items)) {
+      throw new MlsError({ code: "parse", endpoint: "search" });
+    }
+    return (body as { items: ListingSearchItem[] }).items;
+  };
+
+  return retryOnce(attempt, "search");
+}
+
 export async function searchByAddress(
   addr: AddressFields,
 ): Promise<SearchByAddressResult | null> {
@@ -264,45 +305,12 @@ export async function searchByAddress(
     formatAddress(addr),
   )}&pageSize=10`;
 
-  const attempt = async (): Promise<{
-    matched: { best: ListingSearchItem; history: ListingSearchItem[] } | null;
-    httpStatus: number;
-    itemsCount: number;
-    rawItems: ListingSearchItem[];
-  }> => {
-    const res = await fetch(url, {
-      method: "GET",
-      headers: buildHeaders(),
-      signal: AbortSignal.timeout(getTimeoutMs()),
-    });
-    if (res.status >= 500) {
-      throw new MlsError({ code: "http", endpoint: "search", status: res.status });
-    }
-    if (!res.ok) {
-      throw new MlsError({ code: "http", endpoint: "search", status: res.status });
-    }
-    const body = (await parseJson(res, "search")) as
-      | { items?: unknown }
-      | null;
-    if (!body || !Array.isArray((body as { items?: unknown[] }).items)) {
-      throw new MlsError({ code: "parse", endpoint: "search" });
-    }
-    const items = (body as { items: ListingSearchItem[] }).items;
-    const matched = pickBestMatch(items, addr);
-    return {
-      matched,
-      httpStatus: res.status,
-      itemsCount: items.length,
-      rawItems: items,
-    };
-  };
-
   const startedAt = Date.now();
   try {
-    const { matched, httpStatus, itemsCount, rawItems } = await retryOnce(
-      attempt,
-      "search",
-    );
+    const rawItems = await searchByAddressRaw(addr);
+    const itemsCount = rawItems.length;
+    const matched = pickBestMatch(rawItems, addr);
+    const httpStatus = 200;
     const matchedItem = matched?.best ?? null;
     const match = matchedItem?.details ?? null;
     logMlsCall({
@@ -402,6 +410,69 @@ export async function getAttomDetails(
   } catch (err) {
     logMlsCall({
       endpoint: "attom",
+      url,
+      outcome: "error",
+      latencyMs: Date.now() - startedAt,
+      error: describeMlsError(err),
+    });
+    throw err;
+  }
+}
+
+/**
+ * E12-S5: lifecycle history for a single MLS record. Returned shape is
+ * an array of status events (listed → price-changed → cancelled → ...)
+ * in MLS's native order. The durable cache (E12-S2) stores the raw
+ * payload; consumers (E13 AI tools, future seller UI) shape it.
+ *
+ * Path follows the post-restructure /api/Listings/{id}/... convention
+ * used by getImages — the brief's `/api/properties/...` path no longer
+ * exists. JWT-protected per the same buildHeaders bearer.
+ */
+export async function getListingHistory(
+  mlsRecordId: string,
+): Promise<unknown[]> {
+  const base = getBaseUrl("history");
+  const url = `${base}/api/Listings/${encodeURIComponent(mlsRecordId)}/history`;
+
+  const attempt = async (): Promise<{
+    body: unknown[];
+    httpStatus: number;
+  }> => {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: buildHeaders(),
+      signal: AbortSignal.timeout(getTimeoutMs()),
+    });
+    if (!res.ok) {
+      throw new MlsError({
+        code: "http",
+        endpoint: "history",
+        status: res.status,
+      });
+    }
+    const body = await parseJson(res, "history");
+    if (!Array.isArray(body)) {
+      throw new MlsError({ code: "parse", endpoint: "history" });
+    }
+    return { body, httpStatus: res.status };
+  };
+
+  const startedAt = Date.now();
+  try {
+    const { body, httpStatus } = await retryOnce(attempt, "history");
+    logMlsCall({
+      endpoint: "history",
+      url,
+      outcome: "ok",
+      httpStatus,
+      latencyMs: Date.now() - startedAt,
+      eventsCount: body.length,
+    });
+    return body;
+  } catch (err) {
+    logMlsCall({
+      endpoint: "history",
       url,
       outcome: "error",
       latencyMs: Date.now() - startedAt,

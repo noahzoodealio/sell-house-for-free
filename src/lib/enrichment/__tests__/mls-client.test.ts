@@ -311,4 +311,59 @@ describe("mls-client", () => {
       expect(e.name).toBe("MlsError");
     });
   });
+
+  describe("getListingHistory (E12-S5)", () => {
+    it("hits /api/Listings/{id}/history and returns array body", async () => {
+      const events = [
+        { eventType: "listed", at: "2026-04-01T00:00:00Z" },
+        { eventType: "price_change", at: "2026-04-15T00:00:00Z" },
+      ];
+      const mock = mockFetchOnce([{ body: events }]);
+      const { getListingHistory } = await import("../mls-client");
+
+      const result = await getListingHistory("mls-1");
+
+      expect(result).toEqual(events);
+      const url = mock.mock.calls[0][0] as string;
+      expect(url).toBe(`${BASE}/api/Listings/mls-1/history`);
+    });
+
+    it("encodes mlsRecordId in path", async () => {
+      const mock = mockFetchOnce([{ body: [] }]);
+      const { getListingHistory } = await import("../mls-client");
+      await getListingHistory("rec/with/slashes");
+      const url = mock.mock.calls[0][0] as string;
+      expect(url).toContain("rec%2Fwith%2Fslashes");
+    });
+
+    it("throws parse error when body is object not array", async () => {
+      mockFetchOnce([{ body: { not: "an array" } }]);
+      const { getListingHistory } = await import("../mls-client");
+      await expect(getListingHistory("mls-1")).rejects.toMatchObject({
+        code: "parse",
+        endpoint: "history",
+      });
+    });
+
+    it("retries once on 5xx then succeeds", async () => {
+      const mock = mockFetchOnce([
+        { status: 503 },
+        { body: [{ eventType: "listed" }] },
+      ]);
+      const { getListingHistory } = await import("../mls-client");
+      const result = await getListingHistory("mls-1");
+      expect(result).toHaveLength(1);
+      expect(mock).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not retry on 404", async () => {
+      const mock = mockFetchOnce([{ status: 404 }]);
+      const { getListingHistory } = await import("../mls-client");
+      await expect(getListingHistory("missing")).rejects.toMatchObject({
+        code: "http",
+        status: 404,
+      });
+      expect(mock).toHaveBeenCalledTimes(1);
+    });
+  });
 });
