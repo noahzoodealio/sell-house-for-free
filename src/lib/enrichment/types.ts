@@ -160,7 +160,7 @@ export type ListingImageDto = {
 };
 
 export type MlsErrorCode = "timeout" | "network" | "http" | "parse" | "config";
-export type MlsEndpoint = "search" | "attom" | "images" | "all";
+export type MlsEndpoint = "search" | "attom" | "images" | "history" | "all";
 
 export type MlsErrorInit = {
   code: MlsErrorCode;

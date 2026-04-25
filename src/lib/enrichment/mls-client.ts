@@ -411,6 +411,69 @@ export async function getAttomDetails(
   }
 }
 
+/**
+ * E12-S5: lifecycle history for a single MLS record. Returned shape is
+ * an array of status events (listed → price-changed → cancelled → ...)
+ * in MLS's native order. The durable cache (E12-S2) stores the raw
+ * payload; consumers (E13 AI tools, future seller UI) shape it.
+ *
+ * Path follows the post-restructure /api/Listings/{id}/... convention
+ * used by getImages — the brief's `/api/properties/...` path no longer
+ * exists. JWT-protected per the same buildHeaders bearer.
+ */
+export async function getListingHistory(
+  mlsRecordId: string,
+): Promise<unknown[]> {
+  const base = getBaseUrl("history");
+  const url = `${base}/api/Listings/${encodeURIComponent(mlsRecordId)}/history`;
+
+  const attempt = async (): Promise<{
+    body: unknown[];
+    httpStatus: number;
+  }> => {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: buildHeaders(),
+      signal: AbortSignal.timeout(getTimeoutMs()),
+    });
+    if (!res.ok) {
+      throw new MlsError({
+        code: "http",
+        endpoint: "history",
+        status: res.status,
+      });
+    }
+    const body = await parseJson(res, "history");
+    if (!Array.isArray(body)) {
+      throw new MlsError({ code: "parse", endpoint: "history" });
+    }
+    return { body, httpStatus: res.status };
+  };
+
+  const startedAt = Date.now();
+  try {
+    const { body, httpStatus } = await retryOnce(attempt, "history");
+    logMlsCall({
+      endpoint: "history",
+      url,
+      outcome: "ok",
+      httpStatus,
+      latencyMs: Date.now() - startedAt,
+      eventsCount: body.length,
+    });
+    return body;
+  } catch (err) {
+    logMlsCall({
+      endpoint: "history",
+      url,
+      outcome: "error",
+      latencyMs: Date.now() - startedAt,
+      error: describeMlsError(err),
+    });
+    throw err;
+  }
+}
+
 export async function getImages(
   mlsRecordId: string,
 ): Promise<ListingImageDto[]> {
