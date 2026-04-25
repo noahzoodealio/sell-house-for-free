@@ -121,4 +121,10 @@ export async function recordTeamLoginEvent(
       user_agent: trimmedUa ?? null,
     },
   });
+  if (event.type === "login") {
+    await supabase
+      .from("team_members")
+      .update({ last_login_at: new Date().toISOString() })
+      .eq("auth_user_id", event.authUserId);
+  }
 }
