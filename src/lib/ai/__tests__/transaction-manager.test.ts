@@ -100,8 +100,8 @@ describe("src/lib/ai/prompts/transaction-manager", () => {
 
   it("E13-S6: source-of-truth preference (V2 > local mirror; cache > fresh)", () => {
     const prompt = transactionManagerPrompt({});
-    expect(prompt).toMatch(/listMyOffersV2.*listMySubmissionOffers/s);
-    expect(prompt).toMatch(/getMyEnrichedProperty.*getPropertyFundamentals/s);
+    expect(prompt).toMatch(/listMyOffersV2[\s\S]*listMySubmissionOffers/);
+    expect(prompt).toMatch(/getMyEnrichedProperty[\s\S]*getPropertyFundamentals/);
   });
 
   it("E13-S6: every E13 tool name appears in the prompt", () => {

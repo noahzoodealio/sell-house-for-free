@@ -94,9 +94,25 @@ no anon access). Logs get redacted previews; the DB holds the truth.
 | Per-IP rate-limit window        | 60 seconds                   | `AI_IP_WINDOW_SECONDS`        |
 | Project Gateway spend cap       | $500 / month (initial)       | Vercel dashboard              |
 | Target cost per comping run     | ~$0.30                       | Architecture §5               |
+| Per-session ATTOM tool budget   | 30 calls                     | `ai_sessions.tool_budget_attom_remaining` |
+| Per-session Offervana tool budget | 25 calls                   | `ai_sessions.tool_budget_offervana_remaining` |
+| Per-session MLS tool budget     | 15 calls                     | `ai_sessions.tool_budget_mls_remaining` |
 
 All ceilings are revisit-able; expect to retune the spend cap after two
 weeks of real traffic.
+
+**Tool-call budgets** (E13-S7) are decremented atomically by `defineTool`
+when a tool with a `budget_bucket` runs successfully. Budgets reset on
+session expiry — there is no roll-over. On exhaustion, tools return
+`{ kind: 'tool-error', cause: 'budget_exhausted', bucket }` and the
+orchestrator surfaces the canonical "data-lookup cap" copy. Supabase
+read tools and the retrofit'd E9 model tools are not budgeted at the
+tool-call level — their cost is the gateway token budget above.
+
+**Kill switches** for outages: `AI_TOOLS_ATTOM_DISABLED`,
+`AI_TOOLS_OFFERVANA_DISABLED`, `AI_TOOLS_MLS_DISABLED` (each
+`true`/unset). Setting any to `true` short-circuits the family with a
+`disabled_by_ops` envelope. Runbooks: `docs/runbooks/ai-tools-*-outage.md`.
 
 ## 9. Abuse posture
 

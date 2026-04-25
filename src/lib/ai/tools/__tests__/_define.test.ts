@@ -43,11 +43,39 @@ function makeMockSupabase(state: MockState) {
             },
           };
         },
+        select(_columns?: string) {
+          // Used by decrementBudget: from('ai_sessions').select(col).eq().maybeSingle()
+          return {
+            eq(_col: string, _value: string) {
+              return {
+                maybeSingle: async () => ({ data: null, error: null }),
+              };
+            },
+          };
+        },
         update(payload: Record<string, unknown>) {
           return {
-            eq: async (_column: string, value: string) => {
-              state.updates.push({ table, payload, rowId: value });
-              return { error: null };
+            eq(column: string, value: string) {
+              // Used by finalize: .update().eq()
+              const finalizeCall = async () => {
+                state.updates.push({ table, payload, rowId: value });
+                return { error: null };
+              };
+              const chain = {
+                gt(_col: string, _val: number) {
+                  return {
+                    select(_cols?: string) {
+                      return {
+                        maybeSingle: async () => ({ data: null, error: null }),
+                      };
+                    },
+                  };
+                },
+                then: (resolve: (v: { error: null }) => unknown) =>
+                  finalizeCall().then(resolve),
+              };
+              // Make it await-able as a thenable AND chainable.
+              return chain as unknown as Promise<{ error: null }> & typeof chain;
             },
           };
         },
