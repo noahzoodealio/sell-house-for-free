@@ -82,7 +82,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
       handler: async () => ({ answer: 42 }),
     })(SESSION);
 
-    const result = await (t.execute as Function)({ q: "hi" });
+    const result = await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({ q: "hi" });
     expect(result).toEqual({ answer: 42 });
 
     expect(state.inserts).toHaveLength(1);
@@ -118,7 +118,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
       handler: async () => ({ ok: true }),
     })(SESSION);
 
-    await (t.execute as Function)({
+    await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({
       email: "noah@example.com",
       phone: "602-555-1234",
     });
@@ -140,7 +140,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
       },
     })(SESSION);
 
-    const result = await (t.execute as Function)({});
+    const result = await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({});
     expect(result).toMatchObject({
       kind: "tool-error",
       safe: true,
@@ -174,7 +174,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
       }),
     })(SESSION);
 
-    const result = await (t.execute as Function)({});
+    const result = await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({});
     expect(result).toMatchObject({ kind: "tool-error", message: "handled gracefully" });
 
     expect(state.updates[0].payload.status).toBe("error");
@@ -197,7 +197,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
       handler: async () => ({ data: "x" }) as never,
     })(SESSION);
 
-    const result = await (t.execute as Function)({});
+    const result = await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({});
     // The throw is caught by defineTool and converted to tool-error envelope;
     // we verify via the error_detail message that DisclaimerMissingError fired.
     expect(result).toMatchObject({ kind: "tool-error" });
@@ -222,7 +222,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
       handler: async () => ({ data: "x", disclaimer: "AI not licensed RE / not fiduciary" }),
     })(SESSION);
 
-    const result = await (t.execute as Function)({});
+    const result = await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({});
     expect(result).toMatchObject({ data: "x" });
     expect(state.updates[0].payload.status).toBe("ok");
   });
@@ -243,7 +243,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
     })(SESSION);
 
     const ac = new AbortController();
-    await (t.execute as Function)({}, { abortSignal: ac.signal });
+    await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({}, { abortSignal: ac.signal });
 
     expect(seen.signalSeen).toBe(true);
     const errDetail = state.updates[0].payload.error_detail as Record<
@@ -263,7 +263,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
       handler: async () => ({ deferred: true }),
     })(SESSION);
 
-    await (t.execute as Function)({});
+    await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({});
     expect(state.inserts).toHaveLength(1);
     expect(state.updates).toHaveLength(0);
   });
@@ -281,7 +281,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
       },
     })(SESSION);
 
-    await (t.execute as Function)({});
+    await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({});
     expect(state.updates).toHaveLength(1);
     expect(state.updates[0].payload.output_json).toEqual({ manual: true });
   });
@@ -300,7 +300,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
       },
     })(SESSION);
 
-    await (t.execute as Function)({});
+    await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({});
     expect(capturedTelemetry).toEqual({
       cost_class: "priced",
       budget_bucket: "attom",
@@ -317,7 +317,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
       handler: async () => ({ ok: true }),
     })(SESSION);
 
-    const result = await (t.execute as Function)({});
+    const result = await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({});
     expect(result).toEqual({ ok: true });
     expect(state.updates).toHaveLength(0);
   });
@@ -331,7 +331,7 @@ describe("src/lib/ai/tools/_define — defineTool", () => {
       handler: async () => ({ note: "Call jane@example.com" }),
     })(SESSION);
 
-    await (t.execute as Function)({});
+    await (t.execute as unknown as (input: unknown, opts?: unknown) => Promise<unknown>)({});
     expect(state.updates[0].payload.output_json).toEqual({
       note: "Call [redacted-email]",
     });

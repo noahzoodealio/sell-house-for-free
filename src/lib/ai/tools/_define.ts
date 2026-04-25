@@ -84,15 +84,12 @@ function outputSchemaDeclaresDisclaimer(schema: z.ZodTypeAny): boolean {
 
 export function defineTool<TIn extends z.ZodTypeAny, TOut>(
   spec: DefineToolSpec<TIn, TOut>,
-): (session: DefineToolSessionLike) => ReturnType<typeof tool> {
-  return (session: DefineToolSessionLike) =>
-    tool({
-      description: spec.description,
-      inputSchema: spec.inputSchema,
-      execute: async (
-        input: z.infer<TIn>,
-        opts?: { abortSignal?: AbortSignal },
-      ) => {
+) {
+  return (session: DefineToolSessionLike) => {
+    const execute = async (
+      input: z.infer<TIn>,
+      opts?: { abortSignal?: AbortSignal },
+    ): Promise<unknown> => {
         const supabase = getSupabaseAdmin();
         const startedAt = Date.now();
         const safeInput = redactObject(input);
@@ -185,6 +182,12 @@ export function defineTool<TIn extends z.ZodTypeAny, TOut>(
               : "That tool ran into an error. Try again or rephrase your request.",
           };
         }
-      },
+    };
+
+    return tool({
+      description: spec.description,
+      inputSchema: spec.inputSchema as never,
+      execute: execute as never,
     });
+  };
 }
