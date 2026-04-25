@@ -16,6 +16,32 @@ import { explainTermsTool } from "@/lib/ai/tools/explain-terms";
 import { reviewPdfTool } from "@/lib/ai/tools/review-pdf";
 import { reviewPhotosTool } from "@/lib/ai/tools/review-photos";
 import { startCompJobTool } from "@/lib/ai/tools/start-comp-job";
+import { getOfferHistoryTool } from "@/lib/ai/tools/offervana-offer-history";
+import { listMyOffersTool } from "@/lib/ai/tools/offervana-offers";
+import { listMyOffersV2Tool } from "@/lib/ai/tools/offervana-offers-v2";
+import { getMyOffervanaPropertyTool } from "@/lib/ai/tools/offervana-property";
+import { getMyAssignedPmTool } from "@/lib/ai/tools/shf-assigned-pm";
+import { listMyArtifactsTool } from "@/lib/ai/tools/shf-artifacts";
+import { listMyDocumentsTool } from "@/lib/ai/tools/shf-documents";
+import { getMyEnrichedPropertyTool } from "@/lib/ai/tools/shf-enriched-property";
+import { listMySubmissionOffersTool } from "@/lib/ai/tools/shf-submission-offers";
+import { getMySubmissionTool } from "@/lib/ai/tools/shf-submission";
+import { listMyThreadMessagesTool } from "@/lib/ai/tools/shf-thread-messages";
+import { getAreaSalesTrendTool } from "@/lib/ai/tools/attom-area-trend";
+import { getAssessmentHistoryTool } from "@/lib/ai/tools/attom-assessment-history";
+import { getAssessmentAndTaxTool } from "@/lib/ai/tools/attom-assessment";
+import { getAvmHistoryTool } from "@/lib/ai/tools/attom-avm-history";
+import { getAttomAvmTool } from "@/lib/ai/tools/attom-avm";
+import { getPropertyFundamentalsTool } from "@/lib/ai/tools/attom-fundamentals";
+import { getHomeEquityEstimateTool } from "@/lib/ai/tools/attom-home-equity";
+import { getLastSaleTool } from "@/lib/ai/tools/attom-last-sale";
+import { getBuildingPermitsTool } from "@/lib/ai/tools/attom-permits";
+import { getRentalAvmTool } from "@/lib/ai/tools/attom-rental-avm";
+import { getSalesHistoryTool } from "@/lib/ai/tools/attom-sales-history";
+import { getNearbySchoolsTool } from "@/lib/ai/tools/attom-schools";
+import { getListingDetailsTool } from "@/lib/ai/tools/mls-detail";
+import { getListingHistoryTool } from "@/lib/ai/tools/mls-history";
+import { searchListingsByAddressTool } from "@/lib/ai/tools/mls-search";
 import {
   bumpSessionActivity,
   loadSession,
@@ -130,6 +156,111 @@ export async function POST(request: NextRequest): Promise<Response> {
         id: sessionId,
         context: session.context,
       }),
+      // E13-S4 Offervana read tools — gated on session.submissionId.
+      // (E10 will harden this with seller user_id once portal auth is wired.)
+      ...(session.submissionId
+        ? {
+            getMyOffervanaProperty: getMyOffervanaPropertyTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            listMyOffers: listMyOffersTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            listMyOffersV2: listMyOffersV2Tool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            getOfferHistory: getOfferHistoryTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            // E13-S5 Supabase read tools — also gated on session.submissionId.
+            getMySubmission: getMySubmissionTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            listMySubmissionOffers: listMySubmissionOffersTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            getMyAssignedPm: getMyAssignedPmTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            listMyThreadMessages: listMyThreadMessagesTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            listMyDocuments: listMyDocumentsTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            getMyEnrichedProperty: getMyEnrichedPropertyTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+          }
+        : {}),
+      // listMyArtifacts is session-scoped, not submission-scoped — always
+      // available so the LLM can recall its own prior outputs.
+      listMyArtifacts: listMyArtifactsTool({ id: sessionId }),
+      // E13-S2 ATTOM read tools — always available; tools that need an
+      // address fall back to no_address when the seller's submission lacks
+      // one or the orchestrator hasn't passed one explicitly.
+      getPropertyFundamentals: getPropertyFundamentalsTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getAttomAvm: getAttomAvmTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getAvmHistory: getAvmHistoryTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getLastSale: getLastSaleTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getSalesHistory: getSalesHistoryTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getAssessmentAndTax: getAssessmentAndTaxTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getAssessmentHistory: getAssessmentHistoryTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getRentalAvm: getRentalAvmTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getBuildingPermits: getBuildingPermitsTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getAreaSalesTrend: getAreaSalesTrendTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getNearbySchools: getNearbySchoolsTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getHomeEquityEstimate: getHomeEquityEstimateTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      // E13-S3 MLS read tools.
+      searchListingsByAddress: searchListingsByAddressTool({ id: sessionId }),
+      getListingDetails: getListingDetailsTool({ id: sessionId }),
+      getListingHistory: getListingHistoryTool({ id: sessionId }),
     },
     stopWhen: stepCountIs(8),
     experimental_telemetry: {

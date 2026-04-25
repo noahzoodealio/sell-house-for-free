@@ -66,4 +66,101 @@ describe("src/lib/ai/prompts/transaction-manager", () => {
     expect(prompt).toContain("tool-error");
     expect(prompt).toMatch(/surface the message verbatim/i);
   });
+
+  // ---------------------------------------------------------------------------
+  // E13-S6 — extended tool surface heuristics + cite-the-source discipline.
+  // ---------------------------------------------------------------------------
+
+  it("E13-S6: explicit cite-the-source rule", () => {
+    const prompt = transactionManagerPrompt({});
+    expect(prompt).toMatch(/cite the source/i);
+    expect(prompt).toMatch(/no citation, no number/i);
+  });
+
+  it("E13-S6: AVM-routing rule routes valuation through start_comp_job", () => {
+    const prompt = transactionManagerPrompt({});
+    expect(prompt).toMatch(/avm routing/i);
+    expect(prompt).toMatch(/start_comp_job/i);
+    expect(prompt).toMatch(/citation only/i);
+  });
+
+  it("E13-S6: don't-invent rule on no_data / no_record / no_match", () => {
+    const prompt = transactionManagerPrompt({});
+    expect(prompt).toMatch(/don't invent/i);
+    expect(prompt).toContain("no_data");
+    expect(prompt).toContain("no_record");
+    expect(prompt).toContain("no_match");
+  });
+
+  it("E13-S6: budget_exhausted canonical copy", () => {
+    const prompt = transactionManagerPrompt({});
+    expect(prompt).toContain("budget_exhausted");
+    expect(prompt).toMatch(/data-lookup cap/i);
+  });
+
+  it("E13-S6: source-of-truth preference (V2 > local mirror; cache > fresh)", () => {
+    const prompt = transactionManagerPrompt({});
+    expect(prompt).toMatch(/listMyOffersV2[\s\S]*listMySubmissionOffers/);
+    expect(prompt).toMatch(/getMyEnrichedProperty[\s\S]*getPropertyFundamentals/);
+  });
+
+  it("E13-S6: every E13 tool name appears in the prompt", () => {
+    const prompt = transactionManagerPrompt({});
+    const toolNames = [
+      // E9 retrofit tools (5)
+      "review_pdf",
+      "explain_terms",
+      "analyze_offer",
+      "review_photos",
+      "start_comp_job",
+      // ATTOM (12)
+      "getPropertyFundamentals",
+      "getAttomAvm",
+      "getAvmHistory",
+      "getLastSale",
+      "getSalesHistory",
+      "getAssessmentAndTax",
+      "getAssessmentHistory",
+      "getRentalAvm",
+      "getBuildingPermits",
+      "getAreaSalesTrend",
+      "getNearbySchools",
+      "getHomeEquityEstimate",
+      // MLS (3)
+      "searchListingsByAddress",
+      "getListingDetails",
+      "getListingHistory",
+      // Offervana (4 active + 1 stub registered separately)
+      "getMyOffervanaProperty",
+      "listMyOffers",
+      "listMyOffersV2",
+      "getOfferHistory",
+      // SHF Supabase (8)
+      "getMySubmission",
+      "listMySubmissionOffers",
+      "getMyAssignedPm",
+      "listMyThreadMessages",
+      "listMyDocuments",
+      "getMyEnrichedProperty",
+      "listMyArtifacts",
+    ];
+    for (const name of toolNames) {
+      expect(prompt, `tool ${name} is missing from prompt`).toContain(name);
+    }
+  });
+
+  it("E13-S6: prompt size stays under 8K tokens (~32K chars cushion)", () => {
+    const prompt = transactionManagerPrompt({
+      address: "123 Main, Phoenix AZ",
+      pillarHint: "cash-fast",
+      enrichment: { avmLow: 380000, avmHigh: 420000 },
+    });
+    // Rough proxy: ~4 chars per token. 8K tokens × 4 = 32,000 char ceiling.
+    expect(prompt.length).toBeLessThan(32_000);
+  });
+
+  it("E13-S6: original three-part disclaimer still present verbatim", () => {
+    const prompt = transactionManagerPrompt({});
+    expect(prompt).toContain(TRANSACTION_MANAGER_DISCLAIMER);
+  });
 });

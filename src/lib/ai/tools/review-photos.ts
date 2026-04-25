@@ -1,6 +1,6 @@
 import "server-only";
 
-import { generateObject, tool } from "ai";
+import { generateObject } from "ai";
 import { z } from "zod";
 
 import { gateway, models } from "@/lib/ai/gateway";
@@ -12,6 +12,10 @@ import {
   PhotoAssessmentSchema,
   type PhotoAssessment,
 } from "@/lib/ai/schemas/photo-assessment";
+import {
+  defineTool,
+  type DefineToolSessionLike,
+} from "@/lib/ai/tools/_define";
 
 const MAX_PHOTOS_PER_COMP = 6;
 
@@ -62,25 +66,26 @@ export async function reviewPhotosImpl(
   };
 }
 
-interface ReviewPhotosSessionCtx {
+interface ReviewPhotosSessionCtx extends DefineToolSessionLike {
   id: string;
 }
 
-export function reviewPhotosTool(_session: ReviewPhotosSessionCtx) {
-  return tool({
+export function reviewPhotosTool(session: ReviewPhotosSessionCtx) {
+  const factory = defineTool({
+    name: "review_photos",
     description:
       "Assess up to six listing photos for a single comparable property and produce a condition rating + notable features + concerns. Standalone tool surface for the orchestrator; also reused as workflow step 3 inside start_comp_job.",
     inputSchema: z.object({
       mlsRecordId: z.string().min(1),
       photoUrls: z.array(z.string().url()).max(MAX_PHOTOS_PER_COMP),
     }),
-    execute: async (args) => {
+    handler: async (args) => {
       try {
         return await reviewPhotosImpl(args);
       } catch (err) {
         return {
           kind: "tool-error" as const,
-          safe: true,
+          safe: true as const,
           message:
             "I couldn't read those comp photos. The condition is treated as 'unknown' for this run.",
           fallback: {
@@ -95,4 +100,5 @@ export function reviewPhotosTool(_session: ReviewPhotosSessionCtx) {
       }
     },
   });
+  return factory(session);
 }

@@ -152,7 +152,9 @@
       "Bash(xargs grep *)",
       "WebFetch(domain:getridley.com)",
       "WebSearch",
-      "mcp__ado__wit_get_work_items_batch_by_ids"
+      "mcp__ado__wit_get_work_items_batch_by_ids",
+      "mcp__ado__wit_get_work_item",
+      "mcp__ado__wit_query_by_wiql"
     ]
   }
 }

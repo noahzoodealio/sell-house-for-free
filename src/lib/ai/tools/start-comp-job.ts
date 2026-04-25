@@ -1,23 +1,27 @@
 import "server-only";
 
 import { after } from "next/server";
-import { tool } from "ai";
 import { z } from "zod";
 
 import { redact } from "@/lib/ai/redact";
 import { VALUATION_DISCLAIMER } from "@/lib/ai/prompts/comping";
 import type { SessionContext } from "@/lib/ai/session";
-import { getSupabaseAdmin } from "@/lib/supabase/server";
+import {
+  defineTool,
+  type DefineToolSessionLike,
+} from "@/lib/ai/tools/_define";
 import { runCompPipeline } from "@/lib/ai/workflows/comp-run";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
 import type { AddressFields } from "@/lib/seller-form/types";
 
-interface StartCompJobSessionCtx {
+interface StartCompJobSessionCtx extends DefineToolSessionLike {
   id: string;
   context: SessionContext;
 }
 
 export function startCompJobTool(session: StartCompJobSessionCtx) {
-  return tool({
+  const factory = defineTool({
+    name: "start_comp_job",
     description:
       "Kick off a comping valuation run for the subject property. Returns immediately with { jobId, pollUrl }; the valuation lands as a comp_report artifact when the workflow completes. Call when the homeowner asks 'what's my home worth' or similar.",
     inputSchema: z.object({
@@ -34,46 +38,43 @@ export function startCompJobTool(session: StartCompJobSessionCtx) {
           "Override the session's subject address if the homeowner is asking about a different property. Otherwise omit and the session's context address is used.",
         ),
     }),
-    execute: async ({ address }) => {
-      const supabase = getSupabaseAdmin();
-
+    skipAutoFinalize: true,
+    handler: async ({ address }, ctx) => {
       const subject = resolveSubjectAddress(address, session.context);
       if (!subject) {
+        // No row to finalize — the toolRunId row exists in 'running'; mark as error.
+        await ctx.finalize("error", null, {
+          kind: "tool-error",
+          safe: true,
+          stage: "input",
+          cause: "no_subject_address",
+        });
         return {
           kind: "tool-error" as const,
-          safe: true,
+          safe: true as const,
           message:
             "I need your subject address before I can pull comps. What's the property?",
           disclaimer: VALUATION_DISCLAIMER,
         };
       }
 
-      const { data: runData, error: runError } = await supabase
-        .from("ai_tool_runs")
-        .insert({
-          session_id: session.id,
-          tool_name: "start_comp_job",
-          status: "running",
-          input_json: { address: subject },
-        })
-        .select("id")
-        .single();
-
-      if (runError || !runData) {
+      if (!ctx.toolRunId) {
+        // ai_tool_runs insert failed. Surface a soft error; the LLM can retry.
         return {
           kind: "tool-error" as const,
-          safe: true,
+          safe: true as const,
           message: "Couldn't queue the comp run. Let's try again in a moment.",
           disclaimer: VALUATION_DISCLAIMER,
         };
       }
 
-      const jobId = (runData as { id: string }).id;
+      const jobId = ctx.toolRunId;
 
       // Background the pipeline. `after()` keeps the promise alive past
       // the stream response — when WDK is enabled (post-launch), S20
       // flips this to workflow.trigger('comp-run', { jobId, ... }).
       after(async () => {
+        const supabaseInner = getSupabaseAdmin();
         try {
           const result = await runCompPipeline({
             sessionId: session.id,
@@ -83,8 +84,6 @@ export function startCompJobTool(session: StartCompJobSessionCtx) {
               high: session.context.enrichment?.avmHigh,
             },
           });
-
-          const supabaseInner = getSupabaseAdmin();
 
           if (result.valuation) {
             const { data: artifact } = await supabaseInner
@@ -122,7 +121,6 @@ export function startCompJobTool(session: StartCompJobSessionCtx) {
               .eq("id", jobId);
           }
         } catch (err) {
-          const supabaseInner = getSupabaseAdmin();
           await supabaseInner
             .from("ai_tool_runs")
             .update({
@@ -147,6 +145,7 @@ export function startCompJobTool(session: StartCompJobSessionCtx) {
       };
     },
   });
+  return factory(session);
 }
 
 function resolveSubjectAddress(
