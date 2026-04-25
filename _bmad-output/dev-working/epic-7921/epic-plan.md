@@ -54,8 +54,16 @@ stories-planned:
     risk: low
     strike-count: 0
     status: pending
-stories-completed: []
-autopilot-status: running
+stories-completed:
+  - {id: E12-S1, ado: 7973, outcome: closed, commit: 3b470a1}
+  - {id: E12-S2, ado: 7974, outcome: closed, commit: ae40f11}
+  - {id: E12-S3, ado: 7975, outcome: closed, commit: 7f96742}
+  - {id: E12-S5, ado: 7977, outcome: closed, commit: 7ead690}
+  - {id: E12-S4, ado: 7976, outcome: closed-with-deviation, commit: a812b03}
+  - {id: E12-S6, ado: 7978, outcome: closed, commit: dc0ee20}
+  - {id: E12-S7, ado: 7979, outcome: closed-noop, commit: d7b37b7}
+autopilot-status: complete
+completed-at: 2026-04-25T17:55:00Z
 started-at: 2026-04-25T16:21:00Z
 user-overrides:
   - skip-migration-confirmation: true
