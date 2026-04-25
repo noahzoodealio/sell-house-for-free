@@ -1,0 +1,60 @@
+-- E11-S1 (ADO 7929): DOWN migration. REFERENCE ONLY — not auto-applied.
+-- File extension is .sql.example so `supabase db reset` skips it. To
+-- revert the team-portal schema cleanly, copy the body below into a
+-- transient migration file or paste into the Supabase Studio SQL editor
+-- as the service-role.
+--
+-- Order: drop storage policies and bucket rows first (storage.objects FK
+-- to storage.buckets), then table policies, then tables, then helper
+-- functions, then the team_members.auth_user_id column.
+
+begin;
+
+-- 1. storage.objects policies -----------------------------------------
+drop policy if exists seller_docs_team_all on storage.objects;
+drop policy if exists seller_docs_seller_select on storage.objects;
+drop policy if exists seller_docs_seller_insert on storage.objects;
+drop policy if exists seller_photos_team_all on storage.objects;
+drop policy if exists seller_photos_seller_select on storage.objects;
+drop policy if exists seller_photos_seller_insert on storage.objects;
+drop policy if exists team_uploads_team_all on storage.objects;
+
+-- 2. storage objects + buckets ----------------------------------------
+-- WARNING: deletes any uploaded files. Take a backup first if data
+-- exists.
+delete from storage.objects
+ where bucket_id in ('seller-docs', 'seller-photos', 'team-uploads');
+delete from storage.buckets
+ where id in ('seller-docs', 'seller-photos', 'team-uploads');
+
+-- 3. table policies ---------------------------------------------------
+drop policy if exists messages_team_select on public.messages;
+drop policy if exists messages_team_insert on public.messages;
+drop policy if exists messages_team_update on public.messages;
+drop policy if exists messages_seller_select on public.messages;
+
+drop policy if exists documents_team_select on public.documents;
+drop policy if exists documents_team_insert on public.documents;
+drop policy if exists documents_team_update on public.documents;
+drop policy if exists documents_seller_select on public.documents;
+drop policy if exists documents_seller_insert on public.documents;
+
+drop policy if exists team_activity_select on public.team_activity_events;
+
+-- 4. tables -----------------------------------------------------------
+drop table if exists public.team_activity_events;
+drop table if exists public.documents;
+drop table if exists public.messages;
+
+-- 5. helper functions -------------------------------------------------
+drop function if exists public.is_submission_assignee(uuid);
+drop function if exists public.is_submission_seller(uuid);
+
+-- 6. team_members.auth_user_id ----------------------------------------
+alter table public.team_members
+  drop constraint if exists team_members_auth_user_id_fkey;
+drop index if exists team_members_auth_user_idx;
+alter table public.team_members
+  drop column if exists auth_user_id;
+
+commit;

@@ -441,3 +441,74 @@ After S1-S5 land in preview + first live smoke (email send, phone send, verify, 
 
 Rows older than 24h are safe to prune. No scripted cron lands in this epic — the table stays manageable at MVP volume (< 500 submissions/month → < 50k rows/year). Revisit when volume > 5k submissions/month.
 - **PM roster changes (adding / disabling / reassigning):** ops team via SQL snippets in section 3.
+
+## 19. Team-portal schema (E11-S1)
+
+Three new tables and three Storage buckets land with E11-S1 to back the `/team` portal. RLS on every new surface is keyed on `team_members.auth_user_id = auth.uid()` via the `is_submission_assignee` helper.
+
+### Tables
+
+| Table | Purpose | Writers |
+| --- | --- | --- |
+| `messages` | Two-way seller ↔ team thread per submission. Inbound rows from Resend parse webhook (E11-S5); outbound rows from team's `TeamToSeller` send. | E11-S5 server actions |
+| `documents` | Catalog of files in the three Storage buckets. One row per file (no version history v1). `doc_kind` is a fixed taxonomy. | E11-S6 upload action |
+| `team_activity_events` | Append-only audit of every team-member action on a submission. INSERT is **service-role only** — authenticated clients cannot forge audit rows. | All E11 server actions (S5/S6/S7/S8) |
+
+### Buckets (all private, signed URLs only)
+
+| Bucket | Contents | Seller access | Team access |
+| --- | --- | --- | --- |
+| `seller-docs` | Listing agreements, T-47, HOA, title commitments | SELECT/INSERT scoped to own submission | Full CRUD scoped to assigned submission (or admin) |
+| `seller-photos` | Property photos | Same as above | Same as above |
+| `team-uploads` | Internal team attachments — notes, handoff context | None | Full CRUD scoped to assigned submission (or admin) |
+
+Path convention: `<submission_id>/<filename>`. The first path segment is parsed by `storage.objects` policies via `split_part(name, '/', 1)::uuid` to identify the submission.
+
+### Helpers
+
+- `public.is_submission_assignee(sub_id uuid) returns boolean` — TRUE if `auth.uid()`'s active `team_members` row owns `submissions.pm_user_id` for `sub_id`, OR has the `admin` role badge. SECURITY DEFINER (avoids RLS recursion).
+- `public.is_submission_seller(sub_id uuid) returns boolean` — TRUE if `auth.uid()` is `submissions.seller_id` on `sub_id`. SECURITY DEFINER.
+
+### Common troubleshooting
+
+> **"Why can't team member X read submission Y's messages?"**
+>
+> Check, in order:
+> 1. Is X's `team_members.active = true`?
+> 2. Is `team_members.auth_user_id` set on X's row? (Backfilled on first `/team/login` — if X has never logged in, it is NULL.)
+> 3. Is `submissions.pm_user_id = X.team_members.id`? (Or does X have `'admin'` in `role`?)
+> 4. Is `auth.uid()` returning the expected user in the failing request? (Check the SSR client's session in the request headers.)
+
+> **"A team member sees ALL submissions, not just theirs."**
+>
+> They have `'admin' = any(role)`. Confirm intentional. If not, drop the badge:
+> ```sql
+> update team_members
+>    set role = array_remove(role, 'admin')
+>  where id = '<team-member-id>';
+> ```
+
+> **"Storage upload fails with `new row violates row-level security policy`."**
+>
+> The path's first segment is not a submission_id the caller has access to. Verify:
+> - Path begins with the correct `<submission_id>/`.
+> - `is_submission_assignee` returns true for that submission_id when called with the user's `auth.uid()`.
+
+### Backfilling `team_members.auth_user_id`
+
+Existing placeholder seed rows have NULL `auth_user_id` — they cannot authenticate, which is correct. Real team members must have it set:
+
+- **Via E11-S2 first login.** Magic-link callback verifies the email is in `team_members` AND `is_active`, then backfills `auth_user_id` from the freshly-minted `auth.users.id`.
+- **Via E11-S9 admin roster.** Admin invites a new team member; the invite flow creates the `auth.users` row and the `team_members` row in one transaction with `auth_user_id` set.
+
+If a team member is somehow created without `auth_user_id`, RLS will deny them on the team portal even after login. SQL fix:
+
+```sql
+update team_members
+   set auth_user_id = (select id from auth.users where lower(email) = lower(team_members.email))
+ where auth_user_id is null;
+```
+
+### Down migration
+
+Reference-only `.sql.example` lives at `supabase/migrations/20260424190001_e11_s1_team_portal_schema_down.sql.example`. Drops storage policies → bucket rows → table policies → tables → helper functions → `team_members.auth_user_id`. Take a Storage backup before running — the down deletes objects in the three buckets.
