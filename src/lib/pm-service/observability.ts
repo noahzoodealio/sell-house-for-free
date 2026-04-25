@@ -20,7 +20,14 @@ export type SentryEventName =
   | "team_delivery_webhook_misconfigured"
   | "team_delivery_webhook_update_failed"
   | "team_message_insert_failed"
-  | "team_message_send_failed";
+  | "team_message_send_failed"
+  | "team_login_failed"
+  | "team_login_rejected_inactive"
+  | "team_handoff_executed"
+  | "team_handoff_email_failed"
+  | "team_doc_upload_failed"
+  | "team_admin_last_admin_protection_tripped"
+  | "team_orphan_storage_swept";
 
 export type SentrySeverity = "critical" | "error" | "warning";
 

@@ -587,3 +587,86 @@ where id = <dead_letter_id>;
 
 delete from messages_dead_letter where id = <dead_letter_id>;
 ```
+
+## 21. Team-portal alerts + observability (E11-S10)
+
+### Sentry events emitted by `/team`
+
+| Event | Severity | Where it emits | What it means |
+| --- | --- | --- | --- |
+| `team_login_failed` | warning | `/team/login` action | Magic-link send failed (Supabase outage / rate limit). |
+| `team_login_rejected_inactive` | warning | `/team/auth/callback` | Active session for an inactive `team_members` row — admin deactivated the user since invite. |
+| `team_handoff_executed` | warning | `/team/submissions/[id]/handoff` action | Successful handoff — useful for ops summaries. |
+| `team_message_send_failed` | error | `sendMessageFromTeam`, handoff emails | Resend send retried + still failed. |
+| `team_inbound_message_unroutable` | warning | `/api/team/messages/resend-inbound` | Inbound seller email could not be routed → dead-letter. |
+| `team_doc_upload_failed` | error | mintUploadUrl + finalizeUpload | Supabase Storage rejected the upload, or the metadata insert failed. |
+| `team_admin_last_admin_protection_tripped` | warning | `/team/admin/roster` | Someone tried to deactivate / un-admin the last active admin. |
+| `team_orphan_storage_swept` | warning | `/api/cron/team-portal/cleanup-orphan-storage` | Weekly cron summary; non-zero `totalDeleted` is informational, not a problem. |
+
+PII posture: every emit is wrapped in `emitTeamPortalEvent` from `src/lib/team/telemetry.ts`, which redacts emails + 10-digit phone numbers from string values recursively. Tested in `src/lib/team/__tests__/telemetry.test.ts`.
+
+### Alert rules to configure in Sentry
+
+> These are intentionally tunable. Calibrate during the 7-day dry-run after S1–S9 land in production. Defaults below.
+
+| Alert | Trigger | Destination | Why |
+| --- | --- | --- | --- |
+| Inbound unroutable | 1+ `team_inbound_message_unroutable` event | `#team-portal-feedback` (immediate) | Seller email is gone if we don't route. |
+| Outbound mail broken | 3+ `team_message_send_failed` in 1h | `#team-portal-feedback` | Resend down or misconfigured. |
+| Last-admin protection | 1+ `team_admin_last_admin_protection_tripped` event | `#team-portal-feedback` | Someone is one click from locking themselves out. |
+| Suspicious login | 5+ `team_login_failed` for the same `teamUserId` in 1h | `#team-portal-feedback` | Possible takeover attempt; investigate. |
+
+### Orphan-storage cron
+
+Weekly Vercel cron at `0 2 * * 1` (Monday 02:00 UTC) hits `/api/cron/team-portal/cleanup-orphan-storage`. Deletes Storage objects in `seller-docs` / `seller-photos` / `team-uploads` with no matching `documents` row AND `created_at < now() - 60min`. Auth via `Authorization: Bearer ${CRON_SECRET}`. Manual invoke for staging:
+
+```sh
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  https://<host>/api/cron/team-portal/cleanup-orphan-storage
+```
+
+Response is the per-bucket summary including `samplePaths` for inspection.
+
+### Common incidents — playbook
+
+**"Team-member can't log in."**
+1. `select active, auth_user_id, last_login_at from team_members where email = '<addr>';`
+2. If `active = false` — admin needs to reactivate via `/team/admin/roster`.
+3. If `auth_user_id is null` — they've never logged in; magic-link callback should backfill on first successful click. Check if their roster row was created with the right email (case-insensitive match).
+4. Check `auth_resend_attempts` for rate-limit (`identifier = 'team:<email>'`); 3-per-15-min cap.
+
+**"Seller email bounced."**
+1. `select * from messages where direction = 'outbound' and delivery_status = 'bounced' order by created_at desc limit 20;`
+2. Cross-reference Resend dashboard for the bounce reason.
+3. Don't auto-retry; coordinate with the seller for an alternate address via phone.
+
+**"Inbound seller reply missing."**
+1. `select * from messages_dead_letter order by created_at desc limit 10;` — if it's there, runbook §20 has the replay SQL.
+2. Otherwise check Resend dashboard → Inbound logs. Webhook signature failures (invalid `RESEND_INBOUND_WEBHOOK_SECRET`) show up as 401 in the deliveries.
+
+**"Handoff failed partway."**
+1. `select * from team_activity_events where event_type = 'handoff_initiated' and submission_id = '<id>' order by created_at desc;`
+2. Check Sentry for `team_message_send_failed` with `op = 'sendHandoffEmails.*'`. Email failures don't roll back the DB write — the assignment IS effective, the notifications just didn't go out.
+3. Manually re-notify the incoming team member if needed.
+
+**"Doc upload failing."**
+1. Sentry → `team_doc_upload_failed` with `op` field (`mintUploadUrl` vs `finalizeUpload`).
+2. `mintUploadUrl` failures usually mean a misconfigured Storage bucket or RLS policy.
+3. `finalizeUpload` failures with `error: 'size mismatch'` is the tamper guard — fine.
+4. Check size cap (25 MB) + MIME allow-list.
+
+**"Stuck submission (red SLA, > 48h, no handoff)."**
+1. `select s.id, s.assigned_at, tm.first_name, tm.last_name from submissions s join team_members tm on tm.id = s.pm_user_id where s.status in ('assigned', 'active') and s.assigned_at < now() - interval '48h';`
+2. Admin can `/team/submissions/<id>/handoff` to a teammate manually.
+3. Or escalate to the team member's manager.
+
+### 7-day dry-run gate
+
+S10 stays in Code Review for 7 days after S1–S9 land in production. During that window:
+
+- Watch the alert rules. If they fire constantly at the default thresholds, the thresholds are too low. Tune in this runbook + Sentry.
+- Keep a daily count of `team_message_send_failed` events to set a real baseline.
+- Confirm at least one real incident has been triaged using this section.
+- Confirm the first new team member has been onboarded via `docs/team-portal-onboarding.md` without 1:1 hand-holding.
+
+Move S10 to Ready-for-Test only after those four boxes are checked.

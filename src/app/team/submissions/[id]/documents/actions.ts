@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
-import { captureException } from "@/lib/pm-service/observability";
 import { createServerAuthClient } from "@/lib/supabase/server-auth";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { findTeamMemberByAuthUserId } from "@/lib/team/auth";
+import { emitTeamPortalEvent } from "@/lib/team/telemetry";
 import {
   ALLOWED_BUCKETS,
   ALLOWED_DOC_KINDS,
@@ -119,13 +119,15 @@ export async function mintUploadUrl(
     .createSignedUploadUrl(storagePath);
 
   if (error || !data) {
-    captureException({
-      event: "team_message_insert_failed", // reusing — narrowest error class
+    emitTeamPortalEvent({
+      event: "team_doc_upload_failed",
       severity: "error",
-      extras: {
+      tags: {
         op: "mintUploadUrl",
         error: error?.message ?? "unknown",
         bucket: input.bucket,
+        submissionId: input.submissionRowId,
+        teamUserId: ctx.authUserId,
       },
     });
     return { ok: false, reason: "internal" };
@@ -220,14 +222,17 @@ export async function finalizeUpload(
     .single();
 
   if (insertError || !insertRow) {
-    // Object orphaned — sweep cron in S10 will clean it up. Log + bail.
-    captureException({
-      event: "team_message_insert_failed",
+    // Object orphaned — sweep cron picks it up after 60 min. Log + bail.
+    emitTeamPortalEvent({
+      event: "team_doc_upload_failed",
       severity: "error",
-      extras: {
+      tags: {
         op: "finalizeUpload",
         error: insertError?.message ?? "unknown",
         bucket: input.bucket,
+        storagePath: input.storagePath,
+        submissionId: input.submissionRowId,
+        teamUserId: ctx.authUserId,
       },
     });
     return { ok: false, reason: "internal" };

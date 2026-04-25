@@ -10,6 +10,7 @@ import {
   isValidCoverageRegion,
 } from "@/lib/team/coverage-regions";
 import { countActiveAdmins, VALID_ROLES, type RoleBadge } from "@/lib/team/roster";
+import { emitTeamPortalEvent } from "@/lib/team/telemetry";
 
 interface AdminContext {
   authUserId: string;
@@ -211,6 +212,15 @@ export async function setTeamMemberActive(
   ) {
     const otherAdmins = await countActiveAdmins();
     if (otherAdmins <= 1) {
+      emitTeamPortalEvent({
+        event: "team_admin_last_admin_protection_tripped",
+        severity: "warning",
+        tags: {
+          teamUserId: ctx.authUserId,
+          targetTeamMemberId: target.id,
+          attempted: "deactivate",
+        },
+      });
       return { ok: false, reason: "last_admin" };
     }
   }
@@ -275,7 +285,18 @@ export async function updateRoles(
   const willBeAdmin = sanitized.includes("admin");
   if (wasAdmin && !willBeAdmin) {
     const others = await countActiveAdmins();
-    if (others <= 1) return { ok: false, reason: "last_admin" };
+    if (others <= 1) {
+      emitTeamPortalEvent({
+        event: "team_admin_last_admin_protection_tripped",
+        severity: "warning",
+        tags: {
+          teamUserId: ctx.authUserId,
+          targetTeamMemberId: target.id,
+          attempted: "remove_admin_role",
+        },
+      });
+      return { ok: false, reason: "last_admin" };
+    }
   }
 
   await admin

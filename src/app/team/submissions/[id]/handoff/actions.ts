@@ -12,6 +12,7 @@ import {
   type HandoffReason,
 } from "@/lib/team/handoff";
 import { sendMessageFromTeam } from "@/lib/team/messages";
+import { emitTeamPortalEvent } from "@/lib/team/telemetry";
 
 export interface InitiateHandoffInput {
   submissionRowId: string;
@@ -189,6 +190,18 @@ export async function initiateHandoff(
       body: reintroBody,
     });
   }
+
+  emitTeamPortalEvent({
+    event: "team_handoff_executed",
+    severity: "warning",
+    tags: {
+      submissionId: submission.id,
+      teamUserId: user.id,
+      reason: input.reason,
+      adminOverride,
+      sentSellerReintro: input.sendSellerReintro,
+    },
+  });
 
   revalidatePath(`/team/submissions/${submission.id}`);
   revalidatePath(`/team/submissions/${submission.id}/handoff`);

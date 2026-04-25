@@ -11,6 +11,7 @@ import {
   linkTeamMemberToAuthUser,
   recordTeamLoginEvent,
 } from "@/lib/team/auth";
+import { emitTeamPortalEvent } from "@/lib/team/telemetry";
 
 export const runtime = "nodejs";
 
@@ -193,6 +194,11 @@ export async function GET(request: NextRequest) {
       authUserId: userId,
       ipHash,
       userAgent,
+    });
+    emitTeamPortalEvent({
+      event: "team_login_rejected_inactive",
+      severity: "warning",
+      tags: { teamUserId: userId, hadRosterRow: !!member },
     });
     await supabase.auth.signOut();
     return noIndexHeaders(
