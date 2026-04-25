@@ -16,6 +16,10 @@ import { explainTermsTool } from "@/lib/ai/tools/explain-terms";
 import { reviewPdfTool } from "@/lib/ai/tools/review-pdf";
 import { reviewPhotosTool } from "@/lib/ai/tools/review-photos";
 import { startCompJobTool } from "@/lib/ai/tools/start-comp-job";
+import { getOfferHistoryTool } from "@/lib/ai/tools/offervana-offer-history";
+import { listMyOffersTool } from "@/lib/ai/tools/offervana-offers";
+import { listMyOffersV2Tool } from "@/lib/ai/tools/offervana-offers-v2";
+import { getMyOffervanaPropertyTool } from "@/lib/ai/tools/offervana-property";
 import {
   bumpSessionActivity,
   loadSession,
@@ -130,6 +134,28 @@ export async function POST(request: NextRequest): Promise<Response> {
         id: sessionId,
         context: session.context,
       }),
+      // E13-S4 Offervana read tools — gated on session.submissionId.
+      // (E10 will harden this with seller user_id once portal auth is wired.)
+      ...(session.submissionId
+        ? {
+            getMyOffervanaProperty: getMyOffervanaPropertyTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            listMyOffers: listMyOffersTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            listMyOffersV2: listMyOffersV2Tool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+            getOfferHistory: getOfferHistoryTool({
+              id: sessionId,
+              submissionId: session.submissionId,
+            }),
+          }
+        : {}),
     },
     stopWhen: stepCountIs(8),
     experimental_telemetry: {
