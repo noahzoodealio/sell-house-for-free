@@ -27,6 +27,18 @@ import { getMyEnrichedPropertyTool } from "@/lib/ai/tools/shf-enriched-property"
 import { listMySubmissionOffersTool } from "@/lib/ai/tools/shf-submission-offers";
 import { getMySubmissionTool } from "@/lib/ai/tools/shf-submission";
 import { listMyThreadMessagesTool } from "@/lib/ai/tools/shf-thread-messages";
+import { getAreaSalesTrendTool } from "@/lib/ai/tools/attom-area-trend";
+import { getAssessmentHistoryTool } from "@/lib/ai/tools/attom-assessment-history";
+import { getAssessmentAndTaxTool } from "@/lib/ai/tools/attom-assessment";
+import { getAvmHistoryTool } from "@/lib/ai/tools/attom-avm-history";
+import { getAttomAvmTool } from "@/lib/ai/tools/attom-avm";
+import { getPropertyFundamentalsTool } from "@/lib/ai/tools/attom-fundamentals";
+import { getHomeEquityEstimateTool } from "@/lib/ai/tools/attom-home-equity";
+import { getLastSaleTool } from "@/lib/ai/tools/attom-last-sale";
+import { getBuildingPermitsTool } from "@/lib/ai/tools/attom-permits";
+import { getRentalAvmTool } from "@/lib/ai/tools/attom-rental-avm";
+import { getSalesHistoryTool } from "@/lib/ai/tools/attom-sales-history";
+import { getNearbySchoolsTool } from "@/lib/ai/tools/attom-schools";
 import {
   bumpSessionActivity,
   loadSession,
@@ -191,6 +203,57 @@ export async function POST(request: NextRequest): Promise<Response> {
       // listMyArtifacts is session-scoped, not submission-scoped — always
       // available so the LLM can recall its own prior outputs.
       listMyArtifacts: listMyArtifactsTool({ id: sessionId }),
+      // E13-S2 ATTOM read tools — always available; tools that need an
+      // address fall back to no_address when the seller's submission lacks
+      // one or the orchestrator hasn't passed one explicitly.
+      getPropertyFundamentals: getPropertyFundamentalsTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getAttomAvm: getAttomAvmTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getAvmHistory: getAvmHistoryTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getLastSale: getLastSaleTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getSalesHistory: getSalesHistoryTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getAssessmentAndTax: getAssessmentAndTaxTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getAssessmentHistory: getAssessmentHistoryTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getRentalAvm: getRentalAvmTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getBuildingPermits: getBuildingPermitsTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getAreaSalesTrend: getAreaSalesTrendTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getNearbySchools: getNearbySchoolsTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
+      getHomeEquityEstimate: getHomeEquityEstimateTool({
+        id: sessionId,
+        submissionId: session.submissionId,
+      }),
     },
     stopWhen: stepCountIs(8),
     experimental_telemetry: {
