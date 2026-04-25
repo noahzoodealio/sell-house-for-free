@@ -441,3 +441,232 @@ After S1-S5 land in preview + first live smoke (email send, phone send, verify, 
 
 Rows older than 24h are safe to prune. No scripted cron lands in this epic — the table stays manageable at MVP volume (< 500 submissions/month → < 50k rows/year). Revisit when volume > 5k submissions/month.
 - **PM roster changes (adding / disabling / reassigning):** ops team via SQL snippets in section 3.
+
+## 19. Team-portal schema (E11-S1)
+
+Three new tables and three Storage buckets land with E11-S1 to back the `/team` portal. RLS on every new surface is keyed on `team_members.auth_user_id = auth.uid()` via the `is_submission_assignee` helper.
+
+### Tables
+
+| Table | Purpose | Writers |
+| --- | --- | --- |
+| `messages` | Two-way seller ↔ team thread per submission. Inbound rows from Resend parse webhook (E11-S5); outbound rows from team's `TeamToSeller` send. | E11-S5 server actions |
+| `documents` | Catalog of files in the three Storage buckets. One row per file (no version history v1). `doc_kind` is a fixed taxonomy. | E11-S6 upload action |
+| `team_activity_events` | Append-only audit of every team-member action on a submission. INSERT is **service-role only** — authenticated clients cannot forge audit rows. | All E11 server actions (S5/S6/S7/S8) |
+
+### Buckets (all private, signed URLs only)
+
+| Bucket | Contents | Seller access | Team access |
+| --- | --- | --- | --- |
+| `seller-docs` | Listing agreements, T-47, HOA, title commitments | SELECT/INSERT scoped to own submission | Full CRUD scoped to assigned submission (or admin) |
+| `seller-photos` | Property photos | Same as above | Same as above |
+| `team-uploads` | Internal team attachments — notes, handoff context | None | Full CRUD scoped to assigned submission (or admin) |
+
+Path convention: `<submission_id>/<filename>`. The first path segment is parsed by `storage.objects` policies via `split_part(name, '/', 1)::uuid` to identify the submission.
+
+### Helpers
+
+- `public.is_submission_assignee(sub_id uuid) returns boolean` — TRUE if `auth.uid()`'s active `team_members` row owns `submissions.pm_user_id` for `sub_id`, OR has the `admin` role badge. SECURITY DEFINER (avoids RLS recursion).
+- `public.is_submission_seller(sub_id uuid) returns boolean` — TRUE if `auth.uid()` is `submissions.seller_id` on `sub_id`. SECURITY DEFINER.
+
+### Common troubleshooting
+
+> **"Why can't team member X read submission Y's messages?"**
+>
+> Check, in order:
+> 1. Is X's `team_members.active = true`?
+> 2. Is `team_members.auth_user_id` set on X's row? (Backfilled on first `/team/login` — if X has never logged in, it is NULL.)
+> 3. Is `submissions.pm_user_id = X.team_members.id`? (Or does X have `'admin'` in `role`?)
+> 4. Is `auth.uid()` returning the expected user in the failing request? (Check the SSR client's session in the request headers.)
+
+> **"A team member sees ALL submissions, not just theirs."**
+>
+> They have `'admin' = any(role)`. Confirm intentional. If not, drop the badge:
+> ```sql
+> update team_members
+>    set role = array_remove(role, 'admin')
+>  where id = '<team-member-id>';
+> ```
+
+> **"Storage upload fails with `new row violates row-level security policy`."**
+>
+> The path's first segment is not a submission_id the caller has access to. Verify:
+> - Path begins with the correct `<submission_id>/`.
+> - `is_submission_assignee` returns true for that submission_id when called with the user's `auth.uid()`.
+
+### Backfilling `team_members.auth_user_id`
+
+Existing placeholder seed rows have NULL `auth_user_id` — they cannot authenticate, which is correct. Real team members must have it set:
+
+- **Via E11-S2 first login.** Magic-link callback verifies the email is in `team_members` AND `is_active`, then backfills `auth_user_id` from the freshly-minted `auth.users.id`.
+- **Via E11-S9 admin roster.** Admin invites a new team member; the invite flow creates the `auth.users` row and the `team_members` row in one transaction with `auth_user_id` set.
+
+If a team member is somehow created without `auth_user_id`, RLS will deny them on the team portal even after login. SQL fix:
+
+```sql
+update team_members
+   set auth_user_id = (select id from auth.users where lower(email) = lower(team_members.email))
+ where auth_user_id is null;
+```
+
+### Down migration
+
+Reference-only `.sql.example` lives at `supabase/migrations/20260424190001_e11_s1_team_portal_schema_down.sql.example`. Drops storage policies → bucket rows → table policies → tables → helper functions → `team_members.auth_user_id`. Take a Storage backup before running — the down deletes objects in the three buckets.
+
+## 20. Team-portal messaging ops (E11-S5)
+
+Two-way seller ↔ team messaging routes through Resend. Inbound parse + outbound send + delivery reconcile.
+
+### Resend dashboard setup
+
+1. **Inbound routing rule.** Domain `mail.sellfree.xyz` (or override via `RESEND_INBOUND_DOMAIN`). Pattern: `reply-*@mail.sellfree.xyz`. Forward to `https://<host>/api/team/messages/resend-inbound`. Sign with `RESEND_INBOUND_WEBHOOK_SECRET`.
+2. **Sending-event webhook.** Subscribe to `email.delivered`, `email.bounced`, `email.complained`. Forward to `https://<host>/api/team/messages/resend-delivery`. Sign with `RESEND_DELIVERY_WEBHOOK_SECRET`.
+3. **DNS.** Verify SPF / DKIM / DMARC for `mail.sellfree.xyz` via Resend's domain check. Inbound also requires an MX record pointing to Resend's inbound mail servers.
+
+### Outbound flow
+
+`sendTeamMessage` server action (`src/app/team/submissions/[id]/messages/actions.ts`) invokes `sendMessageFromTeam` (`src/lib/team/messages.ts`):
+
+1. Validates body 1–10,000 chars.
+2. Loads seller profile + team-member contact.
+3. Renders the `TeamToSeller` React Email template.
+4. Sends via Resend with `Reply-To: reply-<submission_id>@<RESEND_INBOUND_DOMAIN>`.
+5. Inserts the outbound `messages` row + `team_activity_events` row (`event_type = 'email_sent'`).
+6. On 429 / 5xx / network: 500/1000/2000 ms backoff, three attempts. Final failure writes `team_activity_events` `{ status: 'failed', reason }` + emits Sentry `team_message_send_failed`.
+
+### Inbound flow
+
+The Resend parse webhook posts JSON to `/api/team/messages/resend-inbound`:
+
+1. HMAC-SHA256 of raw body verified against `RESEND_INBOUND_WEBHOOK_SECRET`. Mismatch → 401.
+2. Idempotency check on `messages.resend_message_id` (`direction = 'inbound'`) — duplicate webhook deliveries return 200 without inserting.
+3. Routing:
+   - Primary: regex `reply-([0-9a-f-]{36})@` on the recipient address → submission_id lookup.
+   - Fallback: `In-Reply-To` header matched against an outbound `messages.resend_message_id`.
+4. On match: insert `messages` row with `direction = 'inbound'`. Caller (seller portal future surface) sees the new row immediately.
+5. On unroutable: insert into `messages_dead_letter` + emit Sentry `team_inbound_message_unroutable`. 200 returned (Resend won't retry).
+
+### Delivery reconcile
+
+`/api/team/messages/resend-delivery` updates `messages.delivery_status` (`pending → delivered | bounced | complained`) on outbound rows by `resend_message_id` match.
+
+### Common troubleshooting
+
+> **"Seller replied but it never showed up in the thread."**
+>
+> 1. Check `messages_dead_letter` for the recent timestamp — most common cause is the seller stripped the reply-to address (some clients do).
+> 2. If dead-lettered with `reason = 'unroutable'`: copy the Message-ID, paste into Studio: `select * from messages where resend_message_id = '<id>' and direction = 'outbound';` to find the original outbound. If found, the In-Reply-To fallback failed — verify the seller's mail client preserved headers.
+> 3. If no dead-letter row at all: check Resend dashboard → Inbound logs. Webhook may be failing signature verification (secret rotated without redeploy).
+
+> **"Outbound message stuck in 'Sending…'."**
+>
+> Delivery webhook hasn't fired yet. Normal for a few seconds; longer means the delivery webhook is misconfigured. Check Resend dashboard → Webhooks → recent deliveries for failures.
+
+> **"Bounced badge appeared."**
+>
+> Seller's email is invalid or their server rejected. Check `team_activity_events` for the bounce reason (Resend includes detail in `event_data`); coordinate with the seller via phone for an alternate address. Don't keep retrying — bounces compound spam-reputation damage.
+
+### Replaying a dead-letter message
+
+If a row in `messages_dead_letter` actually belongs to a known submission:
+
+```sql
+insert into messages (
+  submission_id, direction, sender_email, body, body_html, subject, resend_message_id
+)
+select
+  '<correct-submission-uuid>'::uuid,
+  'inbound',
+  sender_address,
+  raw_payload->>'text',
+  raw_payload->>'html',
+  raw_payload->>'subject',
+  resend_message_id
+from messages_dead_letter
+where id = <dead_letter_id>;
+
+delete from messages_dead_letter where id = <dead_letter_id>;
+```
+
+## 21. Team-portal alerts + observability (E11-S10)
+
+### Sentry events emitted by `/team`
+
+| Event | Severity | Where it emits | What it means |
+| --- | --- | --- | --- |
+| `team_login_failed` | warning | `/team/login` action | Magic-link send failed (Supabase outage / rate limit). |
+| `team_login_rejected_inactive` | warning | `/team/auth/callback` | Active session for an inactive `team_members` row — admin deactivated the user since invite. |
+| `team_handoff_executed` | warning | `/team/submissions/[id]/handoff` action | Successful handoff — useful for ops summaries. |
+| `team_message_send_failed` | error | `sendMessageFromTeam`, handoff emails | Resend send retried + still failed. |
+| `team_inbound_message_unroutable` | warning | `/api/team/messages/resend-inbound` | Inbound seller email could not be routed → dead-letter. |
+| `team_doc_upload_failed` | error | mintUploadUrl + finalizeUpload | Supabase Storage rejected the upload, or the metadata insert failed. |
+| `team_admin_last_admin_protection_tripped` | warning | `/team/admin/roster` | Someone tried to deactivate / un-admin the last active admin. |
+| `team_orphan_storage_swept` | warning | `/api/cron/team-portal/cleanup-orphan-storage` | Weekly cron summary; non-zero `totalDeleted` is informational, not a problem. |
+
+PII posture: every emit is wrapped in `emitTeamPortalEvent` from `src/lib/team/telemetry.ts`, which redacts emails + 10-digit phone numbers from string values recursively. Tested in `src/lib/team/__tests__/telemetry.test.ts`.
+
+### Alert rules to configure in Sentry
+
+> These are intentionally tunable. Calibrate during the 7-day dry-run after S1–S9 land in production. Defaults below.
+
+| Alert | Trigger | Destination | Why |
+| --- | --- | --- | --- |
+| Inbound unroutable | 1+ `team_inbound_message_unroutable` event | `#team-portal-feedback` (immediate) | Seller email is gone if we don't route. |
+| Outbound mail broken | 3+ `team_message_send_failed` in 1h | `#team-portal-feedback` | Resend down or misconfigured. |
+| Last-admin protection | 1+ `team_admin_last_admin_protection_tripped` event | `#team-portal-feedback` | Someone is one click from locking themselves out. |
+| Suspicious login | 5+ `team_login_failed` for the same `teamUserId` in 1h | `#team-portal-feedback` | Possible takeover attempt; investigate. |
+
+### Orphan-storage cron
+
+Weekly Vercel cron at `0 2 * * 1` (Monday 02:00 UTC) hits `/api/cron/team-portal/cleanup-orphan-storage`. Deletes Storage objects in `seller-docs` / `seller-photos` / `team-uploads` with no matching `documents` row AND `created_at < now() - 60min`. Auth via `Authorization: Bearer ${CRON_SECRET}`. Manual invoke for staging:
+
+```sh
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  https://<host>/api/cron/team-portal/cleanup-orphan-storage
+```
+
+Response is the per-bucket summary including `samplePaths` for inspection.
+
+### Common incidents — playbook
+
+**"Team-member can't log in."**
+1. `select active, auth_user_id, last_login_at from team_members where email = '<addr>';`
+2. If `active = false` — admin needs to reactivate via `/team/admin/roster`.
+3. If `auth_user_id is null` — they've never logged in; magic-link callback should backfill on first successful click. Check if their roster row was created with the right email (case-insensitive match).
+4. Check `auth_resend_attempts` for rate-limit (`identifier = 'team:<email>'`); 3-per-15-min cap.
+
+**"Seller email bounced."**
+1. `select * from messages where direction = 'outbound' and delivery_status = 'bounced' order by created_at desc limit 20;`
+2. Cross-reference Resend dashboard for the bounce reason.
+3. Don't auto-retry; coordinate with the seller for an alternate address via phone.
+
+**"Inbound seller reply missing."**
+1. `select * from messages_dead_letter order by created_at desc limit 10;` — if it's there, runbook §20 has the replay SQL.
+2. Otherwise check Resend dashboard → Inbound logs. Webhook signature failures (invalid `RESEND_INBOUND_WEBHOOK_SECRET`) show up as 401 in the deliveries.
+
+**"Handoff failed partway."**
+1. `select * from team_activity_events where event_type = 'handoff_initiated' and submission_id = '<id>' order by created_at desc;`
+2. Check Sentry for `team_message_send_failed` with `op = 'sendHandoffEmails.*'`. Email failures don't roll back the DB write — the assignment IS effective, the notifications just didn't go out.
+3. Manually re-notify the incoming team member if needed.
+
+**"Doc upload failing."**
+1. Sentry → `team_doc_upload_failed` with `op` field (`mintUploadUrl` vs `finalizeUpload`).
+2. `mintUploadUrl` failures usually mean a misconfigured Storage bucket or RLS policy.
+3. `finalizeUpload` failures with `error: 'size mismatch'` is the tamper guard — fine.
+4. Check size cap (25 MB) + MIME allow-list.
+
+**"Stuck submission (red SLA, > 48h, no handoff)."**
+1. `select s.id, s.assigned_at, tm.first_name, tm.last_name from submissions s join team_members tm on tm.id = s.pm_user_id where s.status in ('assigned', 'active') and s.assigned_at < now() - interval '48h';`
+2. Admin can `/team/submissions/<id>/handoff` to a teammate manually.
+3. Or escalate to the team member's manager.
+
+### 7-day dry-run gate
+
+S10 stays in Code Review for 7 days after S1–S9 land in production. During that window:
+
+- Watch the alert rules. If they fire constantly at the default thresholds, the thresholds are too low. Tune in this runbook + Sentry.
+- Keep a daily count of `team_message_send_failed` events to set a real baseline.
+- Confirm at least one real incident has been triaged using this section.
+- Confirm the first new team member has been onboarded via `docs/team-portal-onboarding.md` without 1:1 hand-holding.
+
+Move S10 to Ready-for-Test only after those four boxes are checked.
