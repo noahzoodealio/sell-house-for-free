@@ -1,6 +1,6 @@
 import "server-only";
 
-import { generateObject, tool } from "ai";
+import { generateObject } from "ai";
 import { z } from "zod";
 
 import { gateway, models } from "@/lib/ai/gateway";
@@ -8,13 +8,15 @@ import {
   OFFER_ANALYSIS_DISCLAIMER,
   offerAnalyzerPrompt,
 } from "@/lib/ai/prompts/offer-analyzer";
-import { redact } from "@/lib/ai/redact";
 import { OfferAnalysisSchema } from "@/lib/ai/schemas/offer-analysis";
 import type { SessionContext } from "@/lib/ai/session";
-import { getSupabaseAdmin } from "@/lib/supabase/server";
+import {
+  defineTool,
+  type DefineToolSessionLike,
+} from "@/lib/ai/tools/_define";
 import { mintSignedUrl } from "@/lib/supabase/storage";
 
-interface AnalyzeOfferSessionCtx {
+interface AnalyzeOfferSessionCtx extends DefineToolSessionLike {
   id: string;
   context: SessionContext;
 }
@@ -32,7 +34,8 @@ interface ArtifactRow {
 }
 
 export function analyzeOfferTool(session: AnalyzeOfferSessionCtx) {
-  return tool({
+  const factory = defineTool({
+    name: "analyze_offer",
     description:
       "Analyze a specific offer (from an uploaded document or pasted terms) and produce pros/cons, vsAvm comparison, pushbacks, and an opinionated friendlyTake. Call when the user asks 'what do you think of this offer' or similar.",
     inputSchema: z.object({
@@ -51,41 +54,11 @@ export function analyzeOfferTool(session: AnalyzeOfferSessionCtx) {
           "Pasted offer text when the offer did not come from an uploaded document.",
         ),
     }),
-    execute: async ({ documentId, offerText }) => {
-      const supabase = getSupabaseAdmin();
-      const startedAt = Date.now();
-
-      const { data: runData } = await supabase
-        .from("ai_tool_runs")
-        .insert({
-          session_id: session.id,
-          tool_name: "analyze_offer",
-          status: "running",
-          input_json: { documentId: documentId ?? null, hasOfferText: !!offerText },
-        })
-        .select("id")
-        .single();
-      const toolRunId = (runData as { id: string } | null)?.id ?? null;
-
-      async function finalize(
-        status: "ok" | "error",
-        output: unknown,
-        errorDetail?: unknown,
-      ) {
-        if (!toolRunId) return;
-        await supabase
-          .from("ai_tool_runs")
-          .update({
-            status,
-            output_json: output ?? null,
-            error_detail: errorDetail ?? null,
-            latency_ms: Date.now() - startedAt,
-          })
-          .eq("id", toolRunId);
-      }
+    handler: async ({ documentId, offerText }, ctx) => {
+      // Preserve E9-S12 input_json shape: { documentId, hasOfferText }.
+      // defineTool persists the full input by default — we don't override.
 
       if (!documentId && !offerText) {
-        await finalize("error", null, { reason: "no_input" });
         return safeError("offer_input_missing");
       }
 
@@ -95,14 +68,13 @@ export function analyzeOfferTool(session: AnalyzeOfferSessionCtx) {
         let artifact: ArtifactRow | null = null;
 
         if (documentId) {
-          const { data: artifactRaw } = await supabase
+          const { data: artifactRaw } = await ctx.supabase
             .from("ai_artifacts")
             .select("*")
             .eq("id", documentId)
             .maybeSingle();
           const row = artifactRaw as ArtifactRow | null;
           if (!row || row.session_id !== session.id) {
-            await finalize("error", null, { reason: "artifact_not_found" });
             return safeError("offer_document_not_found");
           }
           artifact = row;
@@ -140,7 +112,6 @@ export function analyzeOfferTool(session: AnalyzeOfferSessionCtx) {
           object.friendlyTake.trim().length < 20 ||
           !object.disclaimer
         ) {
-          await finalize("error", null, { reason: "weak_friendlyTake" });
           return safeError("offer_analysis_failed");
         }
 
@@ -155,27 +126,25 @@ export function analyzeOfferTool(session: AnalyzeOfferSessionCtx) {
             stage: "offer_analyzed",
             offerAnalysis: payload,
           };
-          await supabase
+          await ctx.supabase
             .from("ai_artifacts")
             .update({ payload_json: merged })
             .eq("id", artifact.id);
         } else {
-          await supabase.from("ai_artifacts").insert({
+          await ctx.supabase.from("ai_artifacts").insert({
             session_id: session.id,
             kind: "offer_analysis",
             payload_json: payload,
           });
         }
 
-        await finalize("ok", payload);
         return payload;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        await finalize("error", null, { message: redact(message) });
+      } catch {
         return safeError("offer_analysis_failed");
       }
     },
   });
+  return factory(session);
 }
 
 function buildContextNote(ctx: SessionContext): string {
@@ -197,7 +166,7 @@ function buildContextNote(ctx: SessionContext): string {
 function safeError(code: string) {
   return {
     kind: "tool-error" as const,
-    safe: true,
+    safe: true as const,
     code,
     message:
       "I couldn't put a full read on that offer together. Can you paste the key terms (price, close date, contingencies) so I can try again?",
