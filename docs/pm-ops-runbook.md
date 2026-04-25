@@ -512,3 +512,78 @@ update team_members
 ### Down migration
 
 Reference-only `.sql.example` lives at `supabase/migrations/20260424190001_e11_s1_team_portal_schema_down.sql.example`. Drops storage policies → bucket rows → table policies → tables → helper functions → `team_members.auth_user_id`. Take a Storage backup before running — the down deletes objects in the three buckets.
+
+## 20. Team-portal messaging ops (E11-S5)
+
+Two-way seller ↔ team messaging routes through Resend. Inbound parse + outbound send + delivery reconcile.
+
+### Resend dashboard setup
+
+1. **Inbound routing rule.** Domain `mail.sellfree.xyz` (or override via `RESEND_INBOUND_DOMAIN`). Pattern: `reply-*@mail.sellfree.xyz`. Forward to `https://<host>/api/team/messages/resend-inbound`. Sign with `RESEND_INBOUND_WEBHOOK_SECRET`.
+2. **Sending-event webhook.** Subscribe to `email.delivered`, `email.bounced`, `email.complained`. Forward to `https://<host>/api/team/messages/resend-delivery`. Sign with `RESEND_DELIVERY_WEBHOOK_SECRET`.
+3. **DNS.** Verify SPF / DKIM / DMARC for `mail.sellfree.xyz` via Resend's domain check. Inbound also requires an MX record pointing to Resend's inbound mail servers.
+
+### Outbound flow
+
+`sendTeamMessage` server action (`src/app/team/submissions/[id]/messages/actions.ts`) invokes `sendMessageFromTeam` (`src/lib/team/messages.ts`):
+
+1. Validates body 1–10,000 chars.
+2. Loads seller profile + team-member contact.
+3. Renders the `TeamToSeller` React Email template.
+4. Sends via Resend with `Reply-To: reply-<submission_id>@<RESEND_INBOUND_DOMAIN>`.
+5. Inserts the outbound `messages` row + `team_activity_events` row (`event_type = 'email_sent'`).
+6. On 429 / 5xx / network: 500/1000/2000 ms backoff, three attempts. Final failure writes `team_activity_events` `{ status: 'failed', reason }` + emits Sentry `team_message_send_failed`.
+
+### Inbound flow
+
+The Resend parse webhook posts JSON to `/api/team/messages/resend-inbound`:
+
+1. HMAC-SHA256 of raw body verified against `RESEND_INBOUND_WEBHOOK_SECRET`. Mismatch → 401.
+2. Idempotency check on `messages.resend_message_id` (`direction = 'inbound'`) — duplicate webhook deliveries return 200 without inserting.
+3. Routing:
+   - Primary: regex `reply-([0-9a-f-]{36})@` on the recipient address → submission_id lookup.
+   - Fallback: `In-Reply-To` header matched against an outbound `messages.resend_message_id`.
+4. On match: insert `messages` row with `direction = 'inbound'`. Caller (seller portal future surface) sees the new row immediately.
+5. On unroutable: insert into `messages_dead_letter` + emit Sentry `team_inbound_message_unroutable`. 200 returned (Resend won't retry).
+
+### Delivery reconcile
+
+`/api/team/messages/resend-delivery` updates `messages.delivery_status` (`pending → delivered | bounced | complained`) on outbound rows by `resend_message_id` match.
+
+### Common troubleshooting
+
+> **"Seller replied but it never showed up in the thread."**
+>
+> 1. Check `messages_dead_letter` for the recent timestamp — most common cause is the seller stripped the reply-to address (some clients do).
+> 2. If dead-lettered with `reason = 'unroutable'`: copy the Message-ID, paste into Studio: `select * from messages where resend_message_id = '<id>' and direction = 'outbound';` to find the original outbound. If found, the In-Reply-To fallback failed — verify the seller's mail client preserved headers.
+> 3. If no dead-letter row at all: check Resend dashboard → Inbound logs. Webhook may be failing signature verification (secret rotated without redeploy).
+
+> **"Outbound message stuck in 'Sending…'."**
+>
+> Delivery webhook hasn't fired yet. Normal for a few seconds; longer means the delivery webhook is misconfigured. Check Resend dashboard → Webhooks → recent deliveries for failures.
+
+> **"Bounced badge appeared."**
+>
+> Seller's email is invalid or their server rejected. Check `team_activity_events` for the bounce reason (Resend includes detail in `event_data`); coordinate with the seller via phone for an alternate address. Don't keep retrying — bounces compound spam-reputation damage.
+
+### Replaying a dead-letter message
+
+If a row in `messages_dead_letter` actually belongs to a known submission:
+
+```sql
+insert into messages (
+  submission_id, direction, sender_email, body, body_html, subject, resend_message_id
+)
+select
+  '<correct-submission-uuid>'::uuid,
+  'inbound',
+  sender_address,
+  raw_payload->>'text',
+  raw_payload->>'html',
+  raw_payload->>'subject',
+  resend_message_id
+from messages_dead_letter
+where id = <dead_letter_id>;
+
+delete from messages_dead_letter where id = <dead_letter_id>;
+```

@@ -14,7 +14,13 @@ export type SentryEventName =
   | "seller_login_succeeded"
   | "seller_login_failed"
   | "seller_magic_link_expired"
-  | "seller_login_resend";
+  | "seller_login_resend"
+  | "team_inbound_webhook_misconfigured"
+  | "team_inbound_message_unroutable"
+  | "team_delivery_webhook_misconfigured"
+  | "team_delivery_webhook_update_failed"
+  | "team_message_insert_failed"
+  | "team_message_send_failed";
 
 export type SentrySeverity = "critical" | "error" | "warning";
 
