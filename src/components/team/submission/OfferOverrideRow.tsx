@@ -6,7 +6,7 @@ import { updateOfferOverride } from "@/app/team/submissions/[id]/actions";
 import {
   labelSellerPath,
   type SubmissionOffer,
-} from "@/lib/team/submissions";
+} from "@/lib/team/submissions-shared";
 
 function formatCents(cents: number | null): string {
   if (cents == null) return "—";

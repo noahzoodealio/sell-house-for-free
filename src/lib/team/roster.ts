@@ -1,25 +1,9 @@
 import "server-only";
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { VALID_ROLES, type RoleBadge, type RosterRow } from "./roster-shared";
 
-export const VALID_ROLES = ["pm", "tc", "agent", "admin"] as const;
-export type RoleBadge = (typeof VALID_ROLES)[number];
-
-export interface RosterRow {
-  id: string;
-  authUserId: string | null;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string | null;
-  active: boolean;
-  role: RoleBadge[];
-  coverageRegions: string[];
-  capacityActiveCurrent: number;
-  capacityActiveMax: number;
-  lastLoginAt: string | null;
-  createdAt: string;
-}
+export { VALID_ROLES, type RoleBadge, type RosterRow };
 
 export async function listRoster(args: {
   includeInactive: boolean;

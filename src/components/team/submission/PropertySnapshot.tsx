@@ -1,4 +1,4 @@
-import type { SubmissionDetail } from "@/lib/team/submissions";
+import type { SubmissionDetail } from "@/lib/team/submissions-shared";
 
 export function PropertySnapshot({ submission }: { submission: SubmissionDetail }) {
   const fields: Array<{ label: string; value: string | null }> = [

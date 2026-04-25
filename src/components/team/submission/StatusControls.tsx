@@ -7,7 +7,7 @@ import {
   STATUS_ADVANCE_MAP,
   STATUS_LABELS,
   type SubmissionStatus,
-} from "@/lib/team/submissions";
+} from "@/lib/team/submissions-shared";
 
 export function StatusControls({
   submissionRowId,

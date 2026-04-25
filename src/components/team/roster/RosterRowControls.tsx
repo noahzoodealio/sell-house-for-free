@@ -12,7 +12,11 @@ import {
   COVERAGE_REGIONS,
   COVERAGE_REGION_LABELS,
 } from "@/lib/team/coverage-regions";
-import { VALID_ROLES, type RoleBadge, type RosterRow } from "@/lib/team/roster";
+import {
+  VALID_ROLES,
+  type RoleBadge,
+  type RosterRow,
+} from "@/lib/team/roster-shared";
 
 export function RosterRowControls({ row }: { row: RosterRow }) {
   const [error, setError] = useState<string | null>(null);

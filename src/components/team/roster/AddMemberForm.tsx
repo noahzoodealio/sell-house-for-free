@@ -7,7 +7,7 @@ import {
   COVERAGE_REGIONS,
   COVERAGE_REGION_LABELS,
 } from "@/lib/team/coverage-regions";
-import { VALID_ROLES, type RoleBadge } from "@/lib/team/roster";
+import { VALID_ROLES, type RoleBadge } from "@/lib/team/roster-shared";
 
 export function AddMemberForm() {
   const [open, setOpen] = useState(false);

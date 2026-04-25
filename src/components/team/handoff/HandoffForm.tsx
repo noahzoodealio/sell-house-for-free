@@ -8,7 +8,7 @@ import {
   HANDOFF_REASONS,
   type CandidateTeamMember,
   type HandoffReason,
-} from "@/lib/team/handoff";
+} from "@/lib/team/handoff-shared";
 
 const REASON_OPTIONS: Array<{ value: HandoffReason; label: string }> = [
   { value: "vacation", label: "Vacation / time off" },

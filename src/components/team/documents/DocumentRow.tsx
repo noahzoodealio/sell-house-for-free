@@ -13,7 +13,7 @@ import {
   type DocumentKind,
   type DocumentRow as DocumentRowType,
   type DocumentStatus,
-} from "@/lib/team/documents";
+} from "@/lib/team/documents-shared";
 
 function formatBytes(bytes: number | null): string {
   if (bytes == null) return "—";

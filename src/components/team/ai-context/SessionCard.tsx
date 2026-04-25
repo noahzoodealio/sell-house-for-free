@@ -8,7 +8,7 @@ import {
   truncate,
   type AiArtifactRow,
   type AiSessionWithMessages,
-} from "@/lib/team/ai-context";
+} from "@/lib/team/ai-context-shared";
 
 function relative(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();

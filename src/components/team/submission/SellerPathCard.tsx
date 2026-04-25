@@ -1,4 +1,4 @@
-import { labelSellerPath, type SubmissionDetail } from "@/lib/team/submissions";
+import { labelSellerPath, type SubmissionDetail } from "@/lib/team/submissions-shared";
 
 export function SellerPathCard({ submission }: { submission: SubmissionDetail }) {
   return (

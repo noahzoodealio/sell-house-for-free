@@ -7,7 +7,7 @@ import {
   labelSellerPath,
   STATUS_LABELS,
   type SubmissionStatus,
-} from "@/lib/team/submissions";
+} from "@/lib/team/submissions-shared";
 import { SLA_LABELS, type SlaBand } from "@/lib/team/sla";
 
 export interface WorkQueueRow {

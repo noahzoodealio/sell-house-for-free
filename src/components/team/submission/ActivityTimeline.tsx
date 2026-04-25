@@ -1,4 +1,4 @@
-import type { ActivityEvent } from "@/lib/team/submissions";
+import type { ActivityEvent } from "@/lib/team/submissions-shared";
 
 function formatRelative(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();

@@ -10,7 +10,7 @@ import {
   ALLOWED_DOC_KINDS,
   type DocumentBucket,
   type DocumentKind,
-} from "@/lib/team/documents";
+} from "@/lib/team/documents-shared";
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
